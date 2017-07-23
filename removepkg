@@ -1,0 +1,221 @@
+#!/bin/bash
+
+spkglock() {
+	
+	if [ ! -f /tmp/spkg.lock ]; then
+		touch /tmp/spkg.lock
+	else
+		rm /tmp/spkg.lock
+	fi
+}
+
+removepkg() {
+	
+	# create lock file prevent simultaneous install/remove process running
+	spkglock
+	
+	# preremove script
+	if [ ! "$NO_PREREMOVE" ]; then
+		if [ -f $INDEX_DIR/$1/preremove ]; then
+			msg "Running preremove script."
+			sh $INDEX_DIR/$1/preremove && PREREMOVE_STATUS=OK || PREREMOVE_STATUS=KO
+		fi
+	fi
+
+	msg "Removing ${color_green}$ipackagename${color_reset}..."
+	while IFS=' ' read -r line; do
+		pushd $ROOT_DIR
+			if [ "$VERBOSE_REMOVE" = "yes" ]; then
+				rm_silent -v "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
+			else
+				rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
+			fi
+		popd
+	done < <(tac $INDEX_DIR/$1/.files)
+	
+	# postremove script
+	if [ ! $NO_POSTREMOVE ]; then
+		if [ -f $INDEX_DIR/$1/postremove ]; then
+			msg "Running postremove script."
+			sh $INDEX_DIR/$1/postremove && POSTREMOVE_STATUS=OK || POSTREMOVE_STATUS=KO
+		fi
+	fi
+	
+	for file in $(cat $INDEX_DIR/$1/.files); do
+		if [ $file = usr/share/info/ ]; then	
+			UPDATE_INFO_PAGES=yes
+			break
+		fi
+	done
+	
+	rm -R $INDEX_DIR/$1
+
+	if [ -d $INDEX_DIR/$1 ]; then
+		msg "Error removing ${color_red}$ipackagename${color_reset}."
+		spkglock
+		exit 1
+	else
+		msg "Successfully remove ${color_green}$ipackagename${color_reset}."
+	fi
+	
+	case $PREREMOVE_STATUS in
+		OK) msg "preremove	: ${color_green}OK${color_reset}" ;;
+		KO) msg "preremove	: ${color_red}FAIL${color_reset}" ;;
+	esac
+	
+	case $POSTREMOVE_STATUS in
+		OK) msg "postremove	: ${color_green}OK${color_reset}" ;;
+		KO) msg "postremove	: ${color_red}FAIL${color_reset}" ;;
+	esac
+	
+	# remove lock file
+	spkglock
+}
+
+updateinfopages() {
+	
+	pushd /usr/share/info
+		if [ -f dir ]; then
+			rm dir
+		fi
+		for f in *; do
+			install-info $f dir 2>/dev/null
+		done
+	popd
+}
+
+getoldname() {
+	
+	iname=$(cat $INDEX_DIR/$1/.pkginfo | grep ^name | cut -d " " -f3)
+	iversion=$(cat $INDEX_DIR/$1/.pkginfo | grep ^version | cut -d " " -f3)
+	irelease=$(cat $INDEX_DIR/$1/.pkginfo | grep ^release | cut -d " " -f3)
+	backup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
+	
+	ipackagename=$iname-$iversion-$irelease
+	
+}
+
+checkdeps() {
+	
+	for installed in $(ls $INDEX_DIR); do
+		name=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^name | cut -d " " -f3)
+		version=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^version | cut -d " " -f3)
+		release=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^release | cut -d " " -f3)
+		pkgname="$name-$version-$release"
+		depends=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^depends | cut -d " " -f3-)
+			for dep in ${depends[@]}; do
+				if [ "$dep" = "$1" ]; then
+					msg "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for ${color_green}$pkgname${color_reset}."
+					DEPERROR=yes
+				fi
+			done
+	done
+	
+	[ "$DEPERROR" ] && exit 1
+}
+
+check_directory() {
+	
+	for dir in $INDEX_DIR $BACKUP_DIR $REJECTED_DIR; do
+		if [ ! -d $dir ]; then
+			msg "Directory ${color_yellow}$1${color_reset} not exist."
+			DIR_ERROR=yes
+		elif [ ! -w $dir ]; then
+			msg "Directory ${color_yellow}$1${color_reset} not writable."
+			DIR_ERROR=yes
+		elif [ ! -x $dir ] || [ ! -r $1 ]; then
+			msg "Directory ${color_yellow}$1${color_reset} not readable."
+			DIR_ERROR=yes
+		fi
+	done
+	
+	[ "$DIR_ERROR" ] && exit 1
+}
+
+parse_options() {
+	
+	while [ "$1" ]; do
+		case $1 in
+		-id|--ignore-dependency)
+			IGNORE_DEP=yes
+			;;
+		-ds|--disable-script)
+			DISABLE_SCRIPT=yes
+			;;
+		-v|--verbose)
+			VERBOSE_REMOVE=yes
+			;;
+		--no-preremove)
+			NO_PREREMOVE=yes
+			;;
+		--no-postremove)
+			NO_POSTREMOVE=yes
+			;;
+		*)
+			RMNAME=$1
+			;;
+		esac
+		shift
+	done
+	
+}
+
+main() {
+	
+	. /usr/share/scratchpkg/functions || exit 1
+	
+	parse_options "$@"
+	
+	### LOAD CONFIGURATION FILE ###
+	if [ -f $CONF_FILE ]; then
+		. $CONF_FILE
+	else
+		msg "${color_red}Configuration file not found.${color_reset}"
+		exit 1
+	fi
+	
+	### CHECK FOR ROOT ACCESS ###
+	if [ "$UID" != "0" ]; then
+		msg "${color_red}Removing package need root access.${color_reset}"
+		exit 1
+	fi
+	
+	check_directory
+	
+	### CHECK FOR LOCK FILE ###
+	if [ -f /tmp/spkg.lock ]; then
+		msg "Cant install/remove package simultaneously."
+		msg "remove /tmp/spkg.lock if no install/remove package process running."
+		exit 1
+	fi
+	
+	### CHECK PACKAGE IN DATABASE ###
+	if [ ! -d $INDEX_DIR/$RMNAME ]; then
+		msg "Package ${color_red}$RMNAME${color_reset} not installed."
+		exit 1
+	fi
+	
+	### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
+	getoldname $RMNAME
+	
+	### CHECK DEPENDENCY ###
+	if [ ! "$IGNORE_DEP" ]; then
+		checkdeps $RMNAME
+	fi
+	
+	### REMOVE PACKAGE ###
+	removepkg $RMNAME
+	
+	### RUN NECESSARY UPDATE AFTER REMOVE PACKAGE ###
+	updatesystemdb
+	
+	### UPDATE INFO PAGES ###
+	if [ "$UPDATE_INFO_PAGES" ]; then
+		updateinfopages
+	fi
+		
+	exit 0
+	
+}
+
+main "$@"

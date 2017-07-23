@@ -1,0 +1,378 @@
+#!/bin/bash
+
+spkglock() {
+	
+	if [ ! -f /tmp/spkg.lock ]; then
+		touch /tmp/spkg.lock
+	else
+		rm /tmp/spkg.lock
+	fi
+}
+
+installpkg() {
+	
+	#ignore dependency check
+	if [ ! "$IGNORE_DEP" ]; then
+		checkdeps
+	fi
+	
+	#ignore conflict
+	if [ ! "$IGNORE_CONFLICT" ]; then
+		checkconflict
+		checkpkgconflict
+	fi
+	
+	# create lock file prevent simultaneous install package
+	spkglock
+	
+	# read preinstall in package & run it
+	if [ ! $NO_PREINSTALL ]; then
+		if [ $(tar -tf "$PKGNAME" | grep ".pkginstall/preinstall") ]; then
+			msg "Running preinstall script..."
+			tar -xf $PKGNAME .pkginstall/preinstall -O | sh && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
+		fi
+	fi
+	
+	#installing package into system
+	msg "Installing ${color_green}$packagename${color_reset}..."
+	if [ "$VERBOSE_INSTALL" ]; then
+		tar -x -v -h -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall
+	else
+		tar -x -h -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall
+	fi
+	
+		if [ $? != 0 ]; then
+			msg "Failed install ${color_red}$packagename${color_reset}."
+			pushd $ROOT_DIR
+				while IFS=' ' read -r line; do
+					rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
+				done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall | tac)
+			popd
+			spkglock
+			exit 1
+		fi
+		
+	mkdir $INDEX_DIR/$name
+	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
+	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall > $INDEX_DIR/$name/.files		
+	
+	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall/preinstall .pkginstall/postinstall .pkginstall/preremove .pkginstall/postremove .pkginstall/readme --strip=1 >/dev/null 2>&1
+
+	msg "Successfully install ${color_green}$packagename${color_reset}."
+	
+	restoreconf
+	
+	if [ ! $NO_POSTINSTALL ]; then
+		run_postinstall
+	fi
+	
+	case $PREINSTALL_STATUS in
+		OK) msg "preinstall	: ${color_green}OK${color_reset}" ;;
+		KO) msg "preinstall	: ${color_red}FAIL${color_reset}" ;;
+	esac
+	
+	case $POSTINSTALL_STATUS in
+		OK) msg "postinstall	: ${color_green}OK${color_reset}" ;;
+		KO) msg "postinstall	: ${color_red}FAIL${color_reset}" ;;
+	esac
+	
+	if [ -f $INDEX_DIR/$name/readme ]; then
+		msg "This package has ${color_green}readme${color_reset}"
+	fi
+	
+	# remove lock file
+	spkglock
+}
+
+checkdeps() {
+	
+	for dep in ${depends[@]}; do
+		if [ ! -d $INDEX_DIR/$dep ]; then
+			msg "Missing dep: ${color_yellow}$dep${color_reset}"
+			MISSING_DEP=yes
+		fi
+	done
+	
+	if [ "$MISSING_DEP" = "yes" ]; then
+		exit 1
+	fi
+	
+}
+
+checkpkgconflict() {
+	
+	for pkg in ${conflict[@]}; do
+		if [ -d $INDEX_DIR/$pkg ]; then
+			msg "Conflict package!: ${color_yellow}$pkg${color_reset}"
+			PKG_CONFLICT=yes
+		fi
+	done
+	
+	if [ "$PKG_CONFLICT" ]; then
+		exit 1
+	fi
+	
+}
+
+checkconflict() {	
+	
+	while IFS=' ' read -r line; do
+		pushd $ROOT_DIR
+			if [ -f "$line" ] || [ -L "$line" ]; then
+				msg "Conflict file!: ${color_yellow}/${line}${color_reset}"
+				CONFLICT=yes
+			fi
+		popd
+	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall)
+	
+	if [ "$CONFLICT" ]; then
+		exit 1
+	fi
+	
+}
+
+getname() {
+	
+	name=$(tar xf $PKGNAME .pkginfo -O | grep ^name | cut -d " " -f3)
+	version=$(tar xf $PKGNAME .pkginfo -O | grep ^version | cut -d " " -f3)
+	release=$(tar xf $PKGNAME .pkginfo -O | grep ^release | cut -d " " -f3)
+	depends=$(tar xf $PKGNAME .pkginfo -O | grep ^depends | cut -d " " -f3-)
+	conflict=$(tar xf $PKGNAME .pkginfo -O | grep ^conflict | cut -d " " -f3-)
+	
+	packagename=$name-$version-$release
+	
+}
+
+getoldname() {
+	
+	iname=$(cat $INDEX_DIR/$name/.pkginfo | grep ^name | cut -d " " -f3)
+	iversion=$(cat $INDEX_DIR/$name/.pkginfo | grep ^version | cut -d " " -f3)
+	irelease=$(cat $INDEX_DIR/$name/.pkginfo | grep ^release | cut -d " " -f3)
+	backup=$(cat $INDEX_DIR/$name/.pkginfo | grep ^backup | cut -d " " -f3-)
+	
+	ipackagename=$iname-$iversion-$irelease
+	
+}
+
+updateinfopages() {
+	
+	pushd /usr/share/info
+		if [ -f dir ]; then
+			rm dir
+		fi
+		for f in *; do
+			install-info $f dir 2>/dev/null
+		done
+	popd
+}
+
+upgradepkg() {
+	
+	if [ ! "$NO_BACKUP" ]; then
+		backupconf
+	fi
+	removepkg $name -id --no-preremove --no-postremove
+	NO_PREINSTALL=yes
+	NO_POSTINSTALL=yes
+	
+}
+
+backupconf() {
+	
+	pushd $ROOT_DIR
+	
+		for bkp in ${backup[@]}; do
+			if [ -e $b ]; then
+				msg2 "Backup ${color_purple}$bkp${color_reset}"
+				cp $bkp $BACKUP_DIR
+				DONE_BACKUP=yes
+			fi
+		done
+	
+	popd
+}
+
+restoreconf() {
+	
+	if [ "$DONE_BACKUP" ]; then
+	
+		pushd $ROOT_DIR
+
+			for b in ${backup[@]}; do
+				if [ -e $b ]; then
+					mkdir -p $REJECTED_DIR/${b%/*}
+					mv $b $REJECTED_DIR/$b
+					msg2 "Restore ${color_purple}$b${color_reset}"
+					mv $BACKUP_DIR/$(basename ${b}) $b
+				fi
+			done
+			
+		popd
+		
+	fi
+}
+
+checkoutdate() {
+	
+	if [ $packagename = $ipackagename ]; then
+		msg "Package ${color_green}$packagename${color_reset} is up-to-date."
+		exit 1
+	fi
+	
+}
+
+check_directory() {
+	
+	for dir in $INDEX_DIR $BACKUP_DIR $REJECTED_DIR; do
+		if [ ! -d $dir ]; then
+			msg "Directory ${color_yellow}$dir${color_reset} not exist."
+			DIR_ERROR=yes
+		elif [ ! -w $dir ]; then
+			msg "Directory ${color_yellow}$dir${color_reset} not writable."
+			DIR_ERROR=yes
+		elif [ ! -x $dir ] || [ ! -r $1 ]; then
+			msg "Directory ${color_yellow}$dir${color_reset} not readable."
+			DIR_ERROR=yes
+		fi
+	done
+	
+	[ "$DIR_ERROR" ] && exit 1
+	
+}
+
+run_postinstall() {
+	
+	if [ -f $INDEX_DIR/$name/postinstall ]; then
+		msg "Running postinstall script..."
+		sh $INDEX_DIR/$name/postinstall && POSTINSTALL_STATUS=OK || POSTINSTALL_STATUS=KO
+	fi
+}		
+
+parse_options() {
+	
+	while [ "$1" ]; do
+		case $1 in
+		-id|--ignore-dependency)
+			IGNORE_DEP=yes
+			;;
+		-ic|--ignore-conflict)
+			IGNORE_CONFLICT=yes
+			;;
+		-u|--upgrade)
+			UPGRADE_PKG=yes
+			;;
+		-r|--reinstall)
+			REINSTALL_PKG=yes
+			;;
+		-v|--verbose)
+			VERBOSE_INSTALL=yes
+			;;
+		--no-preinstall)
+			NO_PREINSTALL=yes
+			;;
+		--no-postinstall)
+			NO_POSTINSTALL=yes
+			;;
+		--no-backup)
+			NO_BACKUP=yes
+			;;
+		*.spkg.txz)
+			[ -f $1 ] && PKGNAME=$1 || msg "${color_red}$1${color_reset} not exist."
+			;;
+		*)	
+			msg "Invalid option!"
+			exit 1
+			;;
+		esac
+		shift
+	done
+	
+}
+
+main() {
+	
+	. /usr/share/scratchpkg/functions || exit 1
+	
+	parse_options "$@"
+	
+	### LOAD CONFIGURATION FILE ###
+	if [ -f $CONF_FILE ]; then
+		. $CONF_FILE
+	else
+		msg "${color_red}Configuration file not found.${color_reset}"
+		exit 1
+	fi
+	
+	### CHECK IF PACKAGE IS VALID PACKAGE ###
+	#if [ ! $(tar -tf "$PACKAGE_INFO" | grep ".pkginfo") ]; then
+		#msg "${color_yellow}$PACKAGE_INFO${color_reset} is not package created by scratchpkg."
+		#exit 1
+	#fi
+	
+	### CHECK FOR ROOT ACCESS ###
+	if [ "$UID" != "0" ]; then
+		msg "${color_red}Installing package need root access!${color_reset}"
+		exit 1
+	fi
+	
+	check_directory
+	
+	### CHECK FOR LOCK FILE ###
+	if [ -f /tmp/spkg.lock ]; then
+		msg "Cant install/remove package simultaneously."
+		msg "remove /tmp/spkg.lock if no install/remove package process running."
+		exit 1
+	fi
+	
+	### NOT STATED PACKAGE ###
+	if [ -z $PKGNAME ]; then
+		msg "${color_red}Please state the package to install.${color_reset}"
+		exit 1
+	fi
+	
+	### GET NAME, VERSION, RELEASE FROM PACKAGE ###
+	getname
+	
+	### IF INSTALLED & NO UPGRADE & NO REINSTALL ###
+	if [ -d $INDEX_DIR/$name ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then
+		getoldname # GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE
+		msg "Package ${color_green}$ipackagename${color_reset} already installed."
+		exit 0
+	fi
+	
+	### IF UPGRADE OR REINSTALL PACKAGE ###
+	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then	
+		if [ ! -d $INDEX_DIR/$name ]; then
+			msg "Package ${color_red}$name${color_reset} is not installed."
+			exit 1
+		fi
+		getoldname
+		# UPGRADE PACKAGE
+		if [ "$UPGRADE_PKG" ]; then
+			checkoutdate
+			msg "Upgrading package: ${color_yellow}$ipackagename${color_reset} -> ${color_green}$packagename${color_reset}"
+		# REINSTALL PACKAGE
+		elif [ "$REINSTALL_PKG" ]; then
+			msg "Reinstall package ${color_green}$packagename${color_reset}."
+		fi
+		upgradepkg
+	fi
+	
+	### INSTALL PACKAGE INTO SYSTEM ###
+	installpkg
+	
+	### RUN THINGS THAT NEED UPDATE AFTER INSTALL PACKAGE ###
+	updatesystemdb
+	
+	### UPDATE INFO PAGES ###
+	for file in $(cat $INDEX_DIR/$name/.files); do
+		if [ $file = usr/share/info/ ]; then	
+			updateinfopages
+			break
+		fi
+	done
+	
+	exit 0
+}
+
+main "$@"

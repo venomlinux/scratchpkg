@@ -1,0 +1,535 @@
+#!/bin/bash
+
+run_buildpkg() {
+	
+	if [ "$IGNORE_DEP" = "yes" ]; then
+		buildpkg -id
+	else
+		buildpkg
+	fi
+	
+}
+
+run_installpkg() {	
+	
+	pushd $PACKAGE_DIR
+		if [ "$IGNORE_DEP" = "yes" ]; then
+			installpkg $pkgname -id
+		else
+			installpkg $pkgname
+		fi
+	popd
+}
+
+pushtoport() {
+	
+	for port in ${PORT_REPO[@]}; do
+		if [ -d $PORT_DIR/$port/$PORTNAME ]; then
+			pushd $PORT_DIR/$port/$PORTNAME
+				if [ -d $INDEX_DIR/fakeroot ] && [ -d $INDEX_DIR/sudo ] && [ "$UID" != "0" ]; then
+					fakeroot buildpkg
+					if [ $? = 0 ]; then
+						. $BUILD_SCRIPT
+						sudo installpkg $PACKAGE_DIR/$name#$version-$release.spkg.txz --no-preinstall
+					fi
+				else
+					buildpkg -i
+				fi
+			popd
+			break
+		fi
+	done
+}
+
+listinstalled() {
+	for installed in $(ls $INDEX_DIR); do
+		getinstalledname $installed
+		msg $installedname
+	done
+}
+
+getinstalledname() {
+	
+	iname=$(cat $INDEX_DIR/$1/.pkginfo | grep ^name | cut -d " " -f3)
+	iversion=$(cat $INDEX_DIR/$1/.pkginfo | grep ^version | cut -d " " -f3)
+	irelease=$(cat $INDEX_DIR/$1/.pkginfo | grep ^release | cut -d " " -f3)
+	depends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^depends | cut -d " " -f3-)
+	backup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
+	
+	installedname=$iname-$iversion-$irelease
+	
+}
+
+listorphan() {
+	
+	for all_installed in $(ls ${INDEX_DIR}); do
+		dep=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
+		for deps in ${dep[@]}; do
+			ALL_DEP+=($deps)
+		done
+	done
+		
+	for all in $(ls $INDEX_DIR); do
+		ORPHAN=yes
+		getinstalledname $all
+		for depended in ${ALL_DEP[@]}; do
+			if [ $depended = $all ]; then
+				ORPHAN=no
+				break
+			fi
+		done
+			if [ $ORPHAN = yes ]; then
+				msg $installedname
+			fi
+	done
+	
+}
+
+searchpkg() {
+	
+	for port in ${PORT_REPO[@]}; do
+	OUTPUT=()
+		if [ -d $PORT_DIR/$port ]; then
+			for list in $(ls $PORT_DIR/$port | grep $SEARCH_PKG); do
+				if [ -d $PORT_DIR/$port/$list ]; then
+					OUTPUT+=($list)
+				fi
+			done
+			for out in ${OUTPUT[@]}; do
+				if [ -f $PORT_DIR/$port/$out/$BUILD_SCRIPT ]; then
+					. $PORT_DIR/$port/$out/$BUILD_SCRIPT
+						if [ ! -z $name ] && [ ! -z $version ] && [ ! -z $release ]; then
+							if [ -d $INDEX_DIR/$name ]; then
+								msg "($port) ${color_green}$name${color_reset} $version-$release $description"
+							else
+								msg "($port) $name $version-$release $description"
+							fi
+							unset description
+						fi
+				fi
+			done
+		fi
+	done
+}
+
+checkowner() {
+
+	for installed in $(ls $INDEX_DIR); do
+		for output in $(cat $INDEX_DIR/$installed/.files | grep $OWNER_FILE_NAME); do
+			msg "${color_green}$installed${color_reset} => ${color_purple}$output${color_reset}"
+		done
+	done
+	
+}
+
+showtree() {
+	
+	if [ ! -d $INDEX_DIR/$TREE_PORT_NAME ]; then
+		msg "Package ${color_red}$TREE_PORT_NAME${color_reset} not installed."
+	else
+		while IFS=' ' read -r line; do
+			echo "$line"
+		done < <(cat $INDEX_DIR/$TREE_PORT_NAME/.files)
+	fi
+	
+}
+
+checkintegrity() {
+	
+	for installed in $(ls $INDEX_DIR); do
+		while IFS=' ' read -r line; do
+			pushd $ROOT_DIR
+				if [ ! -e "$line" ]; then
+					msg "${color_yellow}$installed${color_reset} is missing: ${color_purple}/$line${color_reset}"
+					MISSING_FILE=yes
+				fi
+			popd
+		done < <(cat $INDEX_DIR/$installed/.files)
+	done
+	
+	[ "$UID" != "0" ] && msg "${color_yellow}(check integrity is recommended run as root user or using sudo)${color_reset}"
+	[ ! "$MISSING_FILE" ] && msg "Your system file is consistent with package tree."
+	
+}
+
+showpackageinfo() {
+	
+	if [ ! -f $PACKAGE_INFO ]; then
+		msg "${color_red}$PACKAGE_INFO${color_reset} not exist."
+		exit 1
+	else
+		if [ $(tar -tf "$PACKAGE_INFO" | grep ".pkginfo") ]; then
+			getpkginfofrompkg $PACKAGE_INFO
+			echo -e "${color_green}package info:${color_reset}"
+				[ -n "$name" ] && echo "name = $name"
+				[ -n "$version" ] && echo "version = $version"
+				[ -n "$release" ] && echo "release = $release"
+				[ -n "$description" ] && echo "description = $description"
+				[ -n "$homepage" ] && echo "homepage = $homepage"
+				[ -n "$maintainer" ] && echo "maintainer = $maintainer"
+				[ -n "$backup" ] && echo "backup = $backup"
+				[ -n "$conflict" ] && echo "conflict = $conflict"
+				[ -n "$depends" ] && echo "depends = $depends"
+				[ -n "$makedepends" ] && echo "makedepends = $makedepends"
+			if [ $(tar -tf "$PACKAGE_INFO" | grep ".pkginstall" | cut -d / -f 1 | uniq) ]; then
+				echo ""
+				echo -e "${color_green}pkginstall files:${color_reset}"
+				tar -tf $PACKAGE_INFO .pkginstall | cut -d / -f 2 | sed '/^$/d'
+			fi
+			
+			if [ $(tar -tf "$PACKAGE_INFO" | grep ".pkginstall/readme") ]; then
+				echo ""
+				echo -e "${color_green}readme:${color_reset}"
+				tar -xf $PACKAGE_INFO .pkginstall/readme -O
+				echo ""
+			fi
+			
+			echo ""
+			echo -e "${color_green}list files:${color_reset}"
+			$EXTPROG -tvf $PACKAGE_INFO --exclude=.pkginfo --exclude=.pkginstall
+		else
+			msg "${color_yellow}$PACKAGE_INFO${color_reset} is not package created by scratchpkg."
+			exit 1
+		fi
+	fi
+		
+}
+
+showdepends() {
+	
+	for portdepends in ${PORT_REPO[@]}; do
+		if [ -f $PORT_DIR/$portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT ]; then
+			. $PORT_DIR/$portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT
+			pushd $PORT_DIR/$portdepends/$PACKAGE_DEPENDS
+				getpkginfo
+			popd
+			break
+		fi
+	done
+	if [ -z $name ]; then
+		msg "Port ${color_red}$PACKAGE_DEPENDS${color_reset} not exist."
+		exit 1
+	fi
+			
+	for dep in ${depends[@]}; do
+		if [ -d $INDEX_DIR/$dep ]; then
+			msg "${color_green}$dep${color_reset}"
+		else		
+			PORT_EXIST=no
+			for port in ${PORT_REPO[@]}; do
+				if [ -f $PORT_DIR/$port/$dep/$BUILD_SCRIPT ]; then
+					PORT_EXIST=yes
+					break
+				fi
+			done
+				case $PORT_EXIST in
+					yes)	msg "${color_yellow}$dep${color_reset}" ;;
+					no)		msg "${color_red}$dep${color_reset}" ;;
+				esac
+		fi
+	done
+			
+	for mdep in ${makedepends[@]}; do
+		if [ -d $INDEX_DIR/$mdep ]; then
+			msg "${color_green}$mdep${color_reset} (make)"
+		else		
+			PORT_EXIST=no
+			for port in ${PORT_REPO[@]}; do
+				if [ -f $PORT_DIR/$port/$mdep/$BUILD_SCRIPT ]; then
+					PORT_EXIST=yes
+					break
+				fi
+			done
+				case $PORT_EXIST in
+					yes)	msg "${color_yellow}$mdep${color_reset} (make)" ;;
+					no)		msg "${color_red}$mdep${color_reset} (make)" ;;
+				esac
+		fi
+	done
+}
+
+showupdate() {
+	
+	for package_name in $(ls $INDEX_DIR); do
+		for port in ${PORT_REPO[@]}; do
+			if [ -f $PORT_DIR/$port/$package_name/$BUILD_SCRIPT ]; then
+				. $PORT_DIR/$port/$package_name/$BUILD_SCRIPT
+				getinstalledname $name
+					if [ "$name-$version-$release" != "$installedname" ]; then
+						msg "$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset}"
+						OUTDATE=yes
+					fi
+				break
+			fi
+		done
+	done
+	
+	[ ! "$OUTDATE" ] && msg "All package is up to date."
+}
+
+showdependent() {
+	
+	if [ ! -d $INDEX_DIR/$PACKAGE_DEPENDENT ]; then
+		msg "Package ${color_red}$PACKAGE_DEPENDENT${color_reset} not installed."
+		exit 1
+	else
+		for all_installed in $(ls $INDEX_DIR); do
+			depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
+				for dep in ${depend[@]}; do
+					if [ $dep = $PACKAGE_DEPENDENT ]; then
+							msg "$all_installed"
+					fi
+				done
+		done
+	fi
+}
+
+showdependent1() {
+	
+	if [ -d $INDEX_DIR/$PACKAGE_DEPENDENT ]; then
+		msg "Package ${color_green}$PACKAGE_DEPENDENT${color_reset} is installed."
+	else
+		msg "Package ${color_red}$PACKAGE_DEPENDENT${color_reset} not installed."
+	fi
+	for port in ${PORT_REPO[@]}; do
+		for all in $(ls $PKGBUILD_DIR/$port); do
+			if [ -f $PORT_DIR/$port/$all/$PORT_SCRIPT ]; then
+				. $PORT_DIR/$port/$all/$PORT_SCRIPT
+					for dep in ${depends[@]}; do
+						if [ $dep = $PACKAGE_DEPENDENT ]; then
+							if [ -d $INDEX_DIR/$all ]; then
+								msg "${color_green}$all${color_reset}"
+							else
+								msg "${color_yellow}$all${color_reset}"
+							fi
+						fi
+					done
+			fi
+		done
+	done	
+}
+
+syncports() {
+	
+	for port in ${PORT_REPO[@]}; do
+		if [ -f /etc/scratchpkg.conf.d/ports/$port.git ]; then
+			git_link=$(cat /etc/scratchpkg.conf.d/ports/$port.git)
+			pushd $PORT_DIR
+				if [ ! -d $port ]; then
+					mkdir $port
+				fi
+					if [ -d $port/.git ]; then
+						msg "Syncing ${color_green}$port${color_reset} from ${color_green}$git_link${color_reset}"
+						(cd $port && git pull)
+					else
+						git clone $git_link
+					fi
+			popd
+		else
+			msg "No git file for ${color_yellow}$port${color_reset}."
+		fi
+	done
+}	
+
+interrupted() {
+	echo ""
+	msg "${color_yellow}Interrupted!${color_reset}"
+	exit 1
+}
+
+parse_options() {
+	
+	while [ "$1" ]; do
+		case $1 in
+		-i|--install)
+			INSTALL_PKG=yes
+			;;
+		-id|--ignore-dependency)
+			IGNORE_DEP=yes
+			;;
+		-l|--list-installed)
+			LIST_INSTALLED=yes
+			;;
+		-lo|--list-orphan)
+			LIST_ORPHAN=yes
+			;;
+		-ci|--check-integrity)
+			CHECK_INTEGRITY=yes
+			;;
+		-cu|--check-update)
+			CHECK_UPDATE=yes
+			;;
+		--sync)
+			SYNC_PORTS=yes
+			;;
+		-dp|--dependent)
+				if [ ! "$2" ]; then
+					info "Option '$1' require an argument (package to show its dependent)"
+					exit 1
+				fi
+					PACKAGE_DEPENDENT="$2"
+				shift ;;
+		-d|--depends)
+				if [ ! "$2" ]; then
+					info "Option '$1' require an argument (package name to show its depends)"
+					exit 1
+				fi
+					PACKAGE_DEPENDS="$2"
+				shift
+			;;
+		-pi|--package-info)
+			if [ ! "$2" ] || [ ! "$(echo $2 | grep '.spkg.txz')" ]; then
+				msg "Option '$1' require an argument (package '*.spkg.txz' to show its info)."
+				exit 1
+			fi
+			PACKAGE_INFO="$2"
+			shift
+			;;
+		-co|--check-owner)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (file name to show its owner)."
+				exit 1
+			fi
+			OWNER_FILE_NAME="$2"
+			shift
+			;;
+		-st|--show-tree)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package name to show tree)."
+				exit 1
+			fi
+				TREE_PORT_NAME="$2"
+			shift
+			;;
+		-s|--search)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package name to search)."
+				exit 1
+			fi
+			SEARCH_PKG="$2"
+			shift
+			;;
+		-p|--package)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package name to install/build)."
+				exit 1
+			fi
+			PORTNAME="$2"
+			shift
+			;;
+		-t|--create-template)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (port name to create template)."
+				exit 1
+			fi
+			TEMPLATE_NAME="$2"
+			shift
+			;;
+		*)
+			msg "Option invalid!"
+			exit 1
+			;;			
+		esac
+		shift
+	done
+	
+}
+
+main() {
+	
+	. /usr/share/scratchpkg/functions || exit 1
+	
+	parse_options "$@"
+	
+	### LOAD CONFIGURATION FILE ###
+	if [ -f $CONF_FILE ]; then
+		. $CONF_FILE
+	else
+		msg "${color_red}Configuration file not found.${color_reset}"
+		exit 1
+	fi
+	
+	### SYNC PORTS ###
+	if [ $SYNC_PORTS ]; then
+		syncports
+		exit 0
+	fi
+	
+	### CREATE PORT TEMPLATE ###
+	if [ $TEMPLATE_NAME ]; then
+		createtemplate
+		exit 0
+	fi
+	
+	### SHOW DEPENDENT ###
+	if [ $PACKAGE_DEPENDENT ]; then
+		showdependent
+		exit 0
+	fi
+	
+	### SHOW DEPENDS OF A PACKAGE ###
+	if [ $PACKAGE_DEPENDS ]; then
+		showdepends
+		exit 0
+	fi
+	
+	### CHECK_UPDATE ###
+	if [ $CHECK_UPDATE ]; then
+		showupdate
+		exit 0
+	fi
+	
+	### SHOW INFO OF A PACKAGE ###
+	if [ $PACKAGE_INFO ]; then
+		showpackageinfo
+		exit 0
+	fi
+	
+	### LIST INSTALLED ###
+	if [ $LIST_INSTALLED ]; then
+		listinstalled
+		exit 0
+	fi
+	
+	### LIST ORPHAN ###
+	if [ $LIST_ORPHAN ]; then
+		listorphan
+		exit 0
+	fi
+	
+	### SEARCH PACKAGE ###
+	if [ $SEARCH_PKG ]; then
+		searchpkg
+		exit 0
+	fi
+	
+	### CHECK PACKAGE OWNER OF A FILE ###
+	if [ $OWNER_FILE_NAME ]; then
+		checkowner
+		exit 0
+	fi
+	
+	### SHOW TREE OF A INSTALLED PACKAGE ###
+	if [ $TREE_PORT_NAME ]; then
+		showtree
+		exit 0
+	fi
+	
+	### CHECK INTEGRITY ###
+	if [ $CHECK_INTEGRITY ]; then
+		checkintegrity
+		exit 0
+	fi
+
+	### BUILD PACKAGE ###
+	if [ $PORTNAME ]; then
+		pushtoport
+		exit 0
+	fi
+	
+	exit 0
+}
+
+trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+
+main "$@"
