@@ -2,25 +2,28 @@
 
 updatemdsum() {
 	
-	for sources in ${source[@]}; do
-		if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
-			sourcename=$SOURCE_DIR/$(echo $sources | rev | cut -d / -f 1 | rev)
-		else
-			sourcename="$sources"
-		fi
-		needupdatechecksum="$needupdatechecksum $sourcename"
-	done
-	
-	for file in ${needupdatechecksum[@]}; do
-		if [ ! -f $file ]; then
-			msg "Error updating checksum, source not found."
-			exitscript1
-		else
-			md5sum $needupdatechecksum | awk '{ print $1 }' > .md5sum
-			[ -f .md5sum ] && msg "md5sum updated."
-		fi
-	done
-	
+	if [ ! -z $source ]; then
+		for sources in ${source[@]}; do
+			if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
+				sourcename=$SOURCE_DIR/$(echo $sources | rev | cut -d / -f 1 | rev)
+			else
+				sourcename="$sources"
+			fi
+			needupdatechecksum="$needupdatechecksum $sourcename"
+		done
+		
+		for file in ${needupdatechecksum[@]}; do
+			if [ ! -f $file ]; then
+				msg "Error updating checksum, source not found."
+				exitscript1
+			fi
+		done
+		
+		md5sum $needupdatechecksum | awk '{ print $1 }' > .md5sum
+		[ -f .md5sum ] && msg "md5sum updated."
+	else
+		touch .md5sum
+	fi
 }
 
 checkmdsum() {
