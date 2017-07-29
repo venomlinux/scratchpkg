@@ -435,6 +435,9 @@ parse_options() {
 		-cc|--check-checksum)
 			CHECK_CHECKSUM=yes
 			;;
+		--no-color)
+			NO_COLOR=yes
+			;;
 		-sd|--source-dir)
 			if [ ! "$2" ]; then
 				msg "Option '$1' require an argument (source path for package)."
@@ -474,6 +477,11 @@ main() {
 	fi
 	
 	parse_options "$@"
+	
+	### DISABLE COLOR ###
+	if [ "$NO_COLOR" ]; then
+		nocolor
+	fi
 	
 	### SET OUTPUT PATH FOR PACKAGE ###
 	if [ $OUTPUT_PKG ]; then

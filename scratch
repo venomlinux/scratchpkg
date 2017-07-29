@@ -362,6 +362,9 @@ parse_options() {
 		--sync)
 			SYNC_PORTS=yes
 			;;
+		--no-color)
+			NO_COLOR=yes
+			;;
 		-dp|--dependent)
 				if [ ! "$2" ]; then
 					info "Option '$1' require an argument (package to show its dependent)"
@@ -440,6 +443,11 @@ main() {
 	. /usr/share/scratchpkg/functions || exit 1
 	
 	parse_options "$@"
+	
+	### DISABLE COLOR ###
+	if [ "$NO_COLOR" ]; then
+		nocolor
+	fi
 	
 	### LOAD CONFIGURATION FILE ###
 	if [ -f $CONF_FILE ]; then

@@ -60,6 +60,26 @@ rm_silent() {
 	command rm -d "$@" 2> /dev/null
 }
 
+nocolor() {
+	
+	color_red=''
+	color_green=''
+	color_yellow=''
+	color_blue=''
+	color_purple=''
+	color_cyan=''
+	color_gray=''
+	color_bred=''
+	color_bgreen=''
+	color_byellow=''
+	color_bblue=''
+	color_bpurple=''
+	color_bcyan=''
+	color_bgray=''
+	color_reset=''
+
+}
+
 updatesystemdb() {
 	
 	# update desktop database

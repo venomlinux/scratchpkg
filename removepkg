@@ -151,6 +151,9 @@ parse_options() {
 		--no-postremove)
 			NO_POSTREMOVE=yes
 			;;
+		--no-color)
+			NO_COLOR=yes
+			;;
 		*)
 			RMNAME=$1
 			;;
@@ -165,6 +168,11 @@ main() {
 	. /usr/share/scratchpkg/functions || exit 1
 	
 	parse_options "$@"
+	
+	### DISABLE COLOR ###
+	if [ "$NO_COLOR" ]; then
+		nocolor
+	fi
 	
 	### LOAD CONFIGURATION FILE ###
 	if [ -f $CONF_FILE ]; then
