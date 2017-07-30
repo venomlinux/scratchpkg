@@ -92,7 +92,7 @@ searchpkg() {
 		if [ -d $PORT_DIR/$port ]; then
 			for list in $(ls $PORT_DIR/$port); do
 				if [ -d $PORT_DIR/$port/$list ]; then
-					if [ "$(cat $PORT_DIR/$port/$list/$BUILD_SCRIPT | grep ^'# description' | grep -i $SEARCH_PKG)" ] || [ "$(echo $list | grep -i $SEARCH_PKG)" ]; then
+					if [ "$(cat $PORT_DIR/$port/$list/$BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3- | grep -i $SEARCH_PKG)" ] || [ "$(echo $list | grep -i $SEARCH_PKG)" ]; then
 						OUTPUT+=($list)
 					fi
 				fi
@@ -102,7 +102,7 @@ searchpkg() {
 					pushd $PORT_DIR/$port/$out
 						getpkginfo
 					popd
-						if [ ! -z $name ] && [ ! -z $version ] && [ ! -z $release ]; then
+						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							if [ -d $INDEX_DIR/$name ]; then
 								msg "($port) ${color_green}$name${color_reset} $version-$release $description"
 							else
@@ -468,8 +468,6 @@ main() {
 		msg "${color_red}Configuration file not found.${color_reset}"
 		exit 1
 	fi
-	
-	PORT_REPO=$(ls $PORT_DIR)
 	
 	### SYNC PORTS ###
 	if [ $SYNC_PORTS ]; then
