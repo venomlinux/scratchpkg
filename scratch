@@ -90,14 +90,18 @@ searchpkg() {
 	for port in ${PORT_REPO[@]}; do
 	OUTPUT=()
 		if [ -d $PORT_DIR/$port ]; then
-			for list in $(ls $PORT_DIR/$port | grep $SEARCH_PKG); do
+			for list in $(ls $PORT_DIR/$port); do
 				if [ -d $PORT_DIR/$port/$list ]; then
-					OUTPUT+=($list)
+					if [ "$(cat $PORT_DIR/$port/$list/$BUILD_SCRIPT | grep ^'# description' | grep -i $SEARCH_PKG)" ] || [ "$(echo $list | grep -i $SEARCH_PKG)" ]; then
+						OUTPUT+=($list)
+					fi
 				fi
 			done
 			for out in ${OUTPUT[@]}; do
 				if [ -f $PORT_DIR/$port/$out/$BUILD_SCRIPT ]; then
-					. $PORT_DIR/$port/$out/$BUILD_SCRIPT
+					pushd $PORT_DIR/$port/$out
+						getpkginfo
+					popd
 						if [ ! -z $name ] && [ ! -z $version ] && [ ! -z $release ]; then
 							if [ -d $INDEX_DIR/$name ]; then
 								msg "($port) ${color_green}$name${color_reset} $version-$release $description"
@@ -199,7 +203,6 @@ showdepends() {
 	
 	for portdepends in ${PORT_REPO[@]}; do
 		if [ -f $PORT_DIR/$portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT ]; then
-			. $PORT_DIR/$portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT
 			pushd $PORT_DIR/$portdepends/$PACKAGE_DEPENDS
 				getpkginfo
 			popd
@@ -284,28 +287,30 @@ showdependent() {
 	fi
 }
 
-showdependent1() {
+showglobaldependent() {
 	
-	if [ -d $INDEX_DIR/$PACKAGE_DEPENDENT ]; then
-		msg "Package ${color_green}$PACKAGE_DEPENDENT${color_reset} is installed."
+	if [ -d $INDEX_DIR/$GLOBAL_PACKAGE_DEPENDENT ]; then
+		msg "Package ${color_green}$GLOBAL_PACKAGE_DEPENDENT${color_reset} is installed."
 	else
-		msg "Package ${color_red}$PACKAGE_DEPENDENT${color_reset} not installed."
+		msg "Package ${color_red}$GLOBAL_PACKAGE_DEPENDENT${color_reset} not installed."
 	fi
 	for port in ${PORT_REPO[@]}; do
-		for all in $(ls $PKGBUILD_DIR/$port); do
-			if [ -f $PORT_DIR/$port/$all/$PORT_SCRIPT ]; then
-				. $PORT_DIR/$port/$all/$PORT_SCRIPT
-					for dep in ${depends[@]}; do
-						if [ $dep = $PACKAGE_DEPENDENT ]; then
-							if [ -d $INDEX_DIR/$all ]; then
-								msg "${color_green}$all${color_reset}"
-							else
-								msg "${color_yellow}$all${color_reset}"
+		if [ -d $PORT_DIR/$port ]; then
+			for all in $(ls $PORT_DIR/$port); do
+				if [ -f $PORT_DIR/$port/$all/$BUILD_SCRIPT ]; then
+					depend=$(cat $PORT_DIR/$port/$all/$BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d " " -f3-)
+						for dep in ${depend[@]}; do
+							if [ $dep = $GLOBAL_PACKAGE_DEPENDENT ]; then
+								if [ -d $INDEX_DIR/$all ]; then
+									msg "${color_green}$all${color_reset}"
+								else
+									msg "${color_yellow}$all${color_reset}"
+								fi
 							fi
-						fi
-					done
-			fi
-		done
+						done
+				fi
+			done
+		fi
 	done	
 }
 
@@ -371,6 +376,13 @@ parse_options() {
 					exit 1
 				fi
 					PACKAGE_DEPENDENT="$2"
+				shift ;;
+		-gdp|--global-dependent)
+				if [ ! "$2" ]; then
+					info "Option '$1' require an argument (package to show its dependent)"
+					exit 1
+				fi
+					GLOBAL_PACKAGE_DEPENDENT="$2"
 				shift ;;
 		-d|--depends)
 				if [ ! "$2" ]; then
@@ -457,6 +469,8 @@ main() {
 		exit 1
 	fi
 	
+	PORT_REPO=$(ls $PORT_DIR)
+	
 	### SYNC PORTS ###
 	if [ $SYNC_PORTS ]; then
 		syncports
@@ -469,9 +483,15 @@ main() {
 		exit 0
 	fi
 	
-	### SHOW DEPENDENT ###
+	### SHOW DEPENDENT (search through only installed package) ###
 	if [ $PACKAGE_DEPENDENT ]; then
 		showdependent
+		exit 0
+	fi
+	
+	### SHOW GLOBAL DEPENDENT (search through ports repo) ###
+	if [ $GLOBAL_PACKAGE_DEPENDENT ]; then
+		showglobaldependent
 		exit 0
 	fi
 	
