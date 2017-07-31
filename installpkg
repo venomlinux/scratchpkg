@@ -119,7 +119,7 @@ checkconflict() {
 	while IFS=' ' read -r line; do
 		pushd $ROOT_DIR
 			if [ -f "$line" ] || [ -L "$line" ]; then
-				msg "Conflict file!: ${color_yellow}/${line}${color_reset}"
+				msg "Conflict file!: ${color_yellow}${line}${color_reset}"
 				CONFLICT=yes
 			fi
 		popd

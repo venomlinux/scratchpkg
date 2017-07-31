@@ -134,8 +134,8 @@ preparesource() {
 loadspkgbuild() {
 
 	if [ -f $BUILD_SCRIPT ]; then
-		. $BUILD_SCRIPT
 		getpkginfo
+		. $BUILD_SCRIPT
 	else
 		msg "${color_red}Error no $BUILD_SCRIPT found.${color_reset}"
 		exitscript1

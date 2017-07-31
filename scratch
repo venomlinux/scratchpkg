@@ -101,6 +101,7 @@ searchpkg() {
 				if [ -f $PORT_DIR/$port/$out/$BUILD_SCRIPT ]; then
 					pushd $PORT_DIR/$port/$out
 						getpkginfo
+						. $BUILD_SCRIPT
 					popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							if [ -d $INDEX_DIR/$name ]; then
@@ -205,6 +206,7 @@ showdepends() {
 		if [ -f $PORT_DIR/$portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT ]; then
 			pushd $PORT_DIR/$portdepends/$PACKAGE_DEPENDS
 				getpkginfo
+				. $BUILD_SCRIPT
 			popd
 			break
 		fi

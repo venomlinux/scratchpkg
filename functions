@@ -117,9 +117,6 @@ updatesystemdb() {
 
 getpkginfo() {
 	
-	name=$(cat $BUILD_SCRIPT | grep ^name | cut -d '=' -f 2)
-	version=$(cat $BUILD_SCRIPT | grep ^version | cut -d '=' -f 2)
-	release=$(cat $BUILD_SCRIPT | grep ^release | cut -d '=' -f 2)
 	description=$(cat $BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3-)
 	homepage=$(cat $BUILD_SCRIPT | grep ^'# homepage' | tr -d ':' | cut -d ' ' -f 3-)
 	maintainer=$(cat $BUILD_SCRIPT | grep ^'# maintainer' | tr -d ':' | cut -d ' ' -f 3-)
