@@ -164,11 +164,10 @@ source=()
 
 build() {
 	cd \$name-\$version
-	./configure
+	./configure --prefix=/usr
 	make
 	make DESTDIR=\$PKG install
-}
-" > $TEMPLATE_NAME/$BUILD_SCRIPT
+}" > $TEMPLATE_NAME/$BUILD_SCRIPT
 	msg "Template port have created for ${color_green}$TEMPLATE_NAME${color_reset}."
 	fi
 	
