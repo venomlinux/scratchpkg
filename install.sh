@@ -18,10 +18,8 @@ fi
 if [ ! -d $confdir ]; then
 	mkdir -pv $confdir
 	[ ! -f $confdir/scratchpkg.conf ] && cp -v scratchpkg.conf $confdir
-	[ ! -d $confdir/scratchpkg.conf.d ] && cp -Rv scratchpkg.conf.d $confdir
 else
 	[ ! -f $confdir/scratchpkg.conf ] && cp -v scratchpkg.conf $confdir || echo "$confdir/scratchpkg.conf exists"
-	[ ! -d $confdir/scratchpkg.conf.d ] && cp -Rv scratchpkg.conf.d $confdir || echo "$confdir/scratchpkg.conf.d exists"
 fi
 
 if [ ! -d $funcdir ]; then

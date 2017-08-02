@@ -174,13 +174,7 @@ main() {
 		nocolor
 	fi
 	
-	### LOAD CONFIGURATION FILE ###
-	if [ -f $CONF_FILE ]; then
-		. $CONF_FILE
-	else
-		msg "${color_red}Configuration file not found.${color_reset}"
-		exit 1
-	fi
+	loadconfigfile
 	
 	### CHECK FOR ROOT ACCESS ###
 	if [ "$UID" != "0" ]; then

@@ -24,8 +24,8 @@ run_installpkg() {
 pushtoport() {
 	
 	for port in ${PORT_REPO[@]}; do
-		if [ -d $PORT_DIR/$port/$PORTNAME ]; then
-			pushd $PORT_DIR/$port/$PORTNAME
+		if [ -d $port/$PORTNAME ]; then
+			pushd $port/$PORTNAME
 				if [ -d $INDEX_DIR/fakeroot ] && [ -d $INDEX_DIR/sudo ] && [ "$UID" != "0" ]; then
 					fakeroot buildpkg
 					if [ $? = 0 ]; then
@@ -89,25 +89,26 @@ searchpkg() {
 	
 	for port in ${PORT_REPO[@]}; do
 	OUTPUT=()
-		if [ -d $PORT_DIR/$port ]; then
-			for list in $(ls $PORT_DIR/$port); do
-				if [ -d $PORT_DIR/$port/$list ]; then
-					if [ "$(cat $PORT_DIR/$port/$list/$BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3- | grep -i $SEARCH_PKG)" ] || [ "$(echo $list | grep -i $SEARCH_PKG)" ]; then
+		if [ -d $port ]; then
+			for list in $(ls $port); do
+				if [ -f $port/$list/$BUILD_SCRIPT ]; then
+					if [ "$(cat $port/$list/$BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3- | grep -i $SEARCH_PKG)" ] || [ "$(echo $list | grep -i $SEARCH_PKG)" ]; then
 						OUTPUT+=($list)
 					fi
 				fi
 			done
 			for out in ${OUTPUT[@]}; do
-				if [ -f $PORT_DIR/$port/$out/$BUILD_SCRIPT ]; then
-					pushd $PORT_DIR/$port/$out
+				if [ -f $port/$out/$BUILD_SCRIPT ]; then
+					pushd $port/$out
 						getpkginfo
 						. $BUILD_SCRIPT
 					popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
+							portname=$(basename $port)
 							if [ -d $INDEX_DIR/$name ]; then
-								msg "($port) ${color_green}$name${color_reset} $version-$release $description"
+								msg "($portname) ${color_green}$name${color_reset} $version-$release $description"
 							else
-								msg "($port) $name $version-$release $description"
+								msg "($portname) $name $version-$release $description"
 							fi
 							unset description
 						fi
@@ -203,8 +204,8 @@ showpackageinfo() {
 showdepends() {
 	
 	for portdepends in ${PORT_REPO[@]}; do
-		if [ -f $PORT_DIR/$portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT ]; then
-			pushd $PORT_DIR/$portdepends/$PACKAGE_DEPENDS
+		if [ -f $portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT ]; then
+			pushd $portdepends/$PACKAGE_DEPENDS
 				getpkginfo
 				. $BUILD_SCRIPT
 			popd
@@ -222,7 +223,7 @@ showdepends() {
 		else		
 			PORT_EXIST=no
 			for port in ${PORT_REPO[@]}; do
-				if [ -f $PORT_DIR/$port/$dep/$BUILD_SCRIPT ]; then
+				if [ -f $port/$dep/$BUILD_SCRIPT ]; then
 					PORT_EXIST=yes
 					break
 				fi
@@ -240,7 +241,7 @@ showdepends() {
 		else		
 			PORT_EXIST=no
 			for port in ${PORT_REPO[@]}; do
-				if [ -f $PORT_DIR/$port/$mdep/$BUILD_SCRIPT ]; then
+				if [ -f $port/$mdep/$BUILD_SCRIPT ]; then
 					PORT_EXIST=yes
 					break
 				fi
@@ -257,8 +258,8 @@ showupdate() {
 	
 	for package_name in $(ls $INDEX_DIR); do
 		for port in ${PORT_REPO[@]}; do
-			if [ -f $PORT_DIR/$port/$package_name/$BUILD_SCRIPT ]; then
-				. $PORT_DIR/$port/$package_name/$BUILD_SCRIPT
+			if [ -f $port/$package_name/$BUILD_SCRIPT ]; then
+				. $port/$package_name/$BUILD_SCRIPT
 				getinstalledname $name
 					if [ "$name-$version-$release" != "$installedname" ]; then
 						msg "$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset}"
@@ -297,10 +298,10 @@ showglobaldependent() {
 		msg "Package ${color_red}$GLOBAL_PACKAGE_DEPENDENT${color_reset} not installed."
 	fi
 	for port in ${PORT_REPO[@]}; do
-		if [ -d $PORT_DIR/$port ]; then
-			for all in $(ls $PORT_DIR/$port); do
-				if [ -f $PORT_DIR/$port/$all/$BUILD_SCRIPT ]; then
-					depend=$(cat $PORT_DIR/$port/$all/$BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d " " -f3-)
+		if [ -d $port ]; then
+			for all in $(ls $port); do
+				if [ -f $port/$all/$BUILD_SCRIPT ]; then
+					depend=$(cat $port/$all/$BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d " " -f3-)
 						for dep in ${depend[@]}; do
 							if [ $dep = $GLOBAL_PACKAGE_DEPENDENT ]; then
 								if [ -d $INDEX_DIR/$all ]; then
@@ -315,28 +316,6 @@ showglobaldependent() {
 		fi
 	done	
 }
-
-syncports() {
-	
-	for port in ${PORT_REPO[@]}; do
-		if [ -f /etc/scratchpkg.conf.d/ports/$port.git ]; then
-			git_link=$(cat /etc/scratchpkg.conf.d/ports/$port.git)
-			pushd $PORT_DIR
-				if [ ! -d $port ]; then
-					mkdir $port
-				fi
-					if [ -d $port/.git ]; then
-						msg "Syncing ${color_green}$port${color_reset} from ${color_green}$git_link${color_reset}"
-						(cd $port && git pull)
-					else
-						git clone $git_link
-					fi
-			popd
-		else
-			msg "No git file for ${color_yellow}$port${color_reset}."
-		fi
-	done
-}	
 
 interrupted() {
 	echo ""
@@ -365,9 +344,6 @@ parse_options() {
 			;;
 		-cu|--check-update)
 			CHECK_UPDATE=yes
-			;;
-		--sync)
-			SYNC_PORTS=yes
 			;;
 		--no-color)
 			NO_COLOR=yes
@@ -463,19 +439,7 @@ main() {
 		nocolor
 	fi
 	
-	### LOAD CONFIGURATION FILE ###
-	if [ -f $CONF_FILE ]; then
-		. $CONF_FILE
-	else
-		msg "${color_red}Configuration file not found.${color_reset}"
-		exit 1
-	fi
-	
-	### SYNC PORTS ###
-	if [ $SYNC_PORTS ]; then
-		syncports
-		exit 0
-	fi
+	loadconfigfile
 	
 	### CREATE PORT TEMPLATE ###
 	if [ $TEMPLATE_NAME ]; then

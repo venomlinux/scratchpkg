@@ -247,14 +247,12 @@ packaging() {
 
 purgefiles() {
 	
-	if [ -f /etc/scratchpkg.conf.d/$PURGE_FILE ]; then
-		for option in $(cat /etc/scratchpkg.conf.d/$PURGE_FILE); do
+		for option in ${PURGE_FILE[@]}; do
 			if [ -e $option ]; then
 				msg2 "Purging $option..."
 				rm -fr $option
 			fi
 		done
-	fi
 }
 
 strip_files() {
@@ -468,13 +466,7 @@ main() {
 	
 	. /usr/share/scratchpkg/functions || exit 1
 	
-	### LOAD CONFIGURATION FILE ###
-	if [ -f $CONF_FILE ]; then
-		. $CONF_FILE
-	else
-		msg "${color_red}Configuration file not found.${color_reset}"
-		exit 1
-	fi
+	loadconfigfile
 	
 	parse_options "$@"
 	
@@ -504,11 +496,6 @@ main() {
 	fi
 	
 	PKGNAME="$name#$version-$release.spkg.txz"
-	
-	### SET NO STRIP ###
-	#if [ $NO_STRIP ]; then
-	#	STRIP_PACKAGE="no"
-	#fi
 	
 	### UPDATE CHECKSUM ###
 	if [ "$UPDATE_CHECKSUM" ]; then

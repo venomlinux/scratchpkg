@@ -19,7 +19,6 @@ color_reset='\e[0m' 	  #Reset color
 
 ### DECLARE SOME VALUE ###
 CONF_FILE="/etc/scratchpkg.conf"
-PURGE_FILE="purge"
 BUILD_SCRIPT="spkgbuild"
 
 ROOT_DIR=/
@@ -140,6 +139,22 @@ getpkginfofrompkg() {
 	depends=$(tar xf $1 .pkginfo -O | grep ^depends | cut -d " " -f3-)
 	makedepends=$(tar xf $1 .pkginfo -O | grep ^makedepends | cut -d " " -f3-)
 
+}
+
+loadconfigfile() {
+	
+	if [ -f $CONF_FILE ]; then
+		. $CONF_FILE
+		PACKAGE_DIR=$(cat $CONF_FILE | grep ^'# PACKAGE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
+		SOURCE_DIR=$(cat $CONF_FILE | grep ^'# SOURCE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
+		WORK_DIR=$(cat $CONF_FILE | grep ^'# WORK_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
+		PORT_REPO=$(cat $CONF_FILE | grep ^'# PORT_REPO' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
+		PURGE_FILE=$(cat $CONF_FILE | grep ^'# PURGE_FILE' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
+	else
+		msg "${color_red}Configuration file not found.${color_reset}"
+		exit 1
+	fi
+	
 }
 
 createtemplate() {
