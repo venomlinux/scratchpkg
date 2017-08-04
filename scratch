@@ -1,26 +1,5 @@
 #!/bin/bash
 
-run_buildpkg() {
-	
-	if [ "$IGNORE_DEP" = "yes" ]; then
-		buildpkg -id
-	else
-		buildpkg
-	fi
-	
-}
-
-run_installpkg() {	
-	
-	pushd $PACKAGE_DIR
-		if [ "$IGNORE_DEP" = "yes" ]; then
-			installpkg $pkgname -id
-		else
-			installpkg $pkgname
-		fi
-	popd
-}
-
 pushtoport() {
 	
 	for port in ${PORT_REPO[@]}; do
