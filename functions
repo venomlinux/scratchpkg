@@ -145,11 +145,11 @@ loadconfigfile() {
 	
 	if [ -f $CONF_FILE ]; then
 		. $CONF_FILE
-		PACKAGE_DIR=$(cat $CONF_FILE | grep ^'# PACKAGE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
-		SOURCE_DIR=$(cat $CONF_FILE | grep ^'# SOURCE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
-		WORK_DIR=$(cat $CONF_FILE | grep ^'# WORK_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
-		PORT_REPO=$(cat $CONF_FILE | grep ^'# PORT_REPO' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
-		PURGE_FILE=$(cat $CONF_FILE | grep ^'# PURGE_FILE' | tr -d '=' | tr -d '"' | cut -d ' ' -f 3-)
+		PACKAGE_DIR=$(cat $CONF_FILE | grep ^'#PACKAGE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		SOURCE_DIR=$(cat $CONF_FILE | grep ^'#SOURCE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		WORK_DIR=$(cat $CONF_FILE | grep ^'#WORK_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		PORT_REPO=$(cat $CONF_FILE | grep ^'#PORT_REPO' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		PURGE_FILE=$(cat $CONF_FILE | grep ^'#PURGE_FILE' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
 	else
 		msg "${color_red}Configuration file not found.${color_reset}"
 		exit 1
