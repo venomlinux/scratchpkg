@@ -85,35 +85,43 @@ preparesource() {
 	SRC=$WORK_DIR/$name/src
 	PKG=$WORK_DIR/$name/pkg
 	
-	if [ -d $WORK_DIR/$name ]; then
-		rm -fr $WORK_DIR/$name
-	fi
+	[ -d "$WORK_DIR/$name" ] && rm -fr "$WORK_DIR/$name"
 	
 	mkdir -p $SRC $PKG
 	
 	for sources in ${source[@]}; do 
 		if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
 			tarballname=$(echo $sources | rev | cut -d / -f 1 | rev)
-				case $tarballname in
-					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
-						COMMAND="$EXTPROG -p -o -C $SRC -xf $SOURCE_DIR/$tarballname"
-						MODE="Unpacking" ;;
-					*)
-						COMMAND="cp $SOURCE_DIR/$tarballname $SRC"
-						MODE="Preparing" ;;				
-				esac
+			NO_EXTRACT=""
+				for i in ${noextract[@]}; do
+					if [ "$i" = "$tarballname" ]; then
+						NO_EXTRACT=yes
+						cp $SOURCE_DIR/$tarballname $SRC && msg "Preparing ${color_green}$tarballname${color_reset}..." || ERROR_PREPARE_SOURCE=yes
+						break
+					fi
+				done
+					if [ ! "$NO_EXTRACT" ]; then
+						case $tarballname in
+							*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
+								COMMAND="$EXTPROG -p -o -C $SRC -xf $SOURCE_DIR/$tarballname"
+								MODE="Unpacking" ;;
+							*)
+								COMMAND="cp $SOURCE_DIR/$tarballname $SRC"
+								MODE="Preparing" ;;				
+						esac
+								
+						$COMMAND
 						
-				$COMMAND
-				
-				if [ $? != 0 ]; then
-					msg "$MODE ${color_red}$tarballname${color_reset} failed."
-					clearworkdir
-					exitscript1
-				else
-					msg "$MODE ${color_green}$tarballname${color_reset} success."
-				fi
+						if [ $? != 0 ]; then
+							msg "$MODE ${color_red}$tarballname${color_reset} failed."
+							clearworkdir
+							exitscript1
+						else
+							msg "$MODE ${color_green}$tarballname${color_reset}..."
+						fi						
+					fi
 		else
-			cp $sources $SRC || ERROR_PREPARE_SOURCE=yes
+			cp $sources $SRC && msg "Preparing ${color_green}$sources${color_reset}..." || ERROR_PREPARE_SOURCE=yes
 		fi
 	done
 	
@@ -534,6 +542,7 @@ main() {
 	
 	### EXTRACT ONLY ###
 	if [ "$EXTRACT_ONLY" ]; then
+		getsource
 		preparesource
 		exit 0
 	fi

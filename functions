@@ -123,6 +123,7 @@ getpkginfo() {
 	conflict=$(cat $BUILD_SCRIPT | grep ^'# conflict' | tr -d ':' | cut -d ' ' -f 3-)
 	depends=$(cat $BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d ' ' -f 3-)
 	makedepends=$(cat $BUILD_SCRIPT | grep ^'# makedepends' | tr -d ':' | cut -d ' ' -f 3-)
+	noextract=$(cat $BUILD_SCRIPT | grep ^'# noextract' | tr -d ':' | cut -d ' ' -f 3-)
 		
 }
 
