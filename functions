@@ -172,6 +172,7 @@ createtemplate() {
 # conflict	: 
 # depends	: 
 # makedepends	: 
+# noextract	: 
 
 name=$TEMPLATE_NAME
 version=
