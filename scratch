@@ -4,16 +4,14 @@ pushtoport() {
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port/$PORTNAME ]; then
-			pushd $port/$PORTNAME
-				if [ -d $INDEX_DIR/fakeroot ] && [ -d $INDEX_DIR/sudo ] && [ "$UID" != "0" ]; then
-					fakeroot buildpkg
-					if [ $? = 0 ]; then
-						. $BUILD_SCRIPT
-						sudo installpkg $PACKAGE_DIR/$name#$version-$release.spkg.txz --no-preinstall
-					fi
-				else
-					buildpkg -i
-				fi
+			pushd $port/$PORTNAME		
+				IGNORE_CONFLICT="$IGNORE_CONFLICT" \
+				IGNORE_DEP="$IGNORE_DEP" \
+				REINSTALL_PKG="$REINSTALL_PKG" \
+				UPGRADE_PKG="$UPGRADE_PKG" \
+				VERBOSE_INSTALL="$VERBOSE_INSTALL" \
+				INSTALL_PKG="$INSTALL_PKG" \
+				buildpkg
 			popd
 			break
 		fi
@@ -168,10 +166,6 @@ showpackageinfo() {
 				tar -xf $PACKAGE_INFO .pkginstall/readme -O
 				echo ""
 			fi
-			
-			echo ""
-			echo -e "${color_green}list files:${color_reset}"
-			$EXTPROG -tvf $PACKAGE_INFO --exclude=.pkginfo --exclude=.pkginstall
 		else
 			msg "${color_yellow}$PACKAGE_INFO${color_reset} is not package created by scratchpkg."
 			exit 1
@@ -311,6 +305,18 @@ parse_options() {
 			;;
 		-id|--ignore-dependency)
 			IGNORE_DEP=yes
+			;;
+		-ic|--ignore-conflict)
+			IGNORE_CONFLICT=yes
+			;;
+		-r|--reinstall)
+			REINSTALL_PKG=yes
+			;;
+		-u|--upgrade)
+			UPGRADE_PKG=yes
+			;;
+		-v|--verbose)
+			VERBOSE_INSTALL=yes
 			;;
 		-l|--list-installed)
 			LIST_INSTALLED=yes

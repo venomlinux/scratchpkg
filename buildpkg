@@ -400,6 +400,18 @@ parse_options() {
 		-id|--ignore-dependency)
 			IGNORE_DEP=yes
 			;;
+		-ic|--ignore-conflict)
+			IGNORE_CONFLICT=yes
+			;;
+		-r|--reinstall)
+			REINSTALL_PKG=yes
+			;;
+		-u|--upgrade)
+			UPGRADE_PKG=yes
+			;;
+		-v|--verbose)
+			VERBOSE_INSTALL=yes
+			;;
 		-fr|--force-rebuild)
 			FORCE_REBUILD=yes
 			;;
@@ -411,9 +423,6 @@ parse_options() {
 			;;
 		-i|--install)
 			INSTALL_PKG=yes
-			;;
-		-u|--upgrade)
-			UPGRADE_PKG=yes
 			;;
 		-kw|--keep-work)
 			KEEP_WORK=yes
@@ -533,12 +542,10 @@ main() {
 	lockbuild
 	
 	### BUILD ###
-	if [ -f $PACKAGE_DIR/$PKGNAME ] && [ ! "$FORCE_REBUILD" ]; then
-		if [ ! "$UPGRADE_PKG" ]; then
+	if [ -f $PACKAGE_DIR/$PKGNAME ] && [ ! "$FORCE_REBUILD" ]; then # if package txz exist and not force rebuild
+		if [ ! "$INSTALL_PKG" ] && [ ! "$REINSTALL_PKG" ] && [ ! "$UPGRADE_PKG" ]; then
 			msg "${color_green}$PKGNAME${color_reset} is up-to-date."
-			if [ ! "$INSTALL_PKG" ]; then
-				exitscript0
-			fi
+			exitscript0
 		fi
 	else
 		# dependency check
@@ -549,20 +556,13 @@ main() {
 	fi
 	
 	### INSTALL PACKAGE ###
-	if [ "$INSTALL_PKG" ]; then
-		NO_PREINSTALL=yes
-		if [ "$IGNORE_DEP" ]; then
-			installpkg $PACKAGE_DIR/$PKGNAME -id
-			exitscript0
-		else
-			installpkg $PACKAGE_DIR/$PKGNAME
-			exitscript0
-		fi
-	fi
-	
-	### UPGRADE PACKAGE ###
-	if [ "$UPGRADE_PKG" ]; then
-		installpkg $PACKAGE_DIR/$PKGNAME -u
+	if [ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ]; then
+		IGNORE_CONFLICT="$IGNORE_CONFLICT" \
+		IGNORE_DEP="$IGNORE_DEP" \
+		REINSTALL_PKG="$REINSTALL_PKG" \
+		UPGRADE_PKG="$UPGRADE_PKG" \
+		VERBOSE_INSTALL="$VERBOSE_INSTALL" \
+		installpkg $PACKAGE_DIR/$PKGNAME --no-preinstall
 		exitscript0
 	fi
 	
