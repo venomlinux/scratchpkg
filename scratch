@@ -290,6 +290,31 @@ showglobaldependent() {
 	done	
 }
 
+catport() {
+	
+	for cat in ${PORT_REPO[@]}; do
+		if [ -d $cat ]; then
+			if [ -f $cat/$CAT_PORT/$BUILD_SCRIPT ]; then
+				cat $cat/$CAT_PORT/$BUILD_SCRIPT
+				break
+			fi
+		fi
+	done
+	
+}
+
+showportpath() {
+	
+	for path in ${PORT_REPO[@]}; do
+		if [ -d $cat ]; then
+			if [ -d $path/$PORT_PATH ]; then
+				msg "$path/$PORT_PATH"
+			fi
+		fi
+	done
+	
+}
+
 interrupted() {
 	echo ""
 	msg "${color_yellow}Interrupted!${color_reset}"
@@ -333,34 +358,44 @@ parse_options() {
 		--no-color)
 			NO_COLOR=yes
 			;;
+		-c|--cat-port)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package to show its port script)"
+				exit 1
+			fi
+				CAT_PORT="$2"
+			shift
+			;;
 		-dp|--dependent)
-				if [ ! "$2" ]; then
-					info "Option '$1' require an argument (package to show its dependent)"
-					exit 1
-				fi
-					PACKAGE_DEPENDENT="$2"
-				shift ;;
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package to show its dependent)"
+				exit 1
+			fi
+				PACKAGE_DEPENDENT="$2"
+			shift
+			;;
 		-gdp|--global-dependent)
-				if [ ! "$2" ]; then
-					info "Option '$1' require an argument (package to show its dependent)"
-					exit 1
-				fi
-					GLOBAL_PACKAGE_DEPENDENT="$2"
-				shift ;;
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package to show its dependent)"
+				exit 1
+			fi
+				GLOBAL_PACKAGE_DEPENDENT="$2"
+			shift
+			;;
 		-d|--depends)
-				if [ ! "$2" ]; then
-					info "Option '$1' require an argument (package name to show its depends)"
-					exit 1
-				fi
-					PACKAGE_DEPENDS="$2"
-				shift
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package name to show its depends)"
+				exit 1
+			fi
+				PACKAGE_DEPENDS="$2"
+			shift
 			;;
 		-pi|--package-info)
 			if [ ! "$2" ] || [ ! "$(echo $2 | grep '.spkg.txz')" ]; then
 				msg "Option '$1' require an argument (package '*.spkg.txz' to show its info)."
 				exit 1
 			fi
-			PACKAGE_INFO="$2"
+				PACKAGE_INFO="$2"
 			shift
 			;;
 		-co|--check-owner)
@@ -368,7 +403,7 @@ parse_options() {
 				msg "Option '$1' require an argument (file name to show its owner)."
 				exit 1
 			fi
-			OWNER_FILE_NAME="$2"
+				OWNER_FILE_NAME="$2"
 			shift
 			;;
 		-st|--show-tree)
@@ -384,7 +419,7 @@ parse_options() {
 				msg "Option '$1' require an argument (package name to search)."
 				exit 1
 			fi
-			SEARCH_PKG="$2"
+				SEARCH_PKG="$2"
 			shift
 			;;
 		-p|--package)
@@ -392,7 +427,7 @@ parse_options() {
 				msg "Option '$1' require an argument (package name to install/build)."
 				exit 1
 			fi
-			PORTNAME="$2"
+				PORTNAME="$2"
 			shift
 			;;
 		-t|--create-template)
@@ -400,7 +435,15 @@ parse_options() {
 				msg "Option '$1' require an argument (port name to create template)."
 				exit 1
 			fi
-			TEMPLATE_NAME="$2"
+				TEMPLATE_NAME="$2"
+			shift
+			;;
+		--path)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (package name to show its path)"
+				exit 1
+			fi
+				PORT_PATH="$2"
 			shift
 			;;
 		*)
@@ -425,6 +468,18 @@ main() {
 	fi
 	
 	loadconfigfile
+	
+	### SHOW PORT PATH ###
+	if [ $PORT_PATH ]; then
+		showportpath
+		exit 0
+	fi
+	
+	### CAT PORT ###
+	if [ $CAT_PORT ]; then
+		catport
+		exit 0
+	fi
 	
 	### CREATE PORT TEMPLATE ###
 	if [ $TEMPLATE_NAME ]; then
