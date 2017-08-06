@@ -14,12 +14,8 @@ removepkg() {
 	# create lock file prevent simultaneous install/remove process running
 	spkglock
 	
-	# preremove script
-	if [ ! "$NO_PREREMOVE" ]; then
-		if [ -f $INDEX_DIR/$1/preremove ]; then
-			msg "Running preremove script."
-			sh $INDEX_DIR/$1/preremove && PREREMOVE_STATUS=OK || PREREMOVE_STATUS=KO
-		fi
+	if [ ! "$NO_PREREMOVE" ]; then	
+		oldversion="$iversion" oldrelease="$irelease" run_preremove $1
 	fi
 
 	msg "Removing ${color_green}$ipackagename${color_reset}..."
@@ -33,12 +29,8 @@ removepkg() {
 		popd
 	done < <(tac $INDEX_DIR/$1/.files)
 	
-	# postremove script
-	if [ ! $NO_POSTREMOVE ]; then
-		if [ -f $INDEX_DIR/$1/postremove ]; then
-			msg "Running postremove script."
-			sh $INDEX_DIR/$1/postremove && POSTREMOVE_STATUS=OK || POSTREMOVE_STATUS=KO
-		fi
+	if [ ! "$NO_POSTREMOVE" ]; then
+		oldversion="$iversion" oldrelease="$irelease" run_postremove $1
 	fi
 	
 	for file in $(cat $INDEX_DIR/$1/.files); do
@@ -70,6 +62,24 @@ removepkg() {
 	
 	# remove lock file
 	spkglock
+}
+
+run_preremove() {
+	
+	if [ -f $INDEX_DIR/$1/preremove ]; then
+		msg "Running preremove script..."
+		sh $INDEX_DIR/$1/preremove && PREREMOVE_STATUS=OK || PREREMOVE_STATUS=KO
+	fi
+
+}
+
+run_postremove() {
+	
+	if [ -f $INDEX_DIR/$1/postremove ]; then
+		msg "Running postremove script..."
+		sh $INDEX_DIR/$1/postremove && POSTREMOVE_STATUS=OK || POSTREMOVE_STATUS=KO
+	fi
+	
 }
 
 updateinfopages() {

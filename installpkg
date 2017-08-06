@@ -27,12 +27,12 @@ installpkg() {
 	
 	# run preinstall script if no --no-preinstall flag and not upgrade package
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		run_preinstall
+		newversion="$version" newrelease="$release" run_preinstall
 	fi
 	
 	# run preupgrade script if package upgrade
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		run_preupgrade
+		newversion="$version" oldversion="$iversion" newrelease="$release" oldrelease="$irelease" run_preupgrade
 	fi
 	
 	#installing package into system
@@ -63,11 +63,11 @@ installpkg() {
 	msg "Successfully install ${color_green}$packagename${color_reset}."
 	
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		run_postinstall
+		newversion="$version" newrelease="$release" run_postinstall
 	fi
 	
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-		run_postupgrade
+		newversion="$version" oldversion="$iversion" newrelease="$release" oldrelease="$irelease" run_postupgrade
 	fi
 	
 	restoreconf
@@ -382,11 +382,11 @@ main() {
 	fi
 	
 	### GET NAME, VERSION, RELEASE FROM PACKAGE ###
-	getname
+	getname    # get info from package
 	
 	### IF INSTALLED & NO UPGRADE & NO REINSTALL ###
 	if [ -d $INDEX_DIR/$name ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then
-		getoldname # GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE
+		getoldname # get info from package index
 		msg "Package ${color_green}$ipackagename${color_reset} already installed."
 		exit 0
 	fi
