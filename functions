@@ -51,6 +51,14 @@ msg2() {
 	echo -e "${color_blue}  -->${color_reset} $1"
 }
 
+msg3() {
+	echo -e "$1"
+}
+
+msg4() {
+	echo -e "     $1"
+}
+
 rmdir_silent() {
 	command rmdir "$@" 2> /dev/null
 }
