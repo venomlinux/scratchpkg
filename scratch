@@ -11,6 +11,7 @@ pushtoport() {
 				UPGRADE_PKG="$UPGRADE_PKG" \
 				VERBOSE_INSTALL="$VERBOSE_INSTALL" \
 				INSTALL_PKG="$INSTALL_PKG" \
+				FORCE_REBUILD="$FORCE_REBUILD" \
 				buildpkg
 			popd
 			break
@@ -261,17 +262,23 @@ showdependent() {
 							msg "$all_installed"
 					fi
 				done
+			makedepend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^makedepends | cut -d " " -f3-)
+				for mdep in ${makedepend[@]}; do
+					if [ $mdep = $PACKAGE_DEPENDENT ]; then
+							msg "$all_installed (make)"
+					fi
+				done
 		done
 	fi
 }
 
 showglobaldependent() {
 	
-	if [ -d $INDEX_DIR/$GLOBAL_PACKAGE_DEPENDENT ]; then
-		msg "Package ${color_green}$GLOBAL_PACKAGE_DEPENDENT${color_reset} is installed."
-	else
-		msg "Package ${color_red}$GLOBAL_PACKAGE_DEPENDENT${color_reset} not installed."
-	fi
+	#if [ -d $INDEX_DIR/$GLOBAL_PACKAGE_DEPENDENT ]; then
+		#msg "Package ${color_green}$GLOBAL_PACKAGE_DEPENDENT${color_reset} is installed."
+	#else
+		#msg "Package ${color_red}$GLOBAL_PACKAGE_DEPENDENT${color_reset} not installed."
+	#fi
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
 			for all in $(ls $port); do
@@ -283,6 +290,16 @@ showglobaldependent() {
 									msg "${color_green}$all${color_reset}"
 								else
 									msg "${color_yellow}$all${color_reset}"
+								fi
+							fi
+						done
+					makedepend=$(cat $port/$all/$BUILD_SCRIPT | grep ^'# makedepends' | tr -d ':' | cut -d " " -f3-)
+						for mdep in ${makedepend[@]}; do
+							if [ $mdep = $GLOBAL_PACKAGE_DEPENDENT ]; then
+								if [ -d $INDEX_DIR/$all ]; then
+									msg "${color_green}$all${color_reset} (make)"
+								else
+									msg "${color_yellow}$all${color_reset} (make)"
 								fi
 							fi
 						done
@@ -318,8 +335,8 @@ showportpath() {
 }
 
 interrupted() {
-	echo ""
-	msg "${color_yellow}Interrupted!${color_reset}"
+	#echo ""
+	#msg "${color_yellow}Interrupted!${color_reset}"
 	exit 1
 }
 
@@ -338,6 +355,9 @@ parse_options() {
 			;;
 		-r|--reinstall)
 			REINSTALL_PKG=yes
+			;;
+		-fr|--force-rebuild)
+			FORCE_REBUILD=yes
 			;;
 		-u|--upgrade)
 			UPGRADE_PKG=yes

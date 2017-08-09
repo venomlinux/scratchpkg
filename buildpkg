@@ -515,12 +515,12 @@ main() {
 	loadspkgbuild
 	
 	### CHECK SPKGBUILD ###
-	if [ -z $name ] || [ -z $version ] || [ -z $release ]; then
+	if [ -z "$name" ] || [ -z "$version" ] || [ -z "$release" ] || [ "$(basename `pwd`)" != "$name" ] || [ "`type -t build`" != "function" ]; then
 		msg "Error, please check spkgbuild"
 		exit 1
 	fi
 	
-	PKGNAME="$name#$version-$release.spkg.txz"
+	PKGNAME="$name-$version-$release.spkg.txz"
 	
 	### UPDATE CHECKSUM ###
 	if [ "$UPDATE_CHECKSUM" ]; then

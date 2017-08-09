@@ -289,7 +289,7 @@ run_postupgrade() {
 		sh $INDEX_DIR/$name/postupgrade && POSTUPGRADE_STATUS=OK || POSTUPGRADE_STATUS=KO
 	fi
 	
-}	
+}
 
 parse_options() {
 	
