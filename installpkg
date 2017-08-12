@@ -306,7 +306,18 @@ help() {
 	echo -e "\t`basename $0` packagefile < options >"
 	echo -e ""
 	echo -e "Example:"
-	echo -e "\t`basename $0` foobar-1.0-1.spkg.txz -u --no-backup"
+	echo -e "\t`basename $0` foobar-1.0-1.spkg.txz -u --no-backup		this will upgrade package foobar-1.0-1 without \n\t\t\t\t\t\t\t\tbackup its old configuration file"
+	echo -e ""
+	echo -e "Options:"
+	echo -e "\t-u,\t--upgrade		update package"
+	echo -e "\t-r,\t--reinstall		reinstall package"
+	echo -e "\t-id,\t--ignore-dependency	ignore dependency"
+	echo -e "\t-ic,\t--ignore-conflict	ignore conflict when installing package"
+	echo -e "\t-v,\t--verbose		verbose install process"
+	echo -e "\t\t--no-preinstall		skip preinstall script when build/install package"
+	echo -e "\t\t--no-postinstall	skip postinstall script after install package"
+	
+}
 
 parse_options() {
 	
@@ -373,6 +384,12 @@ main() {
 	fi
 	
 	loadconfigfile
+	
+	### SHOW HELP ###
+	if [ "$SHOW_HELP" ]; then
+		help
+		exit 0
+	fi
 	
 	### CHECK IF PACKAGE IS VALID PACKAGE ###
 	#if [ ! $(tar -tf "$PACKAGE_INFO" | grep ".pkginfo") ]; then

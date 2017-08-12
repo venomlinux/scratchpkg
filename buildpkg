@@ -428,7 +428,7 @@ help() {
 	echo -e "Example:"
 	echo -e "\t`basename $0` -fr -kw -i	this will force rebuild, install package and keep working directory"
 	echo -e ""
-	echo -e "Option:"
+	echo -e "Options:"
 	echo -e "\t-i,\t--install		install package into system"
 	echo -e "\t-u,\t--upgrade		upgrade package"
 	echo -e "\t-r,\t--reinstall		reinstall package"
