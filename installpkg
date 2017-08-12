@@ -11,13 +11,17 @@ spkglock() {
 
 installpkg() {
 	
+	msg "Installing ${color_green}$packagename${color_reset}..."
+	
 	#ignore dependency check
 	if [ ! "$IGNORE_DEP" ]; then
+		msg2 "Checking package dependencies..."
 		checkdeps
 	fi
 	
 	#ignore conflict
 	if [ ! "$IGNORE_CONFLICT" ]; then
+		msg2 "Checking package/file conflict..."
 		checkconflict
 		checkpkgconflict
 	fi
@@ -36,7 +40,7 @@ installpkg() {
 	fi
 	
 	#installing package into system
-	msg "Installing ${color_green}$packagename${color_reset}..."
+	msg2 "Extracting package..."
 	if [ "$VERBOSE_INSTALL" ]; then
 		tar --keep-directory-symlink -x -v -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall
 	else
@@ -104,12 +108,17 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			msg "Missing dep: ${color_yellow}$dep${color_reset}"
+			MSGDEP+=($dep)
+			#msg "Missing dep: ${color_yellow}$dep${color_reset}"
 			MISSING_DEP=yes
 		fi
 	done
 	
-	if [ "$MISSING_DEP" = "yes" ]; then
+	if [ "$MISSING_DEP" ]; then
+		msg "Missing dependencies:"
+		for msdp in ${MSGDEP[@]}; do
+			msg2 "$msdp"
+		done
 		exit 1
 	fi
 	

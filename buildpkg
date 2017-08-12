@@ -110,7 +110,7 @@ preparesource() {
 								MODE="Preparing" ;;				
 						esac
 						
-						msg "$MODE ${color_green}$tarballname${color_reset}..."
+						msg2 "$MODE ${color_green}$tarballname${color_reset}..."
 						$COMMAND
 						
 						if [ $? != 0 ]; then
@@ -120,7 +120,7 @@ preparesource() {
 						fi						
 					fi
 		else
-			msg "Preparing ${color_green}$sources${color_reset}..." && cp $sources $SRC || ERROR_PREPARE_SOURCE=yes
+			msg2 "Preparing ${color_green}$sources${color_reset}..." && cp $sources $SRC || ERROR_PREPARE_SOURCE=yes
 		fi
 	done
 	
@@ -241,9 +241,10 @@ packaging() {
 			rm $PACKAGE_DIR/$PKGNAME
 		fi
 		exitscript1
-	else	
+	else
+		pkgsize="$(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}')"
 		$EXTPROG -t -v -f $PACKAGE_DIR/$PKGNAME
-		msg "Successfully create package ${color_green}$PKGNAME${color_reset}."
+		msg "Successfully create package ${color_green}$PKGNAME${color_reset}. (${pkgsize})"
 	fi
 	
 	case $PREINSTALL_STATUS in
@@ -295,10 +296,12 @@ buildpkg() {
 	
 	getsource
 	
-	if [ -f .md5sum ]; then
-		checkmdsum
-	else
-		updatemdsum
+	if [ ! "IGNORE_MDSUM" ]; then
+		if [ -f .md5sum ]; then
+			checkmdsum
+		else
+			updatemdsum
+		fi
 	fi
 	
 	preparesource
@@ -327,19 +330,30 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			msg "Missing dep: ${color_yellow}$dep${color_reset}"
+			MSDEP+=($dep)
+			#msg "Missing dep: ${color_yellow}$dep${color_reset}"
 			MISSING_DEP=yes
 		fi
 	done
 	
 	for makedep in ${makedepends[@]}; do
 		if [ ! -d $INDEX_DIR/$makedep ]; then
-			msg "Missing dep: ${color_yellow}$makedep${color_reset} (make)"
+			MSMKDEP+=($makedep)
+			#msg "Missing dep: ${color_yellow}$makedep${color_reset} (make)"
 			MISSING_DEP=yes
 		fi
 	done
 	
-	[ "$MISSING_DEP" ] && exitscript1
+	if [ "$MISSING_DEP" ]; then
+		msg "Missing dependencies:"
+		for msd in ${MSDEP[@]}; do
+			msg2 "$msd"
+		done
+		for msmkd in ${MSMKDEP[@]}; do
+			msg2 "$msmkd (make)"
+		done
+		exitscript1
+	fi
 	
 }
 
@@ -416,6 +430,9 @@ parse_options() {
 		-ic|--ignore-conflict)
 			IGNORE_CONFLICT=yes
 			;;
+		-im|--ignore-mdsum)
+			IGNORE_MDSUM=yes
+			;;
 		-r|--reinstall)
 			REINSTALL_PKG=yes
 			;;
@@ -452,10 +469,10 @@ parse_options() {
 		-rd|--redownload)
 			REDOWNLOAD_SOURCE=yes
 			;;
-		-uc|--update-checksum)
+		-um|--update-mdsum)
 			UPDATE_CHECKSUM=yes
 			;;
-		-cc|--check-checksum)
+		-cm|--check-mdsum)
 			CHECK_CHECKSUM=yes
 			;;
 		--no-color)

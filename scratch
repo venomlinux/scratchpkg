@@ -23,7 +23,9 @@ listinstalled() {
 	for installed in $(ls $INDEX_DIR); do
 		getinstalledname $installed
 		msg3 $installedname
+		installedpkg+=($installed)
 	done
+	msg "Total installed package: ${#installedpkg[@]}"
 }
 
 getinstalledname() {

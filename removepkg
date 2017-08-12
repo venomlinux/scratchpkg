@@ -11,6 +11,14 @@ spkglock() {
 
 removepkg() {
 	
+	msg "Removing ${color_green}$ipackagename${color_reset}..."
+	
+	### CHECK DEPENDENCY ###
+	if [ ! "$IGNORE_DEP" ]; then
+		msg2 "Checking dependencies..."
+		checkdeps $RMNAME
+	fi
+	
 	# create lock file prevent simultaneous install/remove process running
 	spkglock
 	
@@ -18,7 +26,7 @@ removepkg() {
 		oldversion="$iversion" oldrelease="$irelease" run_preremove $1
 	fi
 
-	msg "Removing ${color_green}$ipackagename${color_reset}..."
+	msg2 "Deleting files..."
 	while IFS=' ' read -r line; do
 		pushd $ROOT_DIR
 			if [ "$VERBOSE_REMOVE" = "yes" ]; then
@@ -115,13 +123,20 @@ checkdeps() {
 		depends=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^depends | cut -d " " -f3-)
 			for dep in ${depends[@]}; do
 				if [ "$dep" = "$1" ]; then
-					msg "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for ${color_green}$pkgname${color_reset}."
+					ERRDEP+=($pkgname)
+					#msg "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for ${color_green}$pkgname${color_reset}."
 					DEPERROR=yes
 				fi
 			done
 	done
 	
-	[ "$DEPERROR" ] && exit 1
+	if [ "$DEPERROR" ]; then
+		msg "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for:"
+			for pkg in ${ERRDEP[@]}; do
+				msg2 "$pkg"
+			done
+		exit 1
+	fi
 }
 
 check_directory() {
@@ -209,11 +224,6 @@ main() {
 	
 	### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
 	getoldname $RMNAME
-	
-	### CHECK DEPENDENCY ###
-	if [ ! "$IGNORE_DEP" ]; then
-		checkdeps $RMNAME
-	fi
 	
 	### REMOVE PACKAGE ###
 	removepkg $RMNAME
