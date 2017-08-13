@@ -90,7 +90,7 @@ nocolor() {
 updatesystemdb() {
 	
 	# update desktop database
-	msg2 "Updating desktop database..."
+	#msg2 "Updating desktop database..."
 	if [ -x /usr/bin/update-desktop-database ]; then
 		/usr/bin/update-desktop-database -q /usr/share/applications >/dev/null 2>&1
 	fi
@@ -102,7 +102,7 @@ updatesystemdb() {
 	#fi
 	
 	# update icon cache
-	msg2 "Updating icon cache..."
+	#msg2 "Updating icon cache..."
 	if [ -f /usr/bin/gtk-update-icon-cache ]; then
 		find /usr/share/icons -mindepth 1 -maxdepth 1 -type d | while read -r THEME; do
 			if [ -f "$THEME/index.theme" ]; then
@@ -112,7 +112,7 @@ updatesystemdb() {
 	fi
 
 	# update glib schema
-	msg2 "Updating glib schemas..."
+	#msg2 "Updating glib schemas..."
 	if [ -e /usr/share/glib-2.0/schemas ]; then
 		if [ -x /usr/bin/glib-compile-schemas ]; then
 			/usr/bin/glib-compile-schemas /usr/share/glib-2.0/schemas >/dev/null 2>&1
@@ -120,7 +120,7 @@ updatesystemdb() {
 	fi
 	
 	# run ldconfig
-	msg2 "Running ldconfig..."
+	#msg2 "Running ldconfig..."
 	if [ -f /sbin/ldconfig ]; then
 		/sbin/ldconfig
 	fi

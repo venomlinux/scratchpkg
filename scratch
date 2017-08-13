@@ -22,8 +22,11 @@ pushtoport() {
 listinstalled() {
 	for installed in $(ls $INDEX_DIR); do
 		getinstalledname $installed
-		msg3 $installedname
-		installedpkg+=($installed)
+		#msg3 $installedname
+		installedpkg+=($installedname)
+	done
+	for ip in ${installedpkg[@]}; do
+		echo $ip
 	done
 	msg "Total installed package: ${#installedpkg[@]}"
 }
@@ -58,17 +61,21 @@ listorphan() {
 				break
 			fi
 		done
-			if [ $ORPHAN = yes ]; then
-				msg $installedname
+			if [ "$ORPHAN" = yes ]; then
+				ORPHAN_PKG+=($installedname)
+				#msg $installedname
 			fi
 	done
 	
+	for i in ${ORPHAN_PKG[@]}; do
+		echo $i
+	done
+	msg "Total orphan package: ${#ORPHAN_PKG[@]}"
 }
 
 searchpkg() {
 	
 	for port in ${PORT_REPO[@]}; do
-	OUTPUT=()
 		if [ -d $port ]; then
 			for list in $(ls $port); do
 				if [ -f $port/$list/$BUILD_SCRIPT ]; then
@@ -197,7 +204,7 @@ showdepends() {
 			
 	for dep in ${depends[@]}; do
 		if [ -d $INDEX_DIR/$dep ]; then
-			msg "${color_green}$dep${color_reset}"
+			msg2 "${color_green}$dep${color_reset}"
 		else		
 			PORT_EXIST=no
 			for port in ${PORT_REPO[@]}; do
@@ -207,15 +214,15 @@ showdepends() {
 				fi
 			done
 				case $PORT_EXIST in
-					yes)	msg "${color_yellow}$dep${color_reset}" ;;
-					no)		msg "${color_red}$dep${color_reset}" ;;
+					yes)	msg2 "${color_yellow}$dep${color_reset}" ;;
+					no)		msg2 "${color_red}$dep${color_reset}" ;;
 				esac
 		fi
 	done
 			
 	for mdep in ${makedepends[@]}; do
 		if [ -d $INDEX_DIR/$mdep ]; then
-			msg "${color_green}$mdep${color_reset} (make)"
+			msg2 "${color_green}$mdep${color_reset} (make)"
 		else		
 			PORT_EXIST=no
 			for port in ${PORT_REPO[@]}; do
@@ -225,8 +232,8 @@ showdepends() {
 				fi
 			done
 				case $PORT_EXIST in
-					yes)	msg "${color_yellow}$mdep${color_reset} (make)" ;;
-					no)		msg "${color_red}$mdep${color_reset} (make)" ;;
+					yes)	msg2 "${color_yellow}$mdep${color_reset} (make)" ;;
+					no)		msg2 "${color_red}$mdep${color_reset} (make)" ;;
 				esac
 		fi
 	done
@@ -261,13 +268,13 @@ showdependent() {
 			depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
 				for dep in ${depend[@]}; do
 					if [ $dep = $PACKAGE_DEPENDENT ]; then
-							msg "$all_installed"
+							msg2 "$all_installed"
 					fi
 				done
 			makedepend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^makedepends | cut -d " " -f3-)
 				for mdep in ${makedepend[@]}; do
 					if [ $mdep = $PACKAGE_DEPENDENT ]; then
-							msg "$all_installed (make)"
+							msg2 "$all_installed (make)"
 					fi
 				done
 		done
@@ -289,9 +296,9 @@ showglobaldependent() {
 						for dep in ${depend[@]}; do
 							if [ $dep = $GLOBAL_PACKAGE_DEPENDENT ]; then
 								if [ -d $INDEX_DIR/$all ]; then
-									msg "${color_green}$all${color_reset}"
+									msg2 "${color_green}$all${color_reset}"
 								else
-									msg "${color_yellow}$all${color_reset}"
+									msg2 "${color_yellow}$all${color_reset}"
 								fi
 							fi
 						done
@@ -299,9 +306,9 @@ showglobaldependent() {
 						for mdep in ${makedepend[@]}; do
 							if [ $mdep = $GLOBAL_PACKAGE_DEPENDENT ]; then
 								if [ -d $INDEX_DIR/$all ]; then
-									msg "${color_green}$all${color_reset} (make)"
+									msg2 "${color_green}$all${color_reset} (make)"
 								else
-									msg "${color_yellow}$all${color_reset} (make)"
+									msg2 "${color_yellow}$all${color_reset} (make)"
 								fi
 							fi
 						done
