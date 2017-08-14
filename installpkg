@@ -391,12 +391,6 @@ main() {
 		exit 0
 	fi
 	
-	### CHECK IF PACKAGE IS VALID PACKAGE ###
-	#if [ ! $(tar -tf "$PACKAGE_INFO" | grep ".pkginfo") ]; then
-		#msg "${color_yellow}$PACKAGE_INFO${color_reset} is not package created by scratchpkg."
-		#exit 1
-	#fi
-	
 	### CHECK FOR ROOT ACCESS ###
 	if [ "$UID" != "0" ]; then
 		msg "${color_red}Installing package need root access!${color_reset}"

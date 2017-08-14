@@ -107,7 +107,9 @@ getoldname() {
 	iname=$(cat $INDEX_DIR/$1/.pkginfo | grep ^name | cut -d " " -f3)
 	iversion=$(cat $INDEX_DIR/$1/.pkginfo | grep ^version | cut -d " " -f3)
 	irelease=$(cat $INDEX_DIR/$1/.pkginfo | grep ^release | cut -d " " -f3)
-	backup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
+	ibackup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
+	idepends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^depends | cut -d " " -f3-)
+	imakedepends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^makedepends | cut -d " " -f3-)
 	
 	ipackagename=$iname-$iversion-$irelease
 	
@@ -137,6 +139,40 @@ checkdeps() {
 			done
 		exit 1
 	fi
+}
+
+checkneworphan() {
+	
+	for dpd in ${idepends[@]}; do
+		saferemove $dpd
+	done
+	
+	for mdpd in ${imakedepends[@]}; do
+		saferemove $mdpd
+	done
+	
+	if [ "${#neworphan[@]}" -gt 0 ]; then
+		msg "New orphaned package:"
+		for list in ${neworphan[@]}; do
+			msg2 $list
+		done
+	fi
+}
+
+saferemove() {
+	
+	ORPHAN="yes"
+	for all_installed in $(ls $INDEX_DIR); do
+		depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
+			for dep in ${depend[@]}; do
+				if [ $dep = $1 ]; then
+					ORPHAN="no"
+				fi
+			done
+	done
+	
+	[ "$ORPHAN" = "yes" ] && neworphan+=($1)
+	
 }
 
 check_directory() {
@@ -227,6 +263,9 @@ main() {
 	
 	### REMOVE PACKAGE ###
 	removepkg $RMNAME
+	
+	### CHECK NEW ORPHANED PACKAGE ###
+	checkneworphan
 	
 	### RUN NECESSARY UPDATE AFTER REMOVE PACKAGE ###
 	updatesystemdb
