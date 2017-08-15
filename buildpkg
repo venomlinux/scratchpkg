@@ -277,14 +277,13 @@ buildpkg() {
 	
 	getsource
 	
-	if [ ! "IGNORE_MDSUM" ]; then
+	if [ ! "$IGNORE_MDSUM" ]; then
 		if [ -f .md5sum ]; then
 			checkmdsum
 		else
 			updatemdsum
 		fi
 	fi
-	
 	preparesource
 	
 	[ "$UPGRADE_PKG" ] && NO_PREINSTALL=yes
