@@ -377,20 +377,6 @@ lockbuild() {
 	fi
 }
 
-checkneworphan() {
-	
-	for md in ${makedepends[@]}; do
-		removemakedepends $md
-	done
-	if [ "${#saferemove[@]}" -gt 0 ]; then
-		msg "Package safe for remove:"
-		for saferem in ${saferemove[@]}; do
-			msg2 "$saferem"
-		done
-	fi
-	
-}
-
 updatepkgdepends() {
 	
 	# only installed depends will count as depends
@@ -419,6 +405,20 @@ updatepkgdepends() {
 	
 }
 
+checkneworphan() {
+	
+	for md in ${makedepends[@]}; do
+		removemakedepends $md
+	done
+	if [ "${#saferemove[@]}" -gt 0 ]; then
+		msg "Package safe for remove:"
+		for saferem in ${saferemove[@]}; do
+			msg2 "$saferem"
+		done
+	fi
+	
+}
+
 removemakedepends() {
 	
 	ORPHAN="yes"
@@ -431,7 +431,7 @@ removemakedepends() {
 			done
 	done
 	
-	[ "$ORPHAN" = "yes" ] && saferemove+=($1)
+	[ "$ORPHAN" = "yes" ] && [ -d $INDEX_DIR/$1 ] && saferemove+=($1)
 }
 
 clearworkdir() {
@@ -521,6 +521,9 @@ parse_options() {
 			;;
 		--no-color)
 			NO_COLOR=yes
+			;;
+		--no-orphan-check)
+			NO_ORPHAN_CHECK=yes
 			;;
 		# this option not pass to installpkg
 		-fr|--force-rebuild)
@@ -612,6 +615,10 @@ main() {
 	
 	loadspkgbuild
 	
+	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
+		NO_ORPHAN_CHECK=yes
+	fi
+	
 	### CHECK SPKGBUILD ###
 	if [ -z "$name" ] || [ -z "$version" ] || [ -z "$release" ] || [ "$(basename `pwd`)" != "$name" ] || [ "`type -t build`" != "function" ]; then
 		msg "Error, please check spkgbuild."
@@ -670,7 +677,9 @@ main() {
 			updatepkgdepends
 		fi
 		buildpkg
-		checkneworphan
+		if [ ! "$NO_ORPHAN_CHECK" ]; then
+			checkneworphan
+		fi
 	fi
 	
 	### INSTALL PACKAGE ###

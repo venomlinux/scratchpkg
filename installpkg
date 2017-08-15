@@ -162,6 +162,7 @@ getname() {
 	version=$(tar xf $PKGNAME .pkginfo -O | grep ^version | cut -d " " -f3)
 	release=$(tar xf $PKGNAME .pkginfo -O | grep ^release | cut -d " " -f3)
 	depends=$(tar xf $PKGNAME .pkginfo -O | grep ^depends | cut -d " " -f3-)
+	makedepends=$(tar xf $PKGNAME .pkginfo -O | grep ^makedepends | cut -d " " -f3-)
 	conflict=$(tar xf $PKGNAME .pkginfo -O | grep ^conflict | cut -d " " -f3-)
 	
 	packagename=$name-$version-$release
@@ -196,7 +197,7 @@ upgradepkg() {
 	if [ ! "$NO_BACKUP" ]; then
 		backupconf
 	fi
-	removepkg $name -id --no-preremove --no-postremove
+	removepkg $name -id --no-preremove --no-postremove --no-orphan-check
 	NO_PREINSTALL=yes
 	NO_POSTINSTALL=yes
 	
@@ -298,6 +299,35 @@ run_postupgrade() {
 		sh $INDEX_DIR/$name/postupgrade && POSTUPGRADE_STATUS=OK || POSTUPGRADE_STATUS=KO
 	fi
 	
+}
+
+checkneworphan() {
+	
+	for md in ${makedepends[@]}; do
+		removemakedepends $md
+	done
+	if [ "${#saferemove[@]}" -gt 0 ]; then
+		msg "Package safe for remove:"
+		for saferem in ${saferemove[@]}; do
+			msg2 "$saferem"
+		done
+	fi
+	
+}
+
+removemakedepends() {
+	
+	ORPHAN="yes"
+	for all_installed in $(ls $INDEX_DIR); do
+		depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
+			for dep in ${depend[@]}; do
+				if [ $dep = $1 ]; then
+					ORPHAN="no"
+				fi
+			done
+	done
+	
+	[ "$ORPHAN" = "yes" ] && [ -d $INDEX_DIR/$1 ] && saferemove+=($1)
 }
 
 help() {
@@ -442,6 +472,8 @@ main() {
 	
 	### INSTALL PACKAGE INTO SYSTEM ###
 	installpkg
+	
+	checkneworphan
 	
 	### RUN THINGS THAT NEED UPDATE AFTER INSTALL PACKAGE ###
 	updatesystemdb
