@@ -171,7 +171,7 @@ saferemove() {
 			done
 	done
 	
-	[ "$ORPHAN" = "yes" ] && neworphan+=($1)
+	[ "$ORPHAN" = "yes" ] && [ -d $INDEX_DIR/$1 ] && neworphan+=($1)
 	
 }
 
@@ -214,6 +214,9 @@ parse_options() {
 			;;
 		--no-color)
 			NO_COLOR=yes
+			;;
+		--no-orphan-check)
+			NO_ORPHAN_CHECK=yes
 			;;
 		*)
 			RMNAME=$1
@@ -265,7 +268,9 @@ main() {
 	removepkg $RMNAME
 	
 	### CHECK NEW ORPHANED PACKAGE ###
-	checkneworphan
+	if [ ! "$NO_ORPHAN_CHECK" ]; then
+		checkneworphan
+	fi
 	
 	### RUN NECESSARY UPDATE AFTER REMOVE PACKAGE ###
 	updatesystemdb

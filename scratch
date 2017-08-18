@@ -4,6 +4,7 @@ pushtoport() {
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port/$PORTNAME ]; then
+			PORT_EXIST=yes
 			pushd $port/$PORTNAME		
 				IGNORE_CONFLICT="$IGNORE_CONFLICT" \
 				IGNORE_DEP="$IGNORE_DEP" \
@@ -17,12 +18,13 @@ pushtoport() {
 			break
 		fi
 	done
+
+	[ ! "$PORT_EXIST" ] && msg "Port ${color_red}$PORTNAME${color_reset} not found."
 }
 
 listinstalled() {
 	for installed in $(ls $INDEX_DIR); do
 		getinstalledname $installed
-		#msg3 $installedname
 		installedpkg+=($installedname)
 	done
 	for ip in ${installedpkg[@]}; do
@@ -63,7 +65,6 @@ listorphan() {
 		done
 			if [ "$ORPHAN" = yes ]; then
 				ORPHAN_PKG+=($installedname)
-				#msg $installedname
 			fi
 	done
 	
@@ -283,11 +284,6 @@ showdependent() {
 
 showglobaldependent() {
 	
-	#if [ -d $INDEX_DIR/$GLOBAL_PACKAGE_DEPENDENT ]; then
-		#msg "Package ${color_green}$GLOBAL_PACKAGE_DEPENDENT${color_reset} is installed."
-	#else
-		#msg "Package ${color_red}$GLOBAL_PACKAGE_DEPENDENT${color_reset} not installed."
-	#fi
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
 			for all in $(ls $port); do
