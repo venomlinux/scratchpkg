@@ -22,8 +22,13 @@ removepkg() {
 	# create lock file prevent simultaneous install/remove process running
 	spkglock
 	
+	# source .install script
+	if [ -f $INDEX_DIR/$1/.install ]; then
+		source $INDEX_DIR/$1/.install
+	fi
+	
 	if [ ! "$NO_PREREMOVE" ]; then	
-		oldversion="$iversion" oldrelease="$irelease" run_preremove $1
+		run_preremove
 	fi
 
 	msg2 "Deleting files..."
@@ -38,7 +43,7 @@ removepkg() {
 	done < <(tac $INDEX_DIR/$1/.files)
 	
 	if [ ! "$NO_POSTREMOVE" ]; then
-		oldversion="$iversion" oldrelease="$irelease" run_postremove $1
+		run_postremove
 	fi
 	
 	for file in $(cat $INDEX_DIR/$1/.files); do
@@ -74,18 +79,18 @@ removepkg() {
 
 run_preremove() {
 	
-	if [ -f $INDEX_DIR/$1/preremove ]; then
+	if [ "`type -t pre_remove`" = "function" ]; then
 		msg "Running preremove script..."
-		sh $INDEX_DIR/$1/preremove && PREREMOVE_STATUS=OK || PREREMOVE_STATUS=KO
+		pre_remove "$iversion" && PREREMOVE_STATUS=OK || PREREMOVE_STATUS=KO
 	fi
 
 }
 
 run_postremove() {
 	
-	if [ -f $INDEX_DIR/$1/postremove ]; then
+	if [ "`type -t post_remove`" = "function" ]; then
 		msg "Running postremove script..."
-		sh $INDEX_DIR/$1/postremove && POSTREMOVE_STATUS=OK || POSTREMOVE_STATUS=KO
+		post_remove "$iversion" && POSTREMOVE_STATUS=OK || POSTREMOVE_STATUS=KO
 	fi
 	
 }

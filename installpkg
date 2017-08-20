@@ -29,22 +29,27 @@ installpkg() {
 	# create lock file prevent simultaneous install package
 	spkglock
 	
+	# source .install file inside package
+	if [ $(tar -tf "$PKGNAME" | grep ".install") ]; then
+		source <(tar -xf "$PKGNAME" .install -O)
+	fi
+	
 	# run preinstall script if no --no-preinstall flag and not upgrade package
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		newversion="$version" newrelease="$release" run_preinstall
+		run_preinstall
 	fi
 	
 	# run preupgrade script if package upgrade
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		newversion="$version" oldversion="$iversion" newrelease="$release" oldrelease="$irelease" run_preupgrade
+		run_preupgrade
 	fi
 	
 	#installing package into system
 	msg2 "Extracting package..."
 	if [ "$VERBOSE_INSTALL" ]; then
-		tar --keep-directory-symlink -x -v -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall
+		tar --keep-directory-symlink -x -v -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.install --exclude=.readme
 	else
-		tar --keep-directory-symlink -x -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall
+		tar --keep-directory-symlink -x -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.install --exclude=.readme
 	fi
 	
 		if [ $? != 0 ]; then
@@ -60,18 +65,24 @@ installpkg() {
 		
 	mkdir $INDEX_DIR/$name
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
-	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall > $INDEX_DIR/$name/.files		
+	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.install --exclude=.readme > $INDEX_DIR/$name/.files
 	
-	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall/preinstall .pkginstall/postinstall .pkginstall/preupgrade .pkginstall/postupgrade .pkginstall/preremove .pkginstall/postremove .pkginstall/readme --strip=1 >/dev/null 2>&1
+	#tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall/preinstall .pkginstall/postinstall .pkginstall/preupgrade .pkginstall/postupgrade .pkginstall/preremove .pkginstall/postremove .pkginstall/readme --strip=1 >/dev/null 2>&1
+	tar -x -f $PKGNAME -C $INDEX_DIR/$name .install .readme >/dev/null 2>&1
 
 	msg "Successfully install ${color_green}$packagename${color_reset}."
 	
+	# source .install script
+	if [ -f $INDEX_DIR/$name/.install ]; then
+		source $INDEX_DIR/$name/.install
+	fi
+	
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		newversion="$version" newrelease="$release" run_postinstall
+		run_postinstall
 	fi
 	
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-		newversion="$version" oldversion="$iversion" newrelease="$release" oldrelease="$irelease" run_postupgrade
+		run_postupgrade
 	fi
 	
 	restoreconf
@@ -268,35 +279,35 @@ check_directory() {
 
 run_preinstall() {
 	
-	if [ $(tar -tf "$PKGNAME" | grep ".pkginstall/preinstall") ]; then
+	if [ "`type -t pre_install`" = "function" ]; then
 		msg "Running preinstall script..."
-		tar -xf $PKGNAME .pkginstall/preinstall -O | sh && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
-	fi
-	
-}
-
-run_preupgrade() {
-	
-	if [ $(tar -tf "$PKGNAME" | grep ".pkginstall/preupgrade") ]; then
-		msg "Running preupgrade script..."
-		tar -xf $PKGNAME .pkginstall/preupgrade -O | sh && PREUPGRADE_STATUS=OK || PREUPGRADE_STATUS=KO
+		pre_install "$version" && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
 	fi
 	
 }
 
 run_postinstall() {
 	
-	if [ -f $INDEX_DIR/$name/postinstall ]; then
+	if [ "`type -t post_install`" = "function" ]; then
 		msg "Running postinstall script..."
-		sh $INDEX_DIR/$name/postinstall && POSTINSTALL_STATUS=OK || POSTINSTALL_STATUS=KO
+		post_install "$version" && POSTINSTALL_STATUS=OK || POSTINSTALL_STATUS=KO
 	fi
+}
+
+run_preupgrade() {
+	
+	if [ "`type -t pre_upgrade`" = "function" ]; then
+		msg "Running preupgrade script..."
+		pre_upgrade "$version" "$iversion" && PREUPGRADE_STATUS=OK || PREUPGRADE_STATUS=KO
+	fi
+	
 }
 
 run_postupgrade() {
 	
-	if [ -f $INDEX_DIR/$name/postupgrade ]; then
+	if [ "`type -t post_upgrade`" = "function" ]; then
 		msg "Running postupgrade script..."
-		sh $INDEX_DIR/$name/postupgrade && POSTUPGRADE_STATUS=OK || POSTUPGRADE_STATUS=KO
+		post_upgrade "$version" "$iversion" && POSTUPGRADE_STATUS=OK || POSTUPGRADE_STATUS=KO
 	fi
 	
 }
@@ -386,6 +397,9 @@ parse_options() {
 		--no-color)
 			NO_COLOR=yes
 			;;
+		--no-orphan-check)
+			NO_ORPHAN_CHECK=yes
+			;;
 		*.spkg.txz)
 			[ -f $1 ] && PKGNAME=$1 || msg "${color_red}$1${color_reset} not exist."
 			;;
@@ -473,7 +487,10 @@ main() {
 	### INSTALL PACKAGE INTO SYSTEM ###
 	installpkg
 	
-	checkneworphan
+	# check orphan package (usually makedepends package)
+	if [ ! "$NO_ORPHAN_CHECK" ]; then
+		checkneworphan
+	fi
 	
 	### RUN THINGS THAT NEED UPDATE AFTER INSTALL PACKAGE ###
 	updatesystemdb

@@ -157,12 +157,15 @@ preparesource() {
 		exitscript1
 	fi
 	
-	for runscript in preinstall postinstall preupgrade postupgrade preremove postremove readme; do
-		if [ -f $runscript ]; then
-			[ ! -d $PKG/.pkginstall ] && mkdir $PKG/.pkginstall
-			cp $runscript $PKG/.pkginstall
-		fi
-	done
+	[ -f $name.install ] && cp $name.install $PKG/.install
+	[ -f readme ] && cp readme $PKG/.readme
+	
+	#for runscript in preinstall postinstall preupgrade postupgrade preremove postremove readme; do
+		#if [ -f $runscript ]; then
+			#[ ! -d $PKG/.pkginstall ] && mkdir $PKG/.pkginstall
+			#cp $runscript $PKG/.pkginstall
+		#fi
+	#done
 }
 
 loadspkgbuild() {
@@ -198,9 +201,12 @@ buildpackage() {
 
 runpreinstall() {
 	
-	if [ -f preinstall ]; then
-		msg "Running preinstall script..."
-		sh preinstall && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
+	#if [ -f preinstall ]; then
+		#msg "Running preinstall script..."
+		#sh preinstall && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
+	#fi
+	if [ "`type -t pre_install`" = "function" ]; then
+		pre_install && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
 	fi
 }
 
@@ -234,11 +240,18 @@ packaging() {
 	[ -n "$noextract" ] && echo "noextract = $noextract" >> .pkginfo
 	
 	msg "Packaging ${color_green}$name-$version-$release${color_reset}..."
-	if [ -d .pkginstall ]; then
-		tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo .pkginstall
-	else
-		tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo
-	fi
+	#if [ -d .pkginstall ]; then
+		#tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo .pkginstall
+	#else
+		#tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo .${name}.install
+	#fi
+	
+	for file in .install .readme; do
+		if [ -f $file ]; then
+			addtotar+=($file)
+		fi
+	done
+	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo "${addtotar[@]}"
 	
 	if [ $? != 0 ]; then
 		msg "Packaging ${color_red}$PKGNAME${color_reset} failed."
@@ -695,6 +708,7 @@ main() {
 		else	
 			updatepkgdepends
 		fi
+		[ -f $name.install ] && . $name.install
 		buildpkg
 		IGNORE_DEP=yes
 		if [ ! "$NO_ORPHAN_CHECK" ]; then
@@ -713,6 +727,7 @@ main() {
 		NO_POSTINSTALL="$NO_POSTINSTALL" \
 		NO_COLOR="$NO_COLOR" \
 		NO_BACKUP="$NO_BACKUP" \
+		NO_ORPHAN_CHECK="$NO_ORPHAN_CHECK" \
 		installpkg $PACKAGE_DIR/$PKGNAME
 		exitscript0
 	fi
