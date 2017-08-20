@@ -14,10 +14,17 @@ updatemdsum() {
 		
 		for file in ${needupdatechecksum[@]}; do
 			if [ ! -f $file ]; then
-				msg "Error updating checksum, source not found."
-				exitscript1
+				missingsource+=($file)
 			fi
 		done
+		
+		if [ "${#missingsource[@]}" -gt 0 ]; then
+			msg "Missing source:"
+			for ms in ${missingsource[@]}; do
+				msg2 "$ms"
+			done
+			exitscript1
+		fi
 		
 		md5sum $needupdatechecksum | awk '{ print $1 }' > .md5sum
 		[ -f .md5sum ] && msg "md5sum updated."
@@ -28,20 +35,34 @@ updatemdsum() {
 
 checkmdsum() {
 	
-	for sources in ${source[@]}; do
-		if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
-			sourcename=$SOURCE_DIR/$(echo $sources | rev | cut -d / -f 1 | rev)
+	for i in $(cat .md5sum); do
+		mdsums+=($i)
+	done
+	
+	if [ "${#source[@]}" != "${#mdsums[@]}" ]; then
+		msg "${color_red}Error${color_reset}, total source and md5sums different."
+		exitscript1
+	fi
+	
+	for s in $(seq 0 $((${#source[@]} - 1))); do
+		if [[ ${source[$s]} =~ ^(http|https|ftp)://.*/(.+) ]]; then
+			sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
 		else
-			sourcename="$sources"
+			sourcename="${source[$s]}"
 		fi
-		sourcemd5sum=$(md5sum $sourcename | awk '{ print $1 }')
-		if [ ! $(grep $sourcemd5sum .md5sum) ]; then
-			msg "${color_red}Checksum error:${color_reset} $sourcename"
-			CHECKSUM_ERROR=yes
+		sum=$(md5sum "$sourcename" | awk '{ print $1 }')
+		if [ "$sum" != "${mdsums[$s]}" ] && [ "SKIP" != "${mdsums[$s]}" ]; then
+			errormdsum+=($sourcename)
 		fi
 	done
 	
-	[ "$CHECKSUM_ERROR" ] && exitscript1
+	if [ "${#errormdsum[@]}" -gt 0 ]; then
+		msg "${color_red}Error${color_reset}, md5sum mismatch:"
+		for mismatch in ${errormdsum[@]}; do
+			msg2 "$mismatch"
+		done
+		exitscript1
+	fi
 	
 }
 
@@ -98,7 +119,7 @@ preparesource() {
 					for i in ${noextract[@]}; do
 						if [ "$i" = "$tarballname" ]; then
 							NO_EXTRACT=yes
-							msg "Preparing ${color_green}$tarballname${color_reset}..." && cp $SOURCE_DIR/$tarballname $SRC || ERROR_PREPARE_SOURCE=yes
+							msg "Preparing ${color_green}$tarballname${color_reset}..." && cp $SOURCE_DIR/$tarballname $SRC || ERROR_PREPARE_SOURCE+=($tarballname)
 							break
 						fi
 					done
@@ -122,13 +143,16 @@ preparesource() {
 							fi						
 						fi
 			else
-				msg2 "Preparing ${color_green}$sources${color_reset}..." && cp $sources $SRC || ERROR_PREPARE_SOURCE=yes
+				msg2 "Preparing ${color_green}$sources${color_reset}..." && cp $sources $SRC || ERROR_PREPARE_SOURCE+=($sources)
 			fi
 		done
 	fi
 	
-	if [ "$ERROR_PREPARE_SOURCE" ]; then
-		msg "Error preparing ${color_red}$sources${color_reset}."
+	if [ "${#ERROR_PREPARE_SOURCE[@]}" -gt 0 ]; then
+		msg "${color_red}Error${color_reset}, failed prepared source:"
+		for err in ${ERROR_PREPARE_SOURCE[@]}; do
+			msg2 $err
+		done
 		clearworkdir
 		exitscript1
 	fi
@@ -147,7 +171,7 @@ loadspkgbuild() {
 		. $BUILD_SCRIPT
 		getpkginfo
 	else
-		msg "${color_red}Error no $BUILD_SCRIPT found.${color_reset}"
+		msg "${color_red}Error${color_reset}, no $BUILD_SCRIPT found."
 		exitscript1
 	fi
 
@@ -260,7 +284,7 @@ compressinfomanpages() {
 	if [ -d usr/share/man ]; then
 		msg2 "Compressing man pages..."
 		( cd usr/share/man
-			find . -type f ! -name "*.gz" -exec gzip -9 {} \;
+			find . -type f ! -name "*.gz" -exec gzip -9 -f {} \;
 			for i in $(find . -type l) ; do ln -s $(readlink $i).gz $i.gz ; rm $i ; done
 		) 
 	fi
@@ -525,7 +549,6 @@ parse_options() {
 		--no-orphan-check)
 			NO_ORPHAN_CHECK=yes
 			;;
-		# this option not pass to installpkg
 		-fr|--force-rebuild)
 			FORCE_REBUILD=yes
 			;;
@@ -534,9 +557,6 @@ parse_options() {
 			;;
 		-um|--update-mdsum)
 			UPDATE_MDSUM=yes
-			;;
-		-cm|--check-mdsum)
-			CHECK_MDSUM=yes
 			;;
 		-do|--download-only)
 			DOWNLOAD_ONLY=yes
@@ -552,6 +572,9 @@ parse_options() {
 			;;
 		-rd|--redownload)
 			REDOWNLOAD_SOURCE=yes
+			;;
+		--no-backup)
+			NO_BACKUP=yes
 			;;
 		-h|--help)
 			SHOW_HELP=yes
@@ -615,6 +638,8 @@ main() {
 	
 	loadspkgbuild
 	
+	[ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ] && NO_ORPHAN_CHECK=yes
+	
 	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		NO_ORPHAN_CHECK=yes
 	fi
@@ -631,12 +656,6 @@ main() {
 	if [ "$UPDATE_MDSUM" ]; then
 		getsource
 		updatemdsum
-		exit 0
-	fi
-	
-	### CHECK CHECKSUM ###
-	if [ "$CHECK_MDSUM" ]; then
-		checkmdsum
 		exit 0
 	fi
 	
@@ -677,6 +696,7 @@ main() {
 			updatepkgdepends
 		fi
 		buildpkg
+		IGNORE_DEP=yes
 		if [ ! "$NO_ORPHAN_CHECK" ]; then
 			checkneworphan
 		fi
@@ -692,6 +712,7 @@ main() {
 		NO_PREINSTALL="$NO_PREINSTALL" \
 		NO_POSTINSTALL="$NO_POSTINSTALL" \
 		NO_COLOR="$NO_COLOR" \
+		NO_BACKUP="$NO_BACKUP" \
 		installpkg $PACKAGE_DIR/$PKGNAME
 		exitscript0
 	fi

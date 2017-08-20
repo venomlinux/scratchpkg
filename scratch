@@ -1,27 +1,5 @@
 #!/bin/bash
 
-pushtoport() {
-	
-	for port in ${PORT_REPO[@]}; do
-		if [ -d $port/$PORTNAME ]; then
-			PORT_EXIST=yes
-			pushd $port/$PORTNAME		
-				IGNORE_CONFLICT="$IGNORE_CONFLICT" \
-				IGNORE_DEP="$IGNORE_DEP" \
-				REINSTALL_PKG="$REINSTALL_PKG" \
-				UPGRADE_PKG="$UPGRADE_PKG" \
-				VERBOSE_INSTALL="$VERBOSE_INSTALL" \
-				INSTALL_PKG="$INSTALL_PKG" \
-				FORCE_REBUILD="$FORCE_REBUILD" \
-				buildpkg
-			popd
-			break
-		fi
-	done
-
-	[ ! "$PORT_EXIST" ] && msg "Port ${color_red}$PORTNAME${color_reset} not found."
-}
-
 listinstalled() {
 	for installed in $(ls $INDEX_DIR); do
 		getinstalledname $installed
@@ -345,6 +323,37 @@ interrupted() {
 	exit 1
 }
 
+pushtoport() {
+	
+	for port in ${PORT_REPO[@]}; do
+		if [ -d $port/$PORTNAME ]; then
+			PORT_EXIST=yes
+			pushd $port/$PORTNAME
+				INSTALL_PKG="$INSTALL_PKG" \
+				UPGRADE_PKG="$UPGRADE_PKG" \
+				REINSTALL_PKG="$REINSTALL_PKG" \
+				IGNORE_DEP="$IGNORE_DEP" \
+				IGNORE_CONFLICT="$IGNORE_CONFLICT" \
+				VERBOSE_INSTALL="$VERBOSE_INSTALL" \
+				FORCE_REBUILD="$FORCE_REBUILD" \
+				IGNORE_MDSUM="$IGNORE_MDSUM" \
+				UPDATE_MDSUM="$UPDATE_MDSUM" \
+				DOWNLOAD_ONLY="$DOWNLOAD_ONLY" \
+				EXTRACT_ONLY="$EXTRACT_ONLY" \
+				KEEP_WORK="$KEEP_WORK" \
+				REDOWNLOAD_SOURCE="$REDOWNLOAD_SOURCE" \
+				SOURCE_PKG="$SOURCE_PKG" \
+				OUTPUT_PKG="$OUTPUT_PKG" \
+				NO_COLOR="$NO_COLOR" \
+				buildpkg
+			popd
+			break
+		fi
+	done
+
+	[ ! "$PORT_EXIST" ] && msg "Port ${color_red}$PORTNAME${color_reset} not found."
+}
+
 parse_options() {
 	
 	while [ "$1" ]; do
@@ -352,23 +361,50 @@ parse_options() {
 		-i|--install)
 			INSTALL_PKG=yes
 			;;
+		-u|--upgrade)
+			UPGRADE_PKG=yes
+			;;
+		-r|--reinstall)
+			REINSTALL_PKG=yes
+			;;
 		-id|--ignore-dependency)
 			IGNORE_DEP=yes
 			;;
 		-ic|--ignore-conflict)
 			IGNORE_CONFLICT=yes
 			;;
-		-r|--reinstall)
-			REINSTALL_PKG=yes
+		--no-preinstall)
+			NO_PREINSTALL=yes
+			;;
+		--no-preinstall)
+			NO_POSTINSTALL=yes
 			;;
 		-fr|--force-rebuild)
 			FORCE_REBUILD=yes
 			;;
-		-u|--upgrade)
-			UPGRADE_PKG=yes
-			;;
 		-v|--verbose)
 			VERBOSE_INSTALL=yes
+			;;
+		-im|--ignore-mdsum)
+			IGNORE_MDSUM=yes
+			;;
+		-um|--update-mdsum)
+			UPDATE_MDSUM=yes
+			;;
+		-do|--download-only)
+			DOWNLOAD_ONLY=yes
+			;;
+		-eo|--extract-only)
+			EXTRACT_ONLY=yes
+			;;
+		-kw|--keep-work)
+			KEEP_WORK=yes
+			;;
+		-rd|--redownload)
+			REDOWNLOAD_SOURCE=yes
+			;;
+		--no-backup)
+			NO_BACKUP=yes
 			;;
 		-l|--list-installed)
 			LIST_INSTALLED=yes
@@ -471,6 +507,22 @@ parse_options() {
 				exit 1
 			fi
 				PORT_PATH="$2"
+			shift
+			;;
+		-sd|--source-dir)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (source path for package)."
+				exit 1
+			fi
+			SOURCE_PKG="$2"
+			shift
+			;;
+		-o|--output)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (output path for compiled package)."
+				exit 1
+			fi
+			OUTPUT_PKG="$2"
 			shift
 			;;
 		*)
