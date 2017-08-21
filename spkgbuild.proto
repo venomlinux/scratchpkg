@@ -5,6 +5,7 @@
 # conflict	: 
 # depends	: 
 # makedepends	: 
+# noextract	:
 
 name=
 version=

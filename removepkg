@@ -56,7 +56,7 @@ removepkg() {
 	rm -R $INDEX_DIR/$1
 
 	if [ -d $INDEX_DIR/$1 ]; then
-		msg "Error removing ${color_red}$ipackagename${color_reset}."
+		msgerr "Error occured while removing ${color_red}$ipackagename${color_reset}."
 		spkglock
 		exit 1
 	else
@@ -131,14 +131,12 @@ checkdeps() {
 			for dep in ${depends[@]}; do
 				if [ "$dep" = "$1" ]; then
 					ERRDEP+=($pkgname)
-					#msg "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for ${color_green}$pkgname${color_reset}."
-					DEPERROR=yes
 				fi
 			done
 	done
 	
-	if [ "$DEPERROR" ]; then
-		msg "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for:"
+	if [ "${#ERRDEP[@]}" -gt 0 ]; then
+		msgwarn "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for:"
 			for pkg in ${ERRDEP[@]}; do
 				msg2 "$pkg"
 			done
@@ -244,6 +242,11 @@ main() {
 	fi
 	
 	loadconfigfile
+	
+	if [ -z $RMNAME ]; then
+		msgerr "Please state package name for remove."
+		exit 1
+	fi
 	
 	### CHECK FOR ROOT ACCESS ###
 	if [ "$UID" != "0" ]; then

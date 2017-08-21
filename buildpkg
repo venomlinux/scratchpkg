@@ -40,7 +40,7 @@ checkmdsum() {
 	done
 	
 	if [ "${#source[@]}" != "${#mdsums[@]}" ]; then
-		msg "${color_red}Error${color_reset}, total source and md5sums different."
+		msgerr "Total source and md5sums different."
 		exitscript1
 	fi
 	
@@ -57,7 +57,7 @@ checkmdsum() {
 	done
 	
 	if [ "${#errormdsum[@]}" -gt 0 ]; then
-		msg "${color_red}Error${color_reset}, md5sum mismatch:"
+		msgerr "md5sum mismatch:"
 		for mismatch in ${errormdsum[@]}; do
 			msg2 "$mismatch"
 		done
@@ -149,16 +149,13 @@ preparesource() {
 	fi
 	
 	if [ "${#ERROR_PREPARE_SOURCE[@]}" -gt 0 ]; then
-		msg "${color_red}Error${color_reset}, failed prepared source:"
+		msgerr "Failed prepared source:"
 		for err in ${ERROR_PREPARE_SOURCE[@]}; do
 			msg2 $err
 		done
 		clearworkdir
 		exitscript1
 	fi
-	
-	[ -f $name.install ] && cp $name.install $PKG/.install
-	[ -f readme ] && cp readme $PKG/.readme
 	
 	#for runscript in preinstall postinstall preupgrade postupgrade preremove postremove readme; do
 		#if [ -f $runscript ]; then
@@ -171,10 +168,9 @@ preparesource() {
 loadspkgbuild() {
 
 	if [ -f $BUILD_SCRIPT ]; then
-		. $BUILD_SCRIPT
 		getpkginfo
 	else
-		msg "${color_red}Error${color_reset}, no $BUILD_SCRIPT found."
+		msgerr "No $BUILD_SCRIPT found."
 		exitscript1
 	fi
 
@@ -201,16 +197,15 @@ buildpackage() {
 
 runpreinstall() {
 	
-	#if [ -f preinstall ]; then
-		#msg "Running preinstall script..."
-		#sh preinstall && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
-	#fi
 	if [ "`type -t pre_install`" = "function" ]; then
-		pre_install && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
+		pre_install "$version" && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
 	fi
 }
 
 packaging() {
+	
+	[ -f $name.install ] && cp $name.install $PKG/.install
+	[ -f readme ] && cp readme $PKG/.readme
 	
 	pushd $PKG
 	
@@ -374,13 +369,13 @@ check_directory() {
 	
 	for dir in $WORK_DIR $SOURCE_DIR $PACKAGE_DIR; do
 		if [ ! -d $dir ]; then
-			msg "Directory ${color_yellow}$dir${color_reset} not exist."
+			msgwarn "Directory ${color_yellow}$dir${color_reset} not exist."
 			DIR_ERROR=yes
 		elif [ ! -w $dir ]; then
-			msg "Directory ${color_yellow}$dir${color_reset} not writable."
+			msgwarn "Directory ${color_yellow}$dir${color_reset} not writable."
 			DIR_ERROR=yes
 		elif [ ! -x $dir ] || [ ! -r $1 ]; then
-			msg "Directory ${color_yellow}$dir${color_reset} not readable."
+			msgwarn "Directory ${color_yellow}$dir${color_reset} not readable."
 			DIR_ERROR=yes
 		fi
 	done
@@ -659,7 +654,7 @@ main() {
 	
 	### CHECK SPKGBUILD ###
 	if [ -z "$name" ] || [ -z "$version" ] || [ -z "$release" ] || [ "$(basename `pwd`)" != "$name" ] || [ "`type -t build`" != "function" ]; then
-		msg "Error, please check spkgbuild."
+		msgerr "Please check spkgbuild."
 		exit 1
 	fi
 	

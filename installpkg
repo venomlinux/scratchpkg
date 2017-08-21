@@ -155,13 +155,16 @@ checkconflict() {
 	while IFS=' ' read -r line; do
 		pushd $ROOT_DIR
 			if [ -f "$line" ] || [ -L "$line" ]; then
-				msg "Conflict file!: ${color_yellow}${line}${color_reset}"
-				CONFLICT=yes
+				fileconflict+=(${line})
 			fi
 		popd
 	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall)
 	
-	if [ "$CONFLICT" ]; then
+	if [ "${#fileconflict[@]}" -gt 0 ]; then
+		msgerr "File conflict found:"
+		for fc in ${fileconflict[@]}; do
+			msg2 "$fc"
+		done
 		exit 1
 	fi
 	

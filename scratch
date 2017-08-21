@@ -90,7 +90,7 @@ checkowner() {
 
 	for installed in $(ls $INDEX_DIR); do
 		for output in $(cat $INDEX_DIR/$installed/.files | grep $OWNER_FILE_NAME); do
-			msg "${color_green}$installed${color_reset} => ${color_purple}$output${color_reset}"
+			msg "${color_cyan}$installed${color_reset} => ${color_purple}$output${color_reset}"
 		done
 	done
 	
@@ -351,7 +351,7 @@ pushtoport() {
 		fi
 	done
 
-	[ ! "$PORT_EXIST" ] && msg "Port ${color_red}$PORTNAME${color_reset} not found."
+	[ ! "$PORT_EXIST" ] && msgerr "Port ${color_red}$PORTNAME${color_reset} not found."
 }
 
 parse_options() {

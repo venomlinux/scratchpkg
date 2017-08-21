@@ -44,11 +44,19 @@ popd() {
 }
 
 msg() {
-	echo -e "${color_cyan}==>${color_reset} $1"
+	echo -e "${color_green}==>${color_reset} $1"
+}
+
+msgerr() {
+	echo -e "${color_red}==> ERROR:${color_reset} $1"
+}
+
+msgwarn() {
+	echo -e "${color_yellow}==> WARNING:${color_reset} $1"
 }
 
 msg2() {
-	echo -e "${color_blue}  -->${color_reset} $1"
+	echo -e "${color_blue}  ->${color_reset} $1"
 }
 
 msg3() {
@@ -129,6 +137,8 @@ updatesystemdb() {
 
 getpkginfo() {
 	
+	. $BUILD_SCRIPT
+	
 	description=$(cat $BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3-)
 	homepage=$(cat $BUILD_SCRIPT | grep ^'# homepage' | tr -d ':' | cut -d ' ' -f 3-)
 	maintainer=$(cat $BUILD_SCRIPT | grep ^'# maintainer' | tr -d ':' | cut -d ' ' -f 3-)
@@ -159,11 +169,11 @@ loadconfigfile() {
 	
 	if [ -f $CONF_FILE ]; then
 		. $CONF_FILE
-		PACKAGE_DIR=$(cat $CONF_FILE | grep ^'#PACKAGE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		SOURCE_DIR=$(cat $CONF_FILE | grep ^'#SOURCE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		WORK_DIR=$(cat $CONF_FILE | grep ^'#WORK_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		PORT_REPO=$(cat $CONF_FILE | grep ^'#PORT_REPO' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		PURGE_FILE=$(cat $CONF_FILE | grep ^'#PURGE_FILE' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		#PACKAGE_DIR=$(cat $CONF_FILE | grep ^'#PACKAGE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		#SOURCE_DIR=$(cat $CONF_FILE | grep ^'#SOURCE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		#WORK_DIR=$(cat $CONF_FILE | grep ^'#WORK_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		#PORT_REPO=$(cat $CONF_FILE | grep ^'#PORT_REPO' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
+		#PURGE_FILE=$(cat $CONF_FILE | grep ^'#PURGE_FILE' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
 	else
 		msg "${color_red}Configuration file not found.${color_reset}"
 		exit 1
