@@ -23,8 +23,8 @@ removepkg() {
 	spkglock
 	
 	# source .install script
-	if [ -f $INDEX_DIR/$1/.install ]; then
-		source $INDEX_DIR/$1/.install
+	if [ -f $INDEX_DIR/$1/.pkginstall ]; then
+		source $INDEX_DIR/$1/.pkginstall
 	fi
 	
 	if [ ! "$NO_PREREMOVE" ]; then	

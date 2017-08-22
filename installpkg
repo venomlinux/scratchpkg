@@ -30,8 +30,8 @@ installpkg() {
 	spkglock
 	
 	# source .install file inside package
-	if [ $(tar -tf "$PKGNAME" | grep ".install") ]; then
-		source <(tar -xf "$PKGNAME" .install -O)
+	if [ $(tar -tf "$PKGNAME" | grep -w ^".pkginstall") ]; then
+		source <(tar -xf "$PKGNAME" .pkginstall -O)
 	fi
 	
 	# run preinstall script if no --no-preinstall flag and not upgrade package
@@ -47,9 +47,9 @@ installpkg() {
 	#installing package into system
 	msg2 "Extracting package..."
 	if [ "$VERBOSE_INSTALL" ]; then
-		tar --keep-directory-symlink -x -v -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.install --exclude=.readme
+		tar --keep-directory-symlink -x -v -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme
 	else
-		tar --keep-directory-symlink -x -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.install --exclude=.readme
+		tar --keep-directory-symlink -x -p -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme
 	fi
 	
 		if [ $? != 0 ]; then
@@ -65,16 +65,16 @@ installpkg() {
 		
 	mkdir $INDEX_DIR/$name
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
-	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.install --exclude=.readme > $INDEX_DIR/$name/.files
+	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme > $INDEX_DIR/$name/.files
 	
 	#tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall/preinstall .pkginstall/postinstall .pkginstall/preupgrade .pkginstall/postupgrade .pkginstall/preremove .pkginstall/postremove .pkginstall/readme --strip=1 >/dev/null 2>&1
-	tar -x -f $PKGNAME -C $INDEX_DIR/$name .install .readme >/dev/null 2>&1
+	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 
 	msg "Successfully install ${color_green}$packagename${color_reset}."
 	
 	# source .install script
-	if [ -f $INDEX_DIR/$name/.install ]; then
-		source $INDEX_DIR/$name/.install
+	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
+		source $INDEX_DIR/$name/.pkginstall
 	fi
 	
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then

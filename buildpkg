@@ -76,6 +76,11 @@ getsource() {
 }
 
 downloadsource(){
+	
+	if [ ! -e /usr/bin/wgeta ]; then
+		msgerr "Wget not installed."
+		exitscript1
+	fi
 
 	tarballname=$(echo $1 | rev | cut -d / -f 1 | rev)
 	WGETCMD="wget --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$tarballname.partial"
@@ -156,13 +161,6 @@ preparesource() {
 		clearworkdir
 		exitscript1
 	fi
-	
-	#for runscript in preinstall postinstall preupgrade postupgrade preremove postremove readme; do
-		#if [ -f $runscript ]; then
-			#[ ! -d $PKG/.pkginstall ] && mkdir $PKG/.pkginstall
-			#cp $runscript $PKG/.pkginstall
-		#fi
-	#done
 }
 
 loadspkgbuild() {
@@ -204,8 +202,8 @@ runpreinstall() {
 
 packaging() {
 	
-	[ -f $name.install ] && cp $name.install $PKG/.install
-	[ -f readme ] && cp readme $PKG/.readme
+	[ -f $name.install ] && cp $name.install $PKG/.pkginstall
+	[ -f readme ] && cp readme $PKG/.pkgreadme
 	
 	pushd $PKG
 	
@@ -235,13 +233,8 @@ packaging() {
 	[ -n "$noextract" ] && echo "noextract = $noextract" >> .pkginfo
 	
 	msg "Packaging ${color_green}$name-$version-$release${color_reset}..."
-	#if [ -d .pkginstall ]; then
-		#tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo .pkginstall
-	#else
-		#tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo .${name}.install
-	#fi
 	
-	for file in .install .readme; do
+	for file in .pkginstall .pkgreadme; do
 		if [ -f $file ]; then
 			addtotar+=($file)
 		fi
