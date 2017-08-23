@@ -137,8 +137,6 @@ updatesystemdb() {
 
 getpkginfo() {
 	
-	. $BUILD_SCRIPT
-	
 	description=$(cat $BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3-)
 	homepage=$(cat $BUILD_SCRIPT | grep ^'# homepage' | tr -d ':' | cut -d ' ' -f 3-)
 	maintainer=$(cat $BUILD_SCRIPT | grep ^'# maintainer' | tr -d ':' | cut -d ' ' -f 3-)
@@ -147,6 +145,8 @@ getpkginfo() {
 	depends=$(cat $BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d ' ' -f 3-)
 	makedepends=$(cat $BUILD_SCRIPT | grep ^'# makedepends' | tr -d ':' | cut -d ' ' -f 3-)
 	noextract=$(cat $BUILD_SCRIPT | grep ^'# noextract' | tr -d ':' | cut -d ' ' -f 3-)
+	
+	. $BUILD_SCRIPT
 		
 }
 

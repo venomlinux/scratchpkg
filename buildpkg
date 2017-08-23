@@ -75,12 +75,16 @@ getsource() {
 	done
 }
 
-downloadsource(){
+checkforwget() {
 	
 	if [ ! -e /usr/bin/wget ]; then
 		msgerr "Wget not installed."
 		exitscript1
 	fi
+}
+	
+
+downloadsource(){
 
 	tarballname=$(echo $1 | rev | cut -d / -f 1 | rev)
 	WGETCMD="wget --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$tarballname.partial"
@@ -97,9 +101,11 @@ downloadsource(){
 		else
 			if [ -f $SOURCE_DIR/$tarballname.partial ]; then
 				msg "Resuming ${color_green}$1${color_reset}."
+				checkforwget
 				$WGETRESUME $1 && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			else
 				msg "Downloading ${color_green}$1${color_reset}."
+				checkforwget
 				$WGETCMD $1 && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			fi
 		fi
