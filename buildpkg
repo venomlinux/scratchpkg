@@ -77,7 +77,7 @@ getsource() {
 
 downloadsource(){
 	
-	if [ ! -e /usr/bin/wgeta ]; then
+	if [ ! -e /usr/bin/wget ]; then
 		msgerr "Wget not installed."
 		exitscript1
 	fi
