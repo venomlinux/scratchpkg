@@ -119,12 +119,10 @@ checkdeps() {
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
 			MSGDEP+=($dep)
-			#msg "Missing dep: ${color_yellow}$dep${color_reset}"
-			MISSING_DEP=yes
 		fi
 	done
 	
-	if [ "$MISSING_DEP" ]; then
+	if [ "${#MSGDEP[@]}" -gt 0 ]; then
 		msg "Missing dependencies:"
 		for msdp in ${MSGDEP[@]}; do
 			msg2 "$msdp"
