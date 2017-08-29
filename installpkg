@@ -13,6 +13,11 @@ installpkg() {
 	
 	msg "Installing ${color_green}$packagename${color_reset}..."
 	
+	# noextract file into system
+	for noextr in ${NO_EXTRACT[@]}; do
+		excludefile+=(--exclude=$noextr)
+	done
+	
 	#ignore dependency check
 	if [ ! "$IGNORE_DEP" ]; then
 		msg2 "Checking package dependencies..."
@@ -44,11 +49,6 @@ installpkg() {
 		run_preupgrade
 	fi
 	
-	# noextract file into system
-	for noextr in ${NO_EXTRACT[@]}; do
-		excludefile+=(--exclude=$noextr)
-	done
-	
 	#installing package into system
 	msg2 "Extracting package..."
 	if [ "$VERBOSE_INSTALL" ]; then
@@ -58,7 +58,7 @@ installpkg() {
 	fi
 	
 		if [ $? != 0 ]; then
-			msg "Failed install ${color_red}$packagename${color_reset}."
+			msgerr "Failed install ${color_red}$packagename${color_reset}."
 			pushd $ROOT_DIR
 				while IFS=' ' read -r line; do
 					rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
@@ -147,7 +147,7 @@ checkpkgconflict() {
 	
 }
 
-checkconflict() {	
+checkconflict() {
 	
 	while IFS=' ' read -r line; do
 		pushd $ROOT_DIR
@@ -155,7 +155,7 @@ checkconflict() {
 				fileconflict+=(${line})
 			fi
 		popd
-	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall)
+	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]})
 	
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
 		msgerr "File conflict found:"
@@ -219,7 +219,7 @@ backupconf() {
 	pushd $ROOT_DIR
 	
 		for bkp in ${backup[@]}; do
-			if [ -e $b ]; then
+			if [ -e $bkp ]; then
 				msg2 "Backup ${color_purple}$bkp${color_reset}"
 				cp $bkp $BACKUP_DIR
 				DONE_BACKUP=yes

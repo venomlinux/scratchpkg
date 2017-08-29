@@ -76,7 +76,7 @@ rmdir_silent() {
 }
 
 rm_silent() {
-	command rm -d "$@" 2> /dev/null
+	command rm "$@" 2> /dev/null
 }
 
 nocolor() {

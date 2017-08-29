@@ -31,16 +31,38 @@ removepkg() {
 		run_preremove
 	fi
 
-	msg2 "Deleting files..."
+	msg2 "Removing files..."
 	while IFS=' ' read -r line; do
-		pushd $ROOT_DIR
-			if [ "$VERBOSE_REMOVE" = "yes" ]; then
-				rm_silent -v "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
-			else
-				rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
+			pushd $ROOT_DIR
+				if [ "$VERBOSE_REMOVE" = "yes" ]; then
+					rm_silent "$line" && echo "   Removed: $line" || msgwarn "Failed remove $line"
+				else
+					rm_silent "$line" || msgwarn "Failed remove $line"
+				fi
+			popd
+	done < <(tac $INDEX_DIR/$1/.files | grep -v '/$')
+
+	msg2 "Removing dirs..."
+	while IFS=' ' read -r line; do
+		NOREMOVE=""
+		for allinst in $(ls $INDEX_DIR); do
+			if [ $1 != $allinst ]; then
+				if [ $(cat $INDEX_DIR/$allinst/.files | grep -w "$line") ]; then
+					NOREMOVE=yes
+					break
+				fi
 			fi
-		popd
-	done < <(tac $INDEX_DIR/$1/.files)
+		done
+		if [ ! "$NOREMOVE" ]; then
+			pushd $ROOT_DIR
+				if [ "$VERBOSE_REMOVE" = "yes" ]; then
+					rmdir_silent "$line" && echo "   Removed: $line" || msgwarn "Failed remove $line"
+				else
+					rmdir_silent "$line" || msgwarn "Failed remove $line"
+				fi
+			popd
+		fi
+	done < <(tac $INDEX_DIR/$1/.files | grep '/$')
 	
 	if [ ! "$NO_POSTREMOVE" ]; then
 		run_postremove
