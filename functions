@@ -47,6 +47,10 @@ msg() {
 	echo -e "${color_green}==>${color_reset} $1"
 }
 
+msginfo() {
+	echo -e "${color_cyan}==> INFO:${color_reset} $1"
+}
+
 msgerr() {
 	echo -e "${color_red}==> ERROR:${color_reset} $1"
 }

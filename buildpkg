@@ -189,7 +189,7 @@ buildpackage() {
 	(set -e -x ; build)
 		
 		if [ $? != 0 ]; then
-			msg "Build ${color_red}$PKGNAME${color_reset} failed."	
+			msgerr "Build ${color_red}$PKGNAME${color_reset} failed."	
 			clearworkdir
 			exitscript1
 		else
