@@ -71,11 +71,12 @@ searchpkg() {
 					popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
+							search_result="${color_purple}($portname)${color_reset} $name ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
-								msg3 "($portname) ${color_green}$name${color_reset} $version-$release"
+								msg3 "$search_result ${color_green}[installed]${color_reset}"
 								msg4 "$description"
 							else
-								msg3 "($portname) $name $version-$release"
+								msg3 "$search_result"
 								msg4 "$description"
 							fi
 							unset description
@@ -171,19 +172,18 @@ showdepends() {
 		if [ -f $portdepends/$PACKAGE_DEPENDS/$BUILD_SCRIPT ]; then
 			pushd $portdepends/$PACKAGE_DEPENDS
 				getpkginfo
-				. $BUILD_SCRIPT
 			popd
 			break
 		fi
 	done
 	if [ -z $name ]; then
-		msg "Port ${color_red}$PACKAGE_DEPENDS${color_reset} not exist."
+		msgerr "Port ${color_red}$PACKAGE_DEPENDS${color_reset} not exist."
 		exit 1
 	fi
 			
 	for dep in ${depends[@]}; do
 		if [ -d $INDEX_DIR/$dep ]; then
-			msg2 "${color_green}$dep${color_reset}"
+			msg2 "$dep ${color_green}[installed]${color_reset}"
 		else		
 			PORT_EXIST=no
 			for port in ${PORT_REPO[@]}; do
@@ -193,15 +193,15 @@ showdepends() {
 				fi
 			done
 				case $PORT_EXIST in
-					yes)	msg2 "${color_yellow}$dep${color_reset}" ;;
-					no)		msg2 "${color_red}$dep${color_reset}" ;;
+					yes)	msg2 "$dep" ;;
+					no)		msg2 "$dep ${color_red}[port not exist]${color_reset}" ;;
 				esac
 		fi
 	done
 			
 	for mdep in ${makedepends[@]}; do
 		if [ -d $INDEX_DIR/$mdep ]; then
-			msg2 "${color_green}$mdep${color_reset} (make)"
+			msg2 "$mdep ${color_cyan}(make)${color_reset} ${color_green}[installed]${color_reset}"
 		else		
 			PORT_EXIST=no
 			for port in ${PORT_REPO[@]}; do
@@ -211,8 +211,8 @@ showdepends() {
 				fi
 			done
 				case $PORT_EXIST in
-					yes)	msg2 "${color_yellow}$mdep${color_reset} (make)" ;;
-					no)		msg2 "${color_red}$mdep${color_reset} (make)" ;;
+					yes)	msg2 "$mdep ${color_cyan}(make)${color_reset}" ;;
+					no)		msg2 "$mdep ${color_cyan}(make)${color_reset} ${color_red}[port not exist]${color_reset}" ;;
 				esac
 		fi
 	done
@@ -253,7 +253,7 @@ showdependent() {
 			makedepend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^makedepends | cut -d " " -f3-)
 				for mdep in ${makedepend[@]}; do
 					if [ $mdep = $PACKAGE_DEPENDENT ]; then
-							msg2 "$all_installed (make)"
+							msg2 "$all_installed ${color_cyan}(make)${color_reset}"
 					fi
 				done
 		done
@@ -270,9 +270,9 @@ showglobaldependent() {
 						for dep in ${depend[@]}; do
 							if [ $dep = $GLOBAL_PACKAGE_DEPENDENT ]; then
 								if [ -d $INDEX_DIR/$all ]; then
-									msg2 "${color_green}$all${color_reset}"
+									msg2 "$all ${color_green}[installed]${color_reset}"
 								else
-									msg2 "${color_yellow}$all${color_reset}"
+									msg2 "$all"
 								fi
 							fi
 						done
@@ -280,9 +280,9 @@ showglobaldependent() {
 						for mdep in ${makedepend[@]}; do
 							if [ $mdep = $GLOBAL_PACKAGE_DEPENDENT ]; then
 								if [ -d $INDEX_DIR/$all ]; then
-									msg2 "${color_green}$all${color_reset} (make)"
+									msg2 "$all ${color_cyan}(make)${color_reset} ${color_green}[installed]${color_reset}"
 								else
-									msg2 "${color_yellow}$all${color_reset} (make)"
+									msg2 "$all ${color_cyan}(make)${color_reset}"
 								fi
 							fi
 						done

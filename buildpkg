@@ -357,7 +357,7 @@ checkdeps() {
 			msg2 "$msd"
 		done
 		for msmkd in ${MSMKDEP[@]}; do
-			msg2 "$msmkd (make)"
+			msg2 "$msmkd ${color_cyan}(make)${color_reset}"
 		done
 		exitscript1
 	fi
