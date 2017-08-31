@@ -4,8 +4,14 @@ updatemdsum() {
 	
 	if [ ! -z $source ]; then
 		for sources in ${source[@]}; do
-			if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
-				sourcename=$SOURCE_DIR/$(echo $sources | rev | cut -d / -f 1 | rev)
+			#if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
+			if [ $(echo ${source[$s]} | grep -E "(ftp|http|https)://") ]; then
+				if [ $(echo ${source[$s]} | grep -E "::(ftp|http|https)://") ]; then
+					sourcename=$SOURCE_DIR/$(echo ${source[$s]} | awk -F '::' '{print $1}')
+				else
+					sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
+				fi
+				#sourcename=$SOURCE_DIR/$(echo $sources | rev | cut -d / -f 1 | rev)
 			else
 				sourcename="$sources"
 			fi
@@ -45,8 +51,14 @@ checkmdsum() {
 	fi
 	
 	for s in $(seq 0 $((${#source[@]} - 1))); do
-		if [[ ${source[$s]} =~ ^(http|https|ftp)://.*/(.+) ]]; then
-			sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
+		#if [[ ${source[$s]} =~ ^(http|https|ftp)://.*/(.+) ]]; then
+		if [ $(echo ${source[$s]} | grep -E "(ftp|http|https)://") ]; then
+			if [ $(echo ${source[$s]} | grep -E "::(ftp|http|https)://") ]; then
+				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | awk -F '::' '{print $1}')
+			else
+				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
+			fi
+			#sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
 		else
 			sourcename="${source[$s]}"
 		fi
@@ -69,7 +81,8 @@ checkmdsum() {
 getsource() {
 	
 	for sources in ${source[@]}; do 
-		if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
+		#if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
+		if [ $(echo $sources | grep -E "(ftp|http|https)://") ]; then
 			downloadsource $sources
 		fi
 	done
@@ -86,7 +99,14 @@ checkforwget() {
 
 downloadsource(){
 
-	tarballname=$(echo $1 | rev | cut -d / -f 1 | rev)
+	if [ $(echo $1 | grep -E "::(ftp|http|https)://") ]; then
+		tarballname=$(echo $1 | awk -F '::' '{print $1}')
+		tarballurl=$(echo $1 | awk -F '::' '{print $2}')
+	else
+		tarballname=$(echo $1 | rev | cut -d / -f 1 | rev)
+		tarballurl=$1
+	fi
+	
 	WGETCMD="wget --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$tarballname.partial"
 	WGETRESUME="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$tarballname.partial"
 
@@ -102,11 +122,11 @@ downloadsource(){
 			if [ -f $SOURCE_DIR/$tarballname.partial ]; then
 				msg "Resuming ${color_green}$1${color_reset}."
 				checkforwget
-				$WGETRESUME $1 && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
+				$WGETRESUME $tarballurl && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			else
 				msg "Downloading ${color_green}$1${color_reset}."
 				checkforwget
-				$WGETCMD $1 && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
+				$WGETCMD $tarballurl && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			fi
 		fi
 	fi
@@ -124,8 +144,14 @@ preparesource() {
 	if [ "${#source[@]}" -gt 0 ]; then
 		msg "Preparing sources..."
 		for sources in ${source[@]}; do 
-			if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
-				tarballname=$(echo $sources | rev | cut -d / -f 1 | rev)
+			#if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
+			if [ $(echo $sources | grep -E "(ftp|http|https)://") ]; then
+				if [ $(echo $sources | grep -E "::(ftp|http|https)://") ]; then
+					tarballname=$(echo $sources | awk -F '::' '{print $1}')
+				else
+					tarballname=$(echo $sources | rev | cut -d / -f 1 | rev)
+				fi
+				#tarballname=$(echo $sources | rev | cut -d / -f 1 | rev)
 				NO_EXTRACT=""
 					for i in ${noextract[@]}; do
 						if [ "$i" = "$tarballname" ]; then
@@ -148,7 +174,7 @@ preparesource() {
 							$COMMAND
 							
 							if [ $? != 0 ]; then
-								msg "$MODE ${color_red}$tarballname${color_reset} failed."
+								msgerr "$MODE ${color_red}$tarballname${color_reset} failed."
 								clearworkdir
 								exitscript1
 							fi						
@@ -248,7 +274,7 @@ packaging() {
 	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo "${addtotar[@]}"
 	
 	if [ $? != 0 ]; then
-		msg "Packaging ${color_red}$PKGNAME${color_reset} failed."
+		msgerr "Packaging ${color_red}$PKGNAME${color_reset} failed."
 		if [ -f $PACKAGE_DIR/$PKGNAME ]; then
 			rm $PACKAGE_DIR/$PKGNAME
 		fi
