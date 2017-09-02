@@ -3,17 +3,15 @@
 updatemdsum() {
 	
 	if [ ! -z $source ]; then
-		for sources in ${source[@]}; do
-			#if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
-			if [ $(echo ${source[$s]} | grep -E "(ftp|http|https)://") ]; then
-				if [ $(echo ${source[$s]} | grep -E "::(ftp|http|https)://") ]; then
-					sourcename=$SOURCE_DIR/$(echo ${source[$s]} | awk -F '::' '{print $1}')
+		for um in $(seq 0 $((${#source[@]} - 1))); do
+			if [ $(echo ${source[$um]} | grep -E "(ftp|http|https)://") ]; then
+				if [ $(echo ${source[$um]} | grep -E "::(ftp|http|https)://") ]; then
+					sourcename="$SOURCE_DIR/$(echo ${source[$um]} | awk -F '::' '{print $1}')"
 				else
-					sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
+					sourcename="$SOURCE_DIR/$(echo ${source[$um]} | rev | cut -d / -f 1 | rev)"
 				fi
-				#sourcename=$SOURCE_DIR/$(echo $sources | rev | cut -d / -f 1 | rev)
 			else
-				sourcename="$sources"
+				sourcename="${source[$um]}"
 			fi
 			needupdatechecksum="$needupdatechecksum $sourcename"
 		done
@@ -51,14 +49,12 @@ checkmdsum() {
 	fi
 	
 	for s in $(seq 0 $((${#source[@]} - 1))); do
-		#if [[ ${source[$s]} =~ ^(http|https|ftp)://.*/(.+) ]]; then
 		if [ $(echo ${source[$s]} | grep -E "(ftp|http|https)://") ]; then
 			if [ $(echo ${source[$s]} | grep -E "::(ftp|http|https)://") ]; then
 				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | awk -F '::' '{print $1}')
 			else
 				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
 			fi
-			#sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
 		else
 			sourcename="${source[$s]}"
 		fi
@@ -80,8 +76,7 @@ checkmdsum() {
 
 getsource() {
 	
-	for sources in ${source[@]}; do 
-		#if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
+	for sources in ${source[@]}; do
 		if [ $(echo $sources | grep -E "(ftp|http|https)://") ]; then
 			downloadsource $sources
 		fi
@@ -119,13 +114,12 @@ downloadsource(){
 		if [ -f $SOURCE_DIR/$tarballname ]; then
 			msg "Source file ${color_green}$tarballname${color_reset} found."
 		else
+			checkforwget
 			if [ -f $SOURCE_DIR/$tarballname.partial ]; then
 				msg "Resuming ${color_green}$1${color_reset}."
-				checkforwget
 				$WGETRESUME $tarballurl && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			else
 				msg "Downloading ${color_green}$1${color_reset}."
-				checkforwget
 				$WGETCMD $tarballurl && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			fi
 		fi
@@ -144,14 +138,12 @@ preparesource() {
 	if [ "${#source[@]}" -gt 0 ]; then
 		msg "Preparing sources..."
 		for sources in ${source[@]}; do 
-			#if [[ $sources =~ ^(http|https|ftp)://.*/(.+) ]]; then
 			if [ $(echo $sources | grep -E "(ftp|http|https)://") ]; then
 				if [ $(echo $sources | grep -E "::(ftp|http|https)://") ]; then
 					tarballname=$(echo $sources | awk -F '::' '{print $1}')
 				else
 					tarballname=$(echo $sources | rev | cut -d / -f 1 | rev)
 				fi
-				#tarballname=$(echo $sources | rev | cut -d / -f 1 | rev)
 				NO_EXTRACT=""
 					for i in ${noextract[@]}; do
 						if [ "$i" = "$tarballname" ]; then
