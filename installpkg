@@ -403,6 +403,14 @@ parse_options() {
 		*.spkg.txz)
 			[ -f $1 ] && PKGNAME=$1 || msg "${color_red}$1${color_reset} not exist."
 			;;
+		--root)
+			if [ ! "$2" ]; then
+				msg "Option '$1' require an argument (root path)."
+				exit 1
+			fi
+			ROOT="$2"
+			shift
+			;;
 		-h|--help)
 			SHOW_HELP=yes
 			;;
@@ -428,6 +436,14 @@ main() {
 	fi
 	
 	loadconfigfile
+	
+	# CHANGE ROOT PATH ###
+	if [ "$ROOT" ]; then
+		ROOT_DIR="$ROOT"
+		INDEX_DIR="$ROOT_DIR/$INDEX_DIR"
+		BACKUP_DIR="$ROOT_DIR/$BACKUP_DIR"
+		REJECTED_DIR="$ROOT_DIR/$REJECTED_DIR"
+	fi
 	
 	### SHOW HELP ###
 	if [ "$SHOW_HELP" ]; then
