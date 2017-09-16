@@ -208,7 +208,7 @@ upgradepkg() {
 	if [ ! "$NO_BACKUP" ]; then
 		backupconf
 	fi
-	removepkg $name -id --no-preremove --no-postremove --no-orphan-check
+	ROOT="$ROOT" removepkg $name -id --no-preremove --no-postremove --no-orphan-check
 	NO_PREINSTALL=yes
 	NO_POSTINSTALL=yes
 	
