@@ -686,8 +686,8 @@ main() {
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.$name.lock ]; then
-		msg "Cant build same package simultaneously."
-		msg "remove ${color_yellow}/tmp/spkg.$name.lock${color_reset} if no build process for ${color_yellow}$name.${color_reset}"
+		msgerr "Cant build same package simultaneously."
+		msgerr "remove ${color_yellow}/tmp/spkg.$name.lock${color_reset} if no build process for ${color_yellow}$name.${color_reset}"
 		exit 1
 	fi
 	

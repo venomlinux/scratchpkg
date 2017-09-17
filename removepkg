@@ -283,7 +283,7 @@ main() {
 	
 	### CHECK FOR ROOT ACCESS ###
 	if [ "$UID" != "0" ]; then
-		msg "${color_red}Removing package need root access.${color_reset}"
+		msgerr "${color_red}Removing package need root access.${color_reset}"
 		exit 1
 	fi
 	
@@ -291,8 +291,8 @@ main() {
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then
-		msg "Cant install/remove package simultaneously."
-		msg "remove /tmp/spkg.lock if no install/remove package process running."
+		msgerr "Cant install/remove package simultaneously."
+		msgerr "remove ${color_yellow}/tmp/spkg.lock${color_reset} if no install/remove package process running."
 		exit 1
 	fi
 	
