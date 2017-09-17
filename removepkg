@@ -35,7 +35,7 @@ removepkg() {
 	while IFS=' ' read -r line; do
 			pushd $ROOT_DIR
 				if [ "$VERBOSE_REMOVE" = "yes" ]; then
-					rm_silent "$line" && echo "   Removed: $line" || msgwarn "Failed remove $line"
+					rm_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
 				else
 					rm_silent "$line" || msgwarn "Failed remove $line"
 				fi
@@ -45,18 +45,13 @@ removepkg() {
 	msg2 "Removing dirs..."
 	while IFS=' ' read -r line; do
 		NOREMOVE=""
-		for allinst in $(ls $INDEX_DIR); do
-			if [ $1 != $allinst ]; then
-				if [ "$(cat $INDEX_DIR/$allinst/.files | grep -w "$line")" ]; then
-					NOREMOVE=yes
-					break
-				fi
-			fi
-		done
+		if [ "$(find "$INDEX_DIR" -path "$INDEX_DIR"/$1 -prune -o -name .files -exec grep "$line" {} \;)" ]; then
+			NOREMOVE=yes
+		fi
 		if [ ! "$NOREMOVE" ]; then
 			pushd $ROOT_DIR
 				if [ "$VERBOSE_REMOVE" = "yes" ]; then
-					rmdir_silent "$line" && echo "   Removed: $line" || msgwarn "Failed remove $line"
+					rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
 				else
 					rmdir_silent "$line" || msgwarn "Failed remove $line"
 				fi
