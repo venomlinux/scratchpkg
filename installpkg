@@ -27,7 +27,7 @@ installpkg() {
 	#ignore conflict
 	if [ ! "$IGNORE_CONFLICT" ]; then
 		msg2 "Checking package/file conflict..."
-		if [ "$UPGRADE_PKG" ]; then
+		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 			upcheckconflict
 		else
 			checkconflict
@@ -39,7 +39,7 @@ installpkg() {
 	spkglock
 	
 	# source .install file inside package
-	if [ $(tar -tf "$PKGNAME" | grep -w ^".pkginstall") ]; then
+	if [ $(tar -tf "$PKGNAME" | grep -w ^".pkginstall") ] && [ ! "$REINSTALL_PKG" ]; then
 		source <(tar -xf "$PKGNAME" .pkginstall -O)
 	fi
 	
@@ -72,7 +72,7 @@ installpkg() {
 			exit 1
 		fi
 		
-	if [ "$UPGRADE_PKG" ]; then
+	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		while IFS=' ' read -r line; do
 			if [ ! "$(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -w "$line")" ]; then
 				pushd $ROOT_DIR
@@ -90,15 +90,14 @@ installpkg() {
 		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
 		tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
-		msg "Successfully upgrade ${color_green}$packagename${color_reset}."
 	else
 		# register package, for install
 		mkdir $INDEX_DIR/$name
 		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
 		tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
-		msg "Successfully install ${color_green}$packagename${color_reset}."
 	fi	
+		msg "Successfully install ${color_green}$packagename${color_reset}."
 	
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		run_postinstall
@@ -254,9 +253,6 @@ upgradepkg() {
 	if [ ! "$NO_BACKUP" ]; then
 		backupconf
 	fi
-	#ROOT="$ROOT" removepkg $name -id --no-preremove --no-postremove --no-orphan-check
-	#NO_PREINSTALL=yes
-	#NO_POSTINSTALL=yes
 	
 }
 
