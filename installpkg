@@ -27,7 +27,11 @@ installpkg() {
 	#ignore conflict
 	if [ ! "$IGNORE_CONFLICT" ]; then
 		msg2 "Checking package/file conflict..."
-		checkconflict
+		if [ "$UPGRADE_PKG" ]; then
+			upcheckconflict
+		else
+			checkconflict
+		fi
 		checkpkgconflict
 	fi
 	
@@ -68,13 +72,33 @@ installpkg() {
 			exit 1
 		fi
 		
-	mkdir $INDEX_DIR/$name
-	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
-	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
-	
-	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
-
-	msg "Successfully install ${color_green}$packagename${color_reset}."
+	if [ "$UPGRADE_PKG" ]; then
+		while IFS=' ' read -r line; do
+			if [ ! "$(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -w "$line")" ]; then
+				pushd $ROOT_DIR
+					rm_silent "$line" || msgwarn "Failed remove $line"
+				popd
+			fi
+		done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
+		while IFS=' ' read -r line; do
+			if [ ! "$(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -w "$line")" ] && [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
+				pushd $ROOT_DIR
+					rmdir_silent "$line" || msgwarn "Failed remove $line"
+				popd
+			fi
+		done < <(tac $INDEX_DIR/$name/.files | grep '/$')
+		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
+		tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
+		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
+		msg "Successfully upgrade ${color_green}$packagename${color_reset}."
+	else
+		# register package, for install
+		mkdir $INDEX_DIR/$name
+		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
+		tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
+		tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
+		msg "Successfully install ${color_green}$packagename${color_reset}."
+	fi	
 	
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		run_postinstall
@@ -167,6 +191,28 @@ checkconflict() {
 	
 }
 
+upcheckconflict() {
+	
+	while IFS=' ' read -r line; do
+		pushd $ROOT_DIR
+			if [ -f "$line" ] || [ -L "$line" ]; then
+				if [ ! "$(grep -w "$line" "$INDEX_DIR/$name/.files")" ]; then
+					fileconflict+=(${line})
+				fi
+			fi
+		popd
+	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]})
+	
+	if [ "${#fileconflict[@]}" -gt 0 ]; then
+		msgerr "File conflict found:"
+		for fc in ${fileconflict[@]}; do
+			msg2 "$fc"
+		done
+		exit 1
+	fi
+	
+}
+
 getname() {
 	
 	name=$(tar xf $PKGNAME .pkginfo -O | grep ^name | cut -d " " -f3)
@@ -208,9 +254,9 @@ upgradepkg() {
 	if [ ! "$NO_BACKUP" ]; then
 		backupconf
 	fi
-	ROOT="$ROOT" removepkg $name -id --no-preremove --no-postremove --no-orphan-check
-	NO_PREINSTALL=yes
-	NO_POSTINSTALL=yes
+	#ROOT="$ROOT" removepkg $name -id --no-preremove --no-postremove --no-orphan-check
+	#NO_PREINSTALL=yes
+	#NO_POSTINSTALL=yes
 	
 }
 
