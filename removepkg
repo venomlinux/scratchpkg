@@ -44,11 +44,9 @@ removepkg() {
 
 	msg2 "Removing dirs..."
 	while IFS=' ' read -r line; do
-		NOREMOVE=""
-		if [ "$(find "$INDEX_DIR" -path "$INDEX_DIR"/$1 -prune -o -name .files -exec grep "$line" {} \;)" ]; then
-			NOREMOVE=yes
-		fi
-		if [ ! "$NOREMOVE" ]; then
+		#NOREMOVE=""
+		#if [ ! "$(find "$INDEX_DIR" -path "$INDEX_DIR"/$1 -prune -o -name .files -exec grep "$line" {} \;)" ]; then
+		if [ ! "$(grep -R --exclude-dir="$1" -w "$line" "$INDEX_DIR")" ]; then
 			pushd $ROOT_DIR
 				if [ "$VERBOSE_REMOVE" = "yes" ]; then
 					rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
@@ -63,12 +61,9 @@ removepkg() {
 		run_postremove
 	fi
 	
-	for file in $(cat $INDEX_DIR/$1/.files); do
-		if [ $file = usr/share/info/ ]; then	
-			UPDATE_INFO_PAGES=yes
-			break
-		fi
-	done
+	if [ "$(grep -w usr/share/info/ $INDEX_DIR/$1/.files)" ]; then
+		UPDATE_INFO_PAGES=yes
+	fi
 	
 	rm -R $INDEX_DIR/$1
 
