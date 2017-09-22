@@ -86,7 +86,7 @@ installpkg() {
 		
 		msg2 "Removing old files..."		
 		grep -v '/$' $INDEX_DIR/$name/.files | while read line; do
-			if [ ! "$(grep -x "$line" $TMP_TARLIST)" ]; then
+			if [ ! "$(grep -Fx "$line" $TMP_TARLIST)" ]; then
 				pushd $ROOT_DIR
 					if [ "$VERBOSE_INSTALL" = "yes" ]; then
 						rm_silent "$line" && echo "$line" && OLDFILEREMOVE=yes || msgwarn "Failed remove $line"
