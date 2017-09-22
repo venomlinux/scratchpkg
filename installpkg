@@ -222,7 +222,7 @@ upcheckconflict() {
 	while IFS=' ' read -r line; do
 		pushd $ROOT_DIR
 			if [ -e "$line" ]; then
-				if [ ! "$(grep -w "$line" "$INDEX_DIR/$name/.files")" ]; then
+				if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
 					fileconflict+=(${line})
 				fi
 			fi
