@@ -46,7 +46,7 @@ installpkg() {
 	fi
 	
 	# source .install file inside package
-	if [ $(tar -tf "$PKGNAME" | grep -w ^".pkginstall") ] && [ ! "$REINSTALL_PKG" ]; then
+	if [ $(tar -tf "$PKGNAME" | grep -x ".pkginstall") ] && [ ! "$REINSTALL_PKG" ]; then
 		source <(tar -xf "$PKGNAME" .pkginstall -O)
 	fi
 	
@@ -86,7 +86,7 @@ installpkg() {
 		
 		msg2 "Removing old files..."		
 		grep -v '/$' $INDEX_DIR/$name/.files | while read line; do
-			if [ ! "$(grep -w "$line" $TMP_TARLIST)" ]; then
+			if [ ! "$(grep -x "$line" $TMP_TARLIST)" ]; then
 				pushd $ROOT_DIR
 					if [ "$VERBOSE_INSTALL" = "yes" ]; then
 						rm_silent "$line" && echo "$line" && OLDFILEREMOVE=yes || msgwarn "Failed remove $line"
@@ -99,7 +99,7 @@ installpkg() {
 		
 		msg2 "Removing old dirs..."
 		while IFS=' ' read -r line; do
-			if [ ! "$(tac $TMP_TARLIST | grep -w "$line")" ] && [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
+			if [ ! "$(tac $TMP_TARLIST | grep -x "$line")" ] && [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
 				pushd $ROOT_DIR
 					if [ "$VERBOSE_INSTALL" = "yes" ]; then
 						rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
@@ -569,7 +569,7 @@ main() {
 	updatesystemdb
 	
 	### UPDATE INFO PAGES ###
-	if [ "$(grep -w usr/share/info/ $INDEX_DIR/$name/.files)" ]; then
+	if [ "$(grep -x usr/share/info/ $INDEX_DIR/$name/.files)" ]; then
 		updateinfopages
 	fi
 	
