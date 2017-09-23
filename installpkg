@@ -115,8 +115,6 @@ installpkg() {
 
 	registerpkg
 	
-	msg "Successfully install ${color_green}$packagename${color_reset}."
-	
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		run_postinstall
 	fi
@@ -162,6 +160,8 @@ registerpkg() {
 	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 	
+	msg "Successfully install ${color_green}$packagename${color_reset}."
+	
 }
 
 checkdeps() {
@@ -199,13 +199,13 @@ checkpkgconflict() {
 
 checkconflict() {
 	
-	while IFS=' ' read -r line; do
-		pushd $ROOT_DIR
-			if [ -e "$line" ]; then
-				fileconflict+=(${line})
-			fi
-		popd
-	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
+	pushd $ROOT_DIR
+		while IFS=' ' read -r line; do
+				if [ -e "$line" ]; then
+					fileconflict+=(${line})
+				fi
+		done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
+	popd
 	
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
 		msgerr "File conflict found:"
@@ -218,16 +218,16 @@ checkconflict() {
 }
 
 upcheckconflict() {
-	
-	while IFS=' ' read -r line; do
-		pushd $ROOT_DIR
-			if [ -e "$line" ]; then
-				if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
-					fileconflict+=(${line})
+		
+	pushd $ROOT_DIR
+		while IFS=' ' read -r line; do
+				if [ -e "$line" ]; then
+					if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
+						fileconflict+=(${line})
+					fi
 				fi
-			fi
-		popd
-	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
+		done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
+	popd
 	
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
 		msgerr "File conflict found:"
@@ -277,16 +277,14 @@ updateinfopages() {
 
 backupconf() {
 	
-	pushd $ROOT_DIR
-	
+	pushd $ROOT_DIR	
 		for bkp in ${backup[@]}; do
 			if [ -e $bkp ]; then
 				msg2 "Backup ${color_purple}$bkp${color_reset}"
 				cp $bkp $BACKUP_DIR
 				FILEBACKUP+=($bkp)
 			fi
-		done
-	
+		done	
 	popd
 }
 
@@ -459,15 +457,7 @@ parse_options() {
 			NO_ORPHAN_CHECK=yes
 			;;
 		*.spkg.txz)
-			[ -f $1 ] && PKGNAME=$1 || msg "${color_red}$1${color_reset} not exist."
-			;;
-		--root)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (root path)."
-				exit 1
-			fi
-			ROOT="$2"
-			shift
+			[ -f "$1" ] && PKGNAME="$1" || msg "${color_red}$1${color_reset} not exist."
 			;;
 		-h|--help)
 			SHOW_HELP=yes
@@ -494,14 +484,6 @@ main() {
 	fi
 	
 	loadconfigfile
-	
-	# CHANGE ROOT PATH ###
-	if [ "$ROOT" ]; then
-		ROOT_DIR="$ROOT"
-		INDEX_DIR="$ROOT_DIR/$INDEX_DIR"
-		BACKUP_DIR="$ROOT_DIR/$BACKUP_DIR"
-		REJECTED_DIR="$ROOT_DIR/$REJECTED_DIR"
-	fi
 	
 	### SHOW HELP ###
 	if [ "$SHOW_HELP" ]; then

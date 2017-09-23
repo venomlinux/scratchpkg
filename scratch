@@ -111,16 +111,16 @@ showtree() {
 
 checkintegrity() {
 	
-	for installed in $(ls $INDEX_DIR); do
-		while IFS=' ' read -r line; do
-			pushd $ROOT_DIR
-				if [ ! -e "$line" ]; then
-					msg "${color_yellow}$installed${color_reset} is missing: ${color_purple}/$line${color_reset}"
-					MISSING_FILE=yes
-				fi
-			popd
-		done < <(cat $INDEX_DIR/$installed/.files)
-	done
+	pushd $ROOT_DIR
+		for installed in $(ls $INDEX_DIR); do
+			while IFS=' ' read -r line; do
+					if [ ! -e "$line" ]; then
+						msg "${color_yellow}$installed${color_reset} is missing: ${color_purple}/$line${color_reset}"
+						MISSING_FILE=yes
+					fi
+			done < <(cat $INDEX_DIR/$installed/.files)
+		done
+	popd
 	
 	[ "$UID" != "0" ] && msg "${color_yellow}(check integrity is recommended run as root user or using sudo)${color_reset}"
 	[ ! "$MISSING_FILE" ] && msg "Your system file is consistent with package tree."
@@ -318,8 +318,6 @@ showportpath() {
 }
 
 interrupted() {
-	#echo ""
-	#msg "${color_yellow}Interrupted!${color_reset}"
 	exit 1
 }
 
@@ -559,9 +557,9 @@ main() {
 	# CHANGE ROOT PATH ###
 	if [ "$ROOT" ]; then
 		ROOT_DIR="$ROOT"
-		INDEX_DIR="$ROOT_DIR/$INDEX_DIR"
-		BACKUP_DIR="$ROOT_DIR/$BACKUP_DIR"
-		REJECTED_DIR="$ROOT_DIR/$REJECTED_DIR"
+		INDEX_DIR="$ROOT_DIR$INDEX_DIR"
+		BACKUP_DIR="$ROOT_DIR$BACKUP_DIR"
+		REJECTED_DIR="$ROOT_DIR$REJECTED_DIR"
 	fi
 	
 	### SHOW PORT PATH ###

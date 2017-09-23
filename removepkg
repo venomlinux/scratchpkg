@@ -44,8 +44,6 @@ removepkg() {
 
 	msg2 "Removing dirs..."
 	while IFS=' ' read -r line; do
-		#NOREMOVE=""
-		#if [ ! "$(find "$INDEX_DIR" -path "$INDEX_DIR"/$1 -prune -o -name .files -exec grep "$line" {} \;)" ]; then
 		if [ ! "$(grep -R --exclude-dir="$1" -w "$line" "$INDEX_DIR")" ]; then
 			pushd $ROOT_DIR
 				if [ "$VERBOSE_REMOVE" = "yes" ]; then
@@ -61,7 +59,7 @@ removepkg() {
 		run_postremove
 	fi
 	
-	if [ "$(grep -w usr/share/info/ $INDEX_DIR/$1/.files)" ]; then
+	if [ "$(grep -x usr/share/info/ $INDEX_DIR/$1/.files)" ]; then
 		UPDATE_INFO_PAGES=yes
 	fi
 	
@@ -233,14 +231,6 @@ parse_options() {
 		--no-orphan-check)
 			NO_ORPHAN_CHECK=yes
 			;;
-		--root)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (root path)."
-				exit 1
-			fi
-			ROOT="$2"
-			shift
-			;;
 		*)
 			RMNAME=$1
 			;;
@@ -263,14 +253,6 @@ main() {
 	
 	loadconfigfile
 	
-	# CHANGE ROOT PATH ###
-	if [ "$ROOT" ]; then
-		ROOT_DIR="$ROOT"
-		INDEX_DIR="$ROOT_DIR/$INDEX_DIR"
-		BACKUP_DIR="$ROOT_DIR/$BACKUP_DIR"
-		REJECTED_DIR="$ROOT_DIR/$REJECTED_DIR"
-	fi
-	
 	if [ -z $RMNAME ]; then
 		msgerr "Please state package name for remove."
 		exit 1
@@ -278,7 +260,7 @@ main() {
 	
 	### CHECK FOR ROOT ACCESS ###
 	if [ "$UID" != "0" ]; then
-		msgerr "${color_red}Removing package need root access.${color_reset}"
+		msgerr "Removing package need root access."
 		exit 1
 	fi
 	

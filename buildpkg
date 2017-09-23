@@ -33,6 +33,7 @@ updatemdsum() {
 		md5sum $needupdatechecksum | awk '{ print $1 }' > .md5sum
 		[ -f .md5sum ] && msg "md5sum updated."
 	else
+		rm .md5sum || true
 		touch .md5sum
 	fi
 }
@@ -431,26 +432,18 @@ updatepkgdepends() {
 	# only installed depends will count as depends
 	for dep in ${depends[@]}; do
 		if [ -d $INDEX_DIR/$dep ]; then
-			if [ -z "$newdep" ]; then
-				newdep="$dep"
-			else
-				newdep="$newdep $dep"
-			fi
+			newdep+=($dep)
 		fi
 	done
-	depends="$newdep"
+	depends="${newdep[@]}"
 	
 	# only installed makedepends will count as makedepends
 	for mdep in ${makedepends[@]}; do
 		if [ -d $INDEX_DIR/$mdep ]; then
-			if [ -z "$newmdep" ]; then
-				newmdep="$mdep"
-			else
-				newmdep="$newmdep $mdep"
-			fi
+			newmdep+=($mdep)
 		fi
 	done
-	makedepends="$newmdep"
+	makedepends="${newmdep[@]}"
 	
 }
 
