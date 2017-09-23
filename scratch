@@ -523,14 +523,6 @@ parse_options() {
 			OUTPUT_PKG="$2"
 			shift
 			;;
-		--root)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (root path)."
-				exit 1
-			fi
-			ROOT="$2"
-			shift
-			;;
 		*)
 			msg "Option invalid!"
 			exit 1
@@ -553,14 +545,6 @@ main() {
 	fi
 	
 	loadconfigfile
-	
-	# CHANGE ROOT PATH ###
-	if [ "$ROOT" ]; then
-		ROOT_DIR="$ROOT"
-		INDEX_DIR="$ROOT_DIR$INDEX_DIR"
-		BACKUP_DIR="$ROOT_DIR$BACKUP_DIR"
-		REJECTED_DIR="$ROOT_DIR$REJECTED_DIR"
-	fi
 	
 	### SHOW PORT PATH ###
 	if [ $PORT_PATH ]; then

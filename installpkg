@@ -70,11 +70,11 @@ installpkg() {
 	
 		if [ $? != 0 ]; then
 			msgerr "Failed install ${color_red}$packagename${color_reset}."
-			pushd $ROOT_DIR
 				while IFS=' ' read -r line; do
-					rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
+					pushd $ROOT_DIR
+							rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
+					popd
 				done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | tac)
-			popd
 			spkglock
 			exit 1
 		fi
@@ -199,13 +199,13 @@ checkpkgconflict() {
 
 checkconflict() {
 	
-	pushd $ROOT_DIR
-		while IFS=' ' read -r line; do
-				if [ -e "$line" ]; then
-					fileconflict+=(${line})
-				fi
-		done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
-	popd
+	while IFS=' ' read -r line; do
+		pushd $ROOT_DIR
+			if [ -e "$line" ]; then
+				fileconflict+=(${line})
+			fi
+		popd
+	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
 	
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
 		msgerr "File conflict found:"
@@ -219,15 +219,15 @@ checkconflict() {
 
 upcheckconflict() {
 		
-	pushd $ROOT_DIR
-		while IFS=' ' read -r line; do
-				if [ -e "$line" ]; then
-					if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
-						fileconflict+=(${line})
-					fi
+	while IFS=' ' read -r line; do
+		pushd $ROOT_DIR
+			if [ -e "$line" ]; then
+				if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
+					fileconflict+=(${line})
 				fi
-		done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
-	popd
+			fi
+		popd
+	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
 	
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
 		msgerr "File conflict found:"
