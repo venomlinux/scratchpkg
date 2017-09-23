@@ -141,14 +141,14 @@ updatesystemdb() {
 
 getpkginfo() {
 	
-	description=$(cat $BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3-)
-	homepage=$(cat $BUILD_SCRIPT | grep ^'# homepage' | tr -d ':' | cut -d ' ' -f 3-)
-	maintainer=$(cat $BUILD_SCRIPT | grep ^'# maintainer' | tr -d ':' | cut -d ' ' -f 3-)
-	backup=$(cat $BUILD_SCRIPT | grep ^'# backup' | tr -d ':' | cut -d ' ' -f 3-)
-	conflict=$(cat $BUILD_SCRIPT | grep ^'# conflict' | tr -d ':' | cut -d ' ' -f 3-)
-	depends=$(cat $BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d ' ' -f 3-)
-	makedepends=$(cat $BUILD_SCRIPT | grep ^'# makedepends' | tr -d ':' | cut -d ' ' -f 3-)
-	noextract=$(cat $BUILD_SCRIPT | grep ^'# noextract' | tr -d ':' | cut -d ' ' -f 3-)
+	description=$(cat $BUILD_SCRIPT | grep ^'# description' | sed 's/\://' | cut -d ' ' -f 3-)
+	homepage=$(cat $BUILD_SCRIPT | grep ^'# homepage' | sed 's/\://' | cut -d ' ' -f 3-)
+	maintainer=$(cat $BUILD_SCRIPT | grep ^'# maintainer' | sed 's/\://' | cut -d ' ' -f 3-)
+	backup=$(cat $BUILD_SCRIPT | grep ^'# backup' | sed 's/\://' | cut -d ' ' -f 3-)
+	conflict=$(cat $BUILD_SCRIPT | grep ^'# conflict' | sed 's/\://' | cut -d ' ' -f 3-)
+	depends=$(cat $BUILD_SCRIPT | grep ^'# depends' | sed 's/\://' | cut -d ' ' -f 3-)
+	makedepends=$(cat $BUILD_SCRIPT | grep ^'# makedepends' | sed 's/\://' | cut -d ' ' -f 3-)
+	noextract=$(cat $BUILD_SCRIPT | grep ^'# noextract' | sed 's/\://' | cut -d ' ' -f 3-)
 	
 	. $BUILD_SCRIPT
 		
