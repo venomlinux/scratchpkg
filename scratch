@@ -314,14 +314,14 @@ showportpath() {
 	
 }
 
-oldpackages() {
+getpkgcache() {
 	
 	for list in $(ls "$PACKAGE_DIR"); do
-		ALL_PACKAGES+=($list)
+		[ -f "$PACKAGE_DIR"/$list ] && ALL_PACKAGES+=($list)
 	done
 	
 	for list in $(ls "$SOURCE_DIR"); do
-		ALL_SOURCES+=($list)
+		[ -f "$SOURCE_DIR"/$list ] && ALL_SOURCES+=($list)
 	done
 	
 	for repo in ${PORT_REPO[@]}; do
@@ -360,13 +360,54 @@ oldpackages() {
 			fi
 		done
 	done
+}
+
+pkgcache() {
 	
-	msg "${color_cyan}Package leftover:${color_reset}"
-	echo ${ALL_PACKAGES[@]} | tr ' ' '\n'
+	getpkgcache
+	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
+		ALL_PACKAGES_SIZE=$(pushd "$PACKAGE_DIR" && du -ch ${ALL_PACKAGES[@]} | grep total | awk '{print $1}' && popd)
+	else
+		ALL_PACKAGES_SIZE=0M
+	fi
+	
+	if [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		ALL_SOURCES_SIZE=$(pushd "$SOURCE_DIR" && du -ch ${ALL_SOURCES[@]} | grep total | awk '{print $1}' && popd)
+	else
+		ALL_SOURCES_SIZE=0M
+	fi
+	
+	msg "${color_cyan}Package cache ($ALL_PACKAGES_SIZE):${color_reset}"
+	[ ${#ALL_PACKAGES[@]} -gt 0 ] && (echo ${ALL_PACKAGES[@]} | tr ' ' '\n') || echo "(none)"
 	
 	echo ""
-	msg "${color_cyan}Source leftover:${color_reset}"
-	echo ${ALL_SOURCES[@]} | tr ' ' '\n'
+	msg "${color_cyan}Source cache ($ALL_SOURCES_SIZE):${color_reset}"
+	[ ${#ALL_SOURCES[@]} -gt 0 ] && (echo ${ALL_SOURCES[@]} | tr ' ' '\n') || echo "(none)"
+	
+}
+
+clearpkgcache() {
+	
+	### CHECK FOR ROOT ACCESS ###
+	if [ "$UID" != "0" ]; then
+		msgerr "${color_red}Removing package & source cache need root access!${color_reset}"
+		exit 1
+	fi
+	
+	getpkgcache
+	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
+		for pkg in ${ALL_PACKAGES[@]}; do
+			rm -v $PACKAGE_DIR/$pkg
+		done
+	fi
+	
+	if [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		for src in ${ALL_SOURCES[@]}; do
+			rm -v $SOURCE_DIR/$src
+		done
+	fi
 	
 }
 
@@ -472,8 +513,11 @@ parse_options() {
 		--no-color)
 			NO_COLOR=yes
 			;;
-		--old-packages)
-			OLD_PACKAGES=yes
+		--cache)
+			PKG_CACHE=yes
+			;;
+		--clear-cache)
+			CLEAR_PKG_CACHE=yes
 			;;
 		-c|--cat-port)
 			if [ ! "$2" ]; then
@@ -602,9 +646,15 @@ main() {
 	
 	loadconfigfile
 	
-	### LIST OLD PACKAGES ###
-	if [ $OLD_PACKAGES ]; then
-		oldpackages
+	### LIST PACKAGES & SOURCE CACHE ###
+	if [ $PKG_CACHE ]; then
+		pkgcache
+		exit 0
+	fi
+	
+	### DELETE PACKAGES & SOURCE CACHE ###
+	if [ $CLEAR_PKG_CACHE ]; then
+		clearpkgcache
 		exit 0
 	fi
 	
