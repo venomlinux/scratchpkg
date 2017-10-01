@@ -32,28 +32,28 @@ removepkg() {
 	fi
 
 	msg2 "Removing files..."
-	while IFS=' ' read -r line; do
-			pushd $ROOT_DIR
-				if [ "$VERBOSE_REMOVE" = "yes" ]; then
-					rm_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
-				else
-					rm_silent "$line" || msgwarn "Failed remove $line"
-				fi
-			popd
-	done < <(tac $INDEX_DIR/$1/.files | grep -v '/$')
+	pushd $ROOT_DIR
+		while IFS=' ' read -r line; do
+					if [ "$VERBOSE_REMOVE" = "yes" ]; then
+						rm_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
+					else
+						rm_silent "$line" || msgwarn "Failed remove $line"
+					fi
+		done < <(tac $INDEX_DIR/$1/.files | grep -v '/$')
+	popd
 
 	msg2 "Removing dirs..."
-	while IFS=' ' read -r line; do
-		if [ ! "$(grep -R --exclude-dir="$1" -w "$line" "$INDEX_DIR")" ]; then
-			pushd $ROOT_DIR
-				if [ "$VERBOSE_REMOVE" = "yes" ]; then
-					rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
-				else
-					rmdir_silent "$line" || msgwarn "Failed remove $line"
-				fi
-			popd
-		fi
-	done < <(tac $INDEX_DIR/$1/.files | grep '/$')
+	pushd $ROOT_DIR
+		while IFS=' ' read -r line; do
+			if [ ! "$(grep -R --exclude-dir="$1" -w "$line" "$INDEX_DIR")" ]; then
+					if [ "$VERBOSE_REMOVE" = "yes" ]; then
+						rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
+					else
+						rmdir_silent "$line" || msgwarn "Failed remove $line"
+					fi
+			fi
+		done < <(tac $INDEX_DIR/$1/.files | grep '/$')
+	popd
 	
 	if [ ! "$NO_POSTREMOVE" ]; then
 		run_postremove

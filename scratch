@@ -71,7 +71,7 @@ searchpkg() {
 					popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
-							search_result="${color_purple}($portname)${color_reset} $name ${color_cyan}$version-$release${color_reset}"
+							search_result="${color_purple}($portname)${color_reset} ${color_gray}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
 								msg3 "$search_result ${color_green}[installed]${color_reset}"
 								msg4 "$description"
@@ -317,6 +317,62 @@ showportpath() {
 	
 }
 
+oldpackages() {
+	
+	for list in $(ls "$PACKAGE_DIR"); do
+		ALL_PACKAGES+=($list)
+	done
+	
+	for list in $(ls "$SOURCE_DIR"); do
+		ALL_SOURCES+=($list)
+	done
+	
+	for repo in ${PORT_REPO[@]}; do
+		for port in $(ls $repo); do
+			. $repo/$port/spkgbuild
+			PORT_PACKAGES+=($name-$version-$release.spkg.txz)
+			if [ ! -z $source ]; then
+				for src in ${source[@]}; do
+					if [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+						if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
+							sourcename="$(echo $src | awk -F '::' '{print $1}')"
+						else
+							sourcename="$(echo $src | rev | cut -d / -f 1 | rev)"
+						fi
+						SOURCE_NAMES+=($sourcename)
+					fi
+				done
+			fi
+		done
+	done
+	
+	for i in ${PORT_PACKAGES[@]}; do
+		for pkg in ${!ALL_PACKAGES[@]}; do
+			if [ "${ALL_PACKAGES[pkg]}" = "$i" ]; then
+				unset 'ALL_PACKAGES[pkg]'
+				break
+			fi
+		done
+	done
+	
+	for a in ${SOURCE_NAMES[@]}; do
+		for src in ${!ALL_SOURCES[@]}; do
+			if [ "${ALL_SOURCES[src]}" = "$a" ]; then
+				unset 'ALL_SOURCES[src]'
+				break
+			fi
+		done
+	done
+	
+	msg "${color_cyan}Package leftover:${color_reset}"
+	echo ${ALL_PACKAGES[@]} | tr ' ' '\n'
+	
+	echo ""
+	msg "${color_cyan}Source leftover:${color_reset}"
+	echo ${ALL_SOURCES[@]} | tr ' ' '\n'
+	
+}
+
 interrupted() {
 	exit 1
 }
@@ -418,6 +474,9 @@ parse_options() {
 			;;
 		--no-color)
 			NO_COLOR=yes
+			;;
+		--old-packages)
+			OLD_PACKAGES=yes
 			;;
 		-c|--cat-port)
 			if [ ! "$2" ]; then
@@ -545,6 +604,12 @@ main() {
 	fi
 	
 	loadconfigfile
+	
+	### LIST OLD PACKAGES ###
+	if [ $OLD_PACKAGES ]; then
+		oldpackages
+		exit 0
+	fi
 	
 	### SHOW PORT PATH ###
 	if [ $PORT_PATH ]; then
