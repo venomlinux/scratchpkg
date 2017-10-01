@@ -5,9 +5,8 @@ listinstalled() {
 		getinstalledname $installed
 		installedpkg+=($installedname)
 	done
-	for ip in ${installedpkg[@]}; do
-		echo $ip
-	done
+	
+	echo ${installedpkg[@]} | tr ' ' '\n'
 	msg "Total installed package(s): ${#installedpkg[@]}"
 }
 
@@ -46,9 +45,7 @@ listorphan() {
 			fi
 	done
 	
-	for i in ${ORPHAN_PKG[@]}; do
-		echo $i
-	done
+	echo ${ORPHAN_PKG[@]} | tr ' ' '\n'
 	msg "Total orphan package(s): ${#ORPHAN_PKG[@]}"
 }
 
