@@ -326,19 +326,21 @@ getpkgcache() {
 	
 	for repo in ${PORT_REPO[@]}; do
 		for port in $(ls $repo); do
-			. $repo/$port/spkgbuild
-			PORT_PACKAGES+=($name-$version-$release.spkg.txz)
-			if [ ! -z $source ]; then
-				for src in ${source[@]}; do
-					if [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
-						if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
-							sourcename="$(echo $src | awk -F '::' '{print $1}')"
-						else
-							sourcename="$(echo $src | rev | cut -d / -f 1 | rev)"
+			if [ -d $repo/$port ]; then
+				. $repo/$port/spkgbuild
+				PORT_PACKAGES+=($name-$version-$release.spkg.txz)
+				if [ ! -z $source ]; then
+					for src in ${source[@]}; do
+						if [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+							if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
+								sourcename="$(echo $src | awk -F '::' '{print $1}')"
+							else
+								sourcename="$(echo $src | rev | cut -d / -f 1 | rev)"
+							fi
+							SOURCE_NAMES+=($sourcename)
 						fi
-						SOURCE_NAMES+=($sourcename)
-					fi
-				done
+					done
+				fi
 			fi
 		done
 	done
