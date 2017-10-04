@@ -99,7 +99,7 @@ installpkg() {
 		
 		msg2 "Removing old dirs..."
 		while IFS=' ' read -r line; do
-			if [ ! "$(tac $TMP_TARLIST | grep -x "$line")" ] && [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
+			if [ ! "$(tac $TMP_TARLIST | grep -x "$line")" ] && [ ! "$(grep -Rx --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
 				pushd $ROOT_DIR
 					if [ "$VERBOSE_INSTALL" = "yes" ]; then
 						rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
