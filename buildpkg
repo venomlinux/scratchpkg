@@ -33,8 +33,7 @@ updatemdsum() {
 		md5sum $needupdatechecksum | awk '{ print $1 }' > .md5sum
 		[ -f .md5sum ] && msg "md5sum updated."
 	else
-		rm .md5sum || true
-		touch .md5sum
+		echo "" > .md5sum
 	fi
 }
 
