@@ -193,8 +193,6 @@ createtemplate() {
 	else
 		mkdir $TEMPLATE_NAME
 		echo "# description	: 
-# homepage	: 
-# maintainer	: 
 # backup	: 
 # conflict	: 
 # depends	: 
