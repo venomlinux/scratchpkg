@@ -248,8 +248,6 @@ packaging() {
 	echo "version = $version" >> .pkginfo
 	echo "release = $release" >> .pkginfo
 	[ -n "$description" ] && echo "description = $description" >> .pkginfo
-	[ -n "$homepage" ] && echo "homepage = $homepage" >> .pkginfo
-	[ -n "$maintainer" ] && echo "maintainer = $maintainer" >> .pkginfo
 	[ -n "$backup" ] && echo "backup = ${backup[@]}" >> .pkginfo
 	[ -n "$conflict" ] && echo "conflict = ${conflict[@]}" >> .pkginfo
 	[ -n "$depends" ] && echo "depends = ${depends[@]}" >> .pkginfo

@@ -17,7 +17,7 @@ color_bcyan='\e[1;36m'    #Bold cyan
 color_bgray='\e[1;37m'    #Bold gray
 color_reset='\e[0m' 	  #Reset color
 
-### DECLARE SOME VALUE ###
+### SET SOME VALUE ###
 CONF_FILE="/etc/scratchpkg.conf"
 BUILD_SCRIPT="spkgbuild"
 
@@ -36,11 +36,11 @@ fi
 
 ### FUNCTIONS LOAD BY SCRATCHPKG ###
 pushd() {
-    command pushd "$@" > /dev/null
+    command pushd "$@" >/dev/null
 }
 
 popd() {
-    command popd "$@" > /dev/null
+    command popd >/dev/null
 }
 
 msg() {
@@ -173,13 +173,8 @@ loadconfigfile() {
 	
 	if [ -f $CONF_FILE ]; then
 		. $CONF_FILE
-		#PACKAGE_DIR=$(cat $CONF_FILE | grep ^'#PACKAGE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		#SOURCE_DIR=$(cat $CONF_FILE | grep ^'#SOURCE_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		#WORK_DIR=$(cat $CONF_FILE | grep ^'#WORK_DIR' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		#PORT_REPO=$(cat $CONF_FILE | grep ^'#PORT_REPO' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
-		#PURGE_FILE=$(cat $CONF_FILE | grep ^'#PURGE_FILE' | tr -d '=' | tr -d '"' | cut -d ' ' -f 2-)
 	else
-		msg "${color_red}Configuration file not found.${color_reset}"
+		msgerr "Configuration file not found."
 		exit 1
 	fi
 	
@@ -188,7 +183,7 @@ loadconfigfile() {
 createtemplate() {
 	
 	if [ -d $TEMPLATE_NAME ]; then
-		msg "Error folder ${color_red}$TEMPLATE_NAME${color_reset} already exist"
+		msg "Error directory ${color_red}$TEMPLATE_NAME${color_reset} already exist"
 		exit 1
 	else
 		mkdir $TEMPLATE_NAME

@@ -130,29 +130,26 @@ showpackageinfo() {
 		msg "${color_red}$PACKAGE_INFO${color_reset} not exist."
 		exit 1
 	else
-		if [ $(tar -tf "$PACKAGE_INFO" | grep ".pkginfo") ]; then
+		if [ $(tar -tf "$PACKAGE_INFO" | grep -x ".pkginfo") ]; then
 			getpkginfofrompkg $PACKAGE_INFO
-			echo -e "${color_green}package info:${color_reset}"
-				[ -n "$name" ] && echo "name = $name"
-				[ -n "$version" ] && echo "version = $version"
-				[ -n "$release" ] && echo "release = $release"
-				[ -n "$description" ] && echo "description = $description"
-				[ -n "$homepage" ] && echo "homepage = $homepage"
-				[ -n "$maintainer" ] && echo "maintainer = $maintainer"
-				[ -n "$backup" ] && echo "backup = $backup"
-				[ -n "$conflict" ] && echo "conflict = $conflict"
-				[ -n "$depends" ] && echo "depends = $depends"
-				[ -n "$makedepends" ] && echo "makedepends = $makedepends"
-			if [ $(tar -tf "$PACKAGE_INFO" | grep ".pkginstall" | cut -d / -f 1 | uniq) ]; then
+			echo -e "${color_green}info:${color_reset}"
+				[ "$name" ] && echo "name = $name"
+				[ "$version" ] && echo "version = $version"
+				[ "$release" ] && echo "release = $release"
+				[ "$description" ] && echo "description = $description"
+				[ "$backup" ] && echo "backup = $backup"
+				[ "$conflict" ] && echo "conflict = $conflict"
+				[ "$depends" ] && echo "depends = $depends"
+				[ "$makedepends" ] && echo "makedepends = $makedepends"
 				echo ""
-				echo -e "${color_green}pkginstall files:${color_reset}"
-				tar -tf $PACKAGE_INFO .pkginstall | cut -d / -f 2 | sed '/^$/d'
-			fi
-			
-			if [ $(tar -tf "$PACKAGE_INFO" | grep ".pkginstall/readme") ]; then
-				echo ""
+			if [ $(tar -tf "$PACKAGE_INFO" | grep -x ".pkgreadme") ]; then
 				echo -e "${color_green}readme:${color_reset}"
-				tar -xf $PACKAGE_INFO .pkginstall/readme -O
+				tar -xf $PACKAGE_INFO .pkgreadme -O
+				echo ""
+			fi
+			if [ $(tar -tf "$PACKAGE_INFO" | grep -x ".pkginstall") ]; then
+				echo -e "${color_green}pkginstall files:${color_reset}"
+				tar -xf $PACKAGE_INFO .pkginstall -O
 				echo ""
 			fi
 		else
