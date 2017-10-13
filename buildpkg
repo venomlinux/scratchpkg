@@ -473,6 +473,35 @@ removemakedepends() {
 	[ "$ORPHAN" = "yes" ] && [ -d $INDEX_DIR/$1 ] && saferemove+=($1)
 }
 
+getoptions() {
+	
+	for opt in ${OPTIONS[@]}; do
+		case $opt in
+			libtool|!libtool)
+				[ "${opt::1}" = '!' ] && REMOVE_LIBTOOL=yes
+				;;
+			emptydirs|!emptydirs)
+				[ "${opt::1}" = '!' ] && REMOVE_EMPTYDIRS=yes
+				;;
+			strip|!strip)
+				[ "${opt::1}" = '!' ] && NO_STRIP=yes
+				;;
+			docs|!docs)
+				[ "${opt::1}" = '!' ] || REMOVE_DOCS=yes
+				;;
+			zipman|!zipman)
+				[ "${opt::1}" = '!' ] || COMPRESS_MAN=yes
+				;;
+			buildflags|!buildflags)
+				[ "${opt::1}" = '!' ] && CFLAGS=""; CXXFLAGS=""
+				;;
+			makeflags|!makeflags)
+				[ "${opt::1}" = '!' ] && MAKEFLAGS=""
+		esac
+	done
+	
+}
+
 clearworkdir() {
 	
 	if [ ! "$KEEP_WORK" ]; then
