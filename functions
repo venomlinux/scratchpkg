@@ -149,6 +149,7 @@ getpkginfo() {
 	depends=$(cat $BUILD_SCRIPT | grep ^'# depends' | sed 's/\://' | cut -d ' ' -f 3-)
 	makedepends=$(cat $BUILD_SCRIPT | grep ^'# makedepends' | sed 's/\://' | cut -d ' ' -f 3-)
 	noextract=$(cat $BUILD_SCRIPT | grep ^'# noextract' | sed 's/\://' | cut -d ' ' -f 3-)
+	options=$(cat $BUILD_SCRIPT | grep ^'# options' | sed 's/\://' | cut -d ' ' -f 3-)
 	
 	. $BUILD_SCRIPT
 		
