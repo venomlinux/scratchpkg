@@ -251,8 +251,6 @@ main() {
 		nocolor
 	fi
 	
-	loadconfigfile
-	
 	if [ -z $RMNAME ]; then
 		msgerr "Please state package name for remove."
 		exit 1

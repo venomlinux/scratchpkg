@@ -80,37 +80,7 @@ installpkg() {
 		fi
 		
 	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then	
-	
-		TMP_TARLIST="/tmp/$name.tarlist.spkg"
-		tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $TMP_TARLIST
-		
-		msg2 "Removing old files..."		
-		grep -v '/$' $INDEX_DIR/$name/.files | while read line; do
-			if [ ! "$(grep -Fx "$line" $TMP_TARLIST)" ]; then
-				pushd $ROOT_DIR
-					if [ "$VERBOSE_INSTALL" = "yes" ]; then
-						rm_silent "$line" && echo "$line" && OLDFILEREMOVE=yes || msgwarn "Failed remove $line"
-					else
-						rm_silent "$line" && OLDFILEREMOVE=yes || msgwarn "Failed remove $line"
-					fi
-				popd
-			fi
-		done
-		
-		msg2 "Removing old dirs..."
-		while IFS=' ' read -r line; do
-			if [ ! "$(tac $TMP_TARLIST | grep -x "$line")" ] && [ ! "$(grep -Rx --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
-				pushd $ROOT_DIR
-					if [ "$VERBOSE_INSTALL" = "yes" ]; then
-						rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
-					else
-						rmdir_silent "$line" || msgwarn "Failed remove $line"
-					fi
-				popd
-			fi
-		done < <(tac $INDEX_DIR/$name/.files | grep '/$')
-		
-		rm $TMP_TARLIST
+		removeoldfiles
 	fi	
 
 	registerpkg
@@ -151,6 +121,40 @@ installpkg() {
 	
 	# remove lock file
 	spkglock
+}
+
+removeoldfiles() {
+	
+	TMP_TARLIST="/tmp/$name.tarlist.spkg"
+	tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $TMP_TARLIST
+		
+	msg2 "Removing old files & dirs..."		
+	grep -v '/$' $INDEX_DIR/$name/.files | while read line; do
+		if [ ! "$(grep -Fx "$line" $TMP_TARLIST)" ]; then
+			pushd $ROOT_DIR
+				if [ "$VERBOSE_INSTALL" = "yes" ]; then
+					rm_silent "$line" && echo "$line" && OLDFILEREMOVE=yes || msgwarn "Failed remove $line"
+				else
+					rm_silent "$line" && OLDFILEREMOVE=yes || msgwarn "Failed remove $line"
+				fi
+			popd
+		fi
+	done
+	
+	while IFS=' ' read -r line; do
+		if [ ! "$(tac $TMP_TARLIST | grep -x "$line")" ] && [ ! "$(grep -Rx --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
+			pushd $ROOT_DIR
+				if [ "$VERBOSE_INSTALL" = "yes" ]; then
+					rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
+				else
+					rmdir_silent "$line" || msgwarn "Failed remove $line"
+				fi
+			popd
+		fi
+	done < <(tac $INDEX_DIR/$name/.files | grep '/$')
+			
+	rm $TMP_TARLIST
+		
 }
 
 registerpkg() {
@@ -482,8 +486,6 @@ main() {
 	if [ "$NO_COLOR" ]; then
 		nocolor
 	fi
-	
-	loadconfigfile
 	
 	### SHOW HELP ###
 	if [ "$SHOW_HELP" ]; then

@@ -643,8 +643,6 @@ main() {
 		nocolor
 	fi
 	
-	loadconfigfile
-	
 	### LIST PACKAGES & SOURCE CACHE ###
 	if [ $PKG_CACHE ]; then
 		pkgcache

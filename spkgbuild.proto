@@ -10,6 +10,7 @@
 name=
 version=
 release=1
+options=()
 source=()
 
 build() {
