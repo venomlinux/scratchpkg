@@ -318,11 +318,15 @@ buildpkg() {
 	fi
 	
 	if check_options makeflags n; then
-		unset MAKEFLAGS
+		unset "MAKEFLAGS"
+	elif check_options makeflags y; then
+		export MAKEFLAGS
 	fi
 	
 	if check_options buildflags n; then
 		unset CFLAGS CXXFLAGS
+	elif check_options buildflags y; then
+		export CFLAGS CXXFLAGS
 	fi
 	
 	buildpackage
