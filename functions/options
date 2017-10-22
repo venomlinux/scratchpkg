@@ -113,7 +113,7 @@ compressinfomanpages() {
 	
 	if [ -d usr/share/info ]; then
 		(cd usr/share/info
-			find . -name "*.info*" -exec gzip -9 {} \;
+			find . -type f ! -name "*.gz" -exec gzip -9 -f {} \; 2>/dev/null
 		)
 	fi
 }

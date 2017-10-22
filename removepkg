@@ -31,7 +31,7 @@ removepkg() {
 		run_preremove
 	fi
 
-	msg2 "Removing files..."
+	msg2 "Removing files & dirs..."
 	pushd $ROOT_DIR
 		while IFS=' ' read -r line; do
 					if [ "$VERBOSE_REMOVE" = "yes" ]; then
@@ -42,7 +42,6 @@ removepkg() {
 		done < <(tac $INDEX_DIR/$1/.files | grep -v '/$')
 	popd
 
-	msg2 "Removing dirs..."
 	pushd $ROOT_DIR
 		while IFS=' ' read -r line; do
 			if [ ! "$(grep -R --exclude-dir="$1" -w "$line" "$INDEX_DIR")" ]; then

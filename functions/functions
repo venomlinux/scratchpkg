@@ -145,6 +145,18 @@ getpkginfofrompkg() {
 
 }
 
+getinstalledname() {
+	
+	iname=$(cat $INDEX_DIR/$1/.pkginfo | grep ^name | cut -d " " -f3)
+	iversion=$(cat $INDEX_DIR/$1/.pkginfo | grep ^version | cut -d " " -f3)
+	irelease=$(cat $INDEX_DIR/$1/.pkginfo | grep ^release | cut -d " " -f3)
+	depends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^depends | cut -d " " -f3-)
+	backup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
+	
+	installedname=$iname-$iversion-$irelease
+	
+}
+
 createtemplate() {
 	
 	if [ -d $TEMPLATE_NAME ]; then

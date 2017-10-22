@@ -21,9 +21,11 @@ install() {
 
 	if [ ! -d $funcdir ]; then
 		mkdir -pv $funcdir
-		[ ! -f $funcdir/functions ] && cp -v functions $funcdir
+		[ ! -f $funcdir/functions ] && cp -v functions/* $funcdir
 	else
-		[ ! -f $funcdir/functions ] && cp -v functions $funcdir || echo "$funcdir/functions exists"
+		[ ! -f $funcdir/functions ] && cp -v functions/functions $funcdir || echo "$funcdir/functions exists"
+		[ ! -f $funcdir/options ] && cp -v functions/options $funcdir || echo "$funcdir/options exists"
+		[ ! -f $funcdir/color ] && cp -v functions/color $funcdir || echo "$funcdir/color exists"
 	fi
 }
 

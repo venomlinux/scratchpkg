@@ -10,18 +10,6 @@ listinstalled() {
 	msg "Total installed package(s): ${#installedpkg[@]}"
 }
 
-getinstalledname() {
-	
-	iname=$(cat $INDEX_DIR/$1/.pkginfo | grep ^name | cut -d " " -f3)
-	iversion=$(cat $INDEX_DIR/$1/.pkginfo | grep ^version | cut -d " " -f3)
-	irelease=$(cat $INDEX_DIR/$1/.pkginfo | grep ^release | cut -d " " -f3)
-	depends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^depends | cut -d " " -f3-)
-	backup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
-	
-	installedname=$iname-$iversion-$irelease
-	
-}
-
 listorphan() {
 	
 	for all_installed in $(ls ${INDEX_DIR}); do
@@ -53,6 +41,7 @@ searchpkg() {
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
+			OUTPUT=()
 			for list in $(ls $port); do
 				if [ -f $port/$list/$BUILD_SCRIPT ]; then
 					if [ "$(cat $port/$list/$BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3- | grep -i $SEARCH_PKG)" ] || [ "$(echo $list | grep -i $SEARCH_PKG)" ]; then
@@ -64,14 +53,19 @@ searchpkg() {
 				if [ -f $port/$out/$BUILD_SCRIPT ]; then
 					pushd $port/$out
 						getpkginfo
-						. $BUILD_SCRIPT
 					popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
 							search_result="${color_purple}($portname)${color_reset} ${color_gray}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
-								msg3 "$search_result ${color_green}[installed]${color_reset}"
-								msg4 "$description"
+								getinstalledname $name
+								if [ "$name-$version-$release" = "$installedname" ]; then
+									msg3 "$search_result ${color_green}[installed]${color_reset}"
+									msg4 "$description"
+								else
+									msg3 "$search_result"
+									msg4 "$description"
+								fi
 							else
 								msg3 "$search_result"
 								msg4 "$description"
