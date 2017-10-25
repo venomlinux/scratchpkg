@@ -714,7 +714,7 @@ main() {
 		NO_COLOR="$NO_COLOR" \
 		NO_BACKUP="$NO_BACKUP" \
 		NO_ORPHAN_CHECK="$NO_ORPHAN_CHECK" \
-		installpkg $PACKAGE_DIR/$PKGNAME
+		installpkg $PACKAGE_DIR/$PKGNAME || exitscript1
 		exitscript0
 	fi
 	

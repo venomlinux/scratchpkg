@@ -430,7 +430,7 @@ pushtoport() {
 				SOURCE_PKG="$SOURCE_PKG" \
 				OUTPUT_PKG="$OUTPUT_PKG" \
 				NO_COLOR="$NO_COLOR" \
-				buildpkg
+				buildpkg || exit 1
 			popd
 			break
 		fi
