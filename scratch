@@ -63,7 +63,7 @@ searchpkg() {
 									msg3 "$search_result ${color_green}[installed]${color_reset}"
 									msg4 "$description"
 								else
-									msg3 "$search_result"
+									msg3 "$search_result ${color_yellow}[outdated] $iversion-$irelease${color_reset}"
 									msg4 "$description"
 								fi
 							else
