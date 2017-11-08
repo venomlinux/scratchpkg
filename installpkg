@@ -267,18 +267,6 @@ getoldname() {
 	
 }
 
-updateinfopages() {
-	
-	pushd /usr/share/info
-		if [ -f dir ]; then
-			rm dir
-		fi
-		for f in *; do
-			install-info $f dir 2>/dev/null
-		done
-	popd
-}
-
 backupconf() {
 	
 	pushd $ROOT_DIR	
@@ -549,13 +537,14 @@ main() {
 		checkneworphan
 	fi
 	
-	### RUN THINGS THAT NEED UPDATE AFTER INSTALL PACKAGE ###
-	updatesystemdb
-	
 	### UPDATE INFO PAGES ###
-	if [ "$(grep -x usr/share/info/ $INDEX_DIR/$name/.files)" ]; then
-		updateinfopages
-	fi
+	[ "$(grep -x usr/share/mime/ $INDEX_DIR/$name/.files)" ] && updmimedb
+	[ "$(grep -x usr/share/icons/hicolor/ $INDEX_DIR/$name/.files)" ] && updiconcache
+	[ "$(grep -x usr/share/glib-2.0/schemas/ $INDEX_DIR/$name/.files)" ] && updglibschemas
+	[ "$(grep -x usr/share/applications/ $INDEX_DIR/$name/.files)" ] && upddesktopdb
+	[ "$(grep -x usr/share/man/ $INDEX_DIR/$name/.files)" ] && updmandb
+	[ "$(grep -x usr/share/info/ $INDEX_DIR/$name/.files)" ] && updinfopages
+	[ "$(grep usr/lib/ $INDEX_DIR/$name/.files | grep -E "*.so")" ] && updlibdb
 	
 	exit 0
 }

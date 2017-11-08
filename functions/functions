@@ -74,44 +74,71 @@ rm_silent() {
 	command rm "$@" 2> /dev/null
 }
 
-updatesystemdb() {
+updmimedb() {
 	
-	# update desktop database
-	#msg2 "Updating desktop database..."
+	# msg2 "Update mime database..."
+	if [ -x /usr/bin/update-mime-database ]; then
+		/usr/bin/update-mime-database /usr/share/mime
+	fi
+	
+}
+
+updiconcache() {
+	
+	# ms2 "Update icon cache..."
+	if [ -x /usr/bin/gtk-update-icon-cache ]; then
+		/usr/bin/gtk-update-icon-cache -qf /usr/share/icons/hicolor
+	fi
+	
+}
+
+updglibschemas() {
+	
+	# msg2 "Update glib schemas..."
+	if [ -x /usr/bin/glib-compile-schemas ]; then
+		/usr/bin/glib-compile-schemas /usr/share/glib-2.0/schemas
+	fi
+	
+}
+
+upddesktopdb() {
+	
+	# msg2 "Update desktop database..."
 	if [ -x /usr/bin/update-desktop-database ]; then
-		/usr/bin/update-desktop-database -q /usr/share/applications >/dev/null 2>&1
-	fi
-
-	# update mime database
-	#msg2 "Updating mime database..."
-	#if [ -x /usr/bin/update-mime-database ]; then
-		#/usr/bin/update-mime-database /usr/share/mime >/dev/null 2>&1
-	#fi
-	
-	# update icon cache
-	#msg2 "Updating icon cache..."
-	if [ -f /usr/bin/gtk-update-icon-cache ]; then
-		find /usr/share/icons -mindepth 1 -maxdepth 1 -type d | while read -r THEME; do
-			if [ -f "$THEME/index.theme" ]; then
-				gtk-update-icon-cache -f "$THEME" >/dev/null 2>&1
-			fi
-		done
-	fi
-
-	# update glib schema
-	#msg2 "Updating glib schemas..."
-	if [ -e /usr/share/glib-2.0/schemas ]; then
-		if [ -x /usr/bin/glib-compile-schemas ]; then
-			/usr/bin/glib-compile-schemas /usr/share/glib-2.0/schemas >/dev/null 2>&1
-		fi
+		/usr/bin/update-desktop-database
 	fi
 	
-	# run ldconfig
-	#msg2 "Running ldconfig..."
-	if [ -f /sbin/ldconfig ]; then
+}
+
+updmandb() {
+	
+	# msg2 "Update man database..."
+	if [ -x /usr/bin/mandb ]; then
+		/usr/bin/mandb -q
+	fi
+	
+}
+
+updlibdb() {
+	
+	# msg2 "Running ldconfig..."
+	if [ -x /sbin/ldconfig ]; then
 		/sbin/ldconfig
 	fi
+	
+}
 
+updinfopages() {
+	
+	pushd /usr/share/info
+		if [ -f dir ]; then
+			rm dir
+		fi
+		for f in *; do
+			install-info $f dir 2>/dev/null
+		done
+	popd
+	
 }
 
 getpkginfo() {
