@@ -58,9 +58,13 @@ removepkg() {
 		run_postremove
 	fi
 	
-	if [ "$(grep -x usr/share/info/ $INDEX_DIR/$1/.files)" ]; then
-		UPDATE_INFO_PAGES=yes
-	fi
+	[ "$(grep -x usr/share/mime/ $INDEX_DIR/$1/.files)" ] && MIMEUPD=yes
+	[ "$(grep -x usr/share/icons/hicolor/ $INDEX_DIR/$1/.files)" ] && ICONCACHEUPD=yes
+	[ "$(grep -x usr/share/glib-2.0/schemas/ $INDEX_DIR/$1/.files)" ] && GLIBSCHEMASUPD=yes
+	[ "$(grep -x usr/share/applications/ $INDEX_DIR/$1/.files)" ] && DESKTOPUPD=yes
+	[ "$(grep -x usr/share/man/ $INDEX_DIR/$1/.files)" ] && MANDBUPD=yes
+	[ "$(grep -x usr/share/info/ $INDEX_DIR/$1/.files)" ] && INFOPAGESUPD=yes
+	[ "$(grep usr/lib/ $INDEX_DIR/$1/.files | grep -E "*.so")" ] && LIBDBUPD=yes
 	
 	rm -R $INDEX_DIR/$1
 
@@ -285,15 +289,16 @@ main() {
 	### CHECK NEW ORPHANED PACKAGE ###
 	if [ ! "$NO_ORPHAN_CHECK" ]; then
 		checkneworphan
-	fi
+	fi	
 	
-	### RUN NECESSARY UPDATE AFTER REMOVE PACKAGE ###
-	updatesystemdb
-	
-	### UPDATE INFO PAGES ###
-	if [ "$UPDATE_INFO_PAGES" ]; then
-		updateinfopages
-	fi
+	### UPDATE SYSTEM DATABASE ###
+	[ "$MIMEUPD" = "yes" ] && updmimedb
+	[ "$ICONCACHEUPD" = "yes" ] && updiconcache
+	[ "$GLIBSCHEMASUPD" = "yes" ] && updglibschemas
+	[ "$DESKTOPUPD" = "yes" ] && upddesktopdb
+	[ "$MANDBUPD" = "yes" ] && updmandb
+	[ "$INFOPAGESUPD" = "yes" ] && updinfopages
+	[ "$LIBDBUPD" = "yes" ] && updlibdb
 		
 	exit 0
 	
