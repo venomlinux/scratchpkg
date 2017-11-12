@@ -74,6 +74,28 @@ rm_silent() {
 	command rm "$@" 2> /dev/null
 }
 
+needroot() {
+	
+	if [ $UID != 0 ]; then
+		if [ "$#" -eq 0 ]; then
+			needroot "This operation"
+		else
+			msgerr "$@ need root access!"
+		fi
+		exit 1
+	fi
+	
+}
+
+checktool() {
+	
+	if ! type -pa $1 &>/dev/null; then
+		msgerr "$1 not exist in your system!"
+		exit 1
+	fi
+	
+}
+
 updmimedb() {
 	
 	# msg2 "Update mime database..."

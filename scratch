@@ -382,11 +382,7 @@ pkgcache() {
 
 clearpkgcache() {
 	
-	### CHECK FOR ROOT ACCESS ###
-	if [ "$UID" != "0" ]; then
-		msgerr "${color_red}Removing package & source cache need root access!${color_reset}"
-		exit 1
-	fi
+	needroot "Removing package & source cache"
 	
 	getpkgcache
 	
@@ -401,6 +397,20 @@ clearpkgcache() {
 			rm -v $SOURCE_DIR/$src
 		done
 	fi
+	
+}
+
+updports() {
+	
+	needroot "Updating ports"
+	
+	for repo in ${PORT_REPO[@]}; do
+		portname=$(basename $(echo $repo))
+		if [ -f /etc/ports/$portname.httpup ]; then
+			. /etc/ports/$portname.httpup
+			httpup sync $URL $repo
+		fi
+	done
 	
 }
 
@@ -511,6 +521,9 @@ parse_options() {
 			;;
 		--clear-cache)
 			CLEAR_PKG_CACHE=yes
+			;;
+		-up|--update-ports)
+			UPD_PORTS=yes
 			;;
 		-c|--cat-port)
 			if [ ! "$2" ]; then
@@ -635,6 +648,12 @@ main() {
 	### DISABLE COLOR ###
 	if [ "$NO_COLOR" ]; then
 		nocolor
+	fi
+	
+	### UPDATE PORTS ###
+	if [ $UPD_PORTS ]; then
+		updports
+		exit 0
 	fi
 	
 	### LIST PACKAGES & SOURCE CACHE ###

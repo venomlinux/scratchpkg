@@ -81,16 +81,7 @@ getsource() {
 			downloadsource $sources
 		fi
 	done
-}
-
-checkforwget() {
-	
-	if [ ! -e /usr/bin/wget ]; then
-		msgerr "Wget not installed."
-		exitscript1
-	fi
-}
-	
+}	
 
 downloadsource(){
 
@@ -114,7 +105,7 @@ downloadsource(){
 		if [ -f $SOURCE_DIR/$tarballname ]; then
 			msg "Source file ${color_green}$tarballname${color_reset} found."
 		else
-			checkforwget
+			checktool wget
 			if [ -f $SOURCE_DIR/$tarballname.partial ]; then
 				msg "Resuming ${color_green}$1${color_reset}."
 				$WGETRESUME $tarballurl && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1

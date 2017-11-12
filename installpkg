@@ -449,7 +449,7 @@ parse_options() {
 			NO_ORPHAN_CHECK=yes
 			;;
 		*.spkg.txz)
-			[ -f "$1" ] && PKGNAME="$1" || msg "${color_red}$1${color_reset} not exist."
+			PKGNAME="$1"
 			;;
 		-h|--help)
 			SHOW_HELP=yes
@@ -470,6 +470,18 @@ main() {
 	
 	parse_options "$@"
 	
+	### NOT STATED PACKAGE ###
+	if [ -z $PKGNAME ]; then
+		msgerr "Please state the package to install."
+		exit 1
+	fi
+	
+	### CHECK EXISTANT OF PACKAGE FILE ###
+	if [ ! -f $PKGNAME ]; then
+		msgerr "Package ${color_red}$1${color_reset} not exist!"
+		exit 1
+	fi
+	
 	### DISABLE COLOR ###
 	if [ "$NO_COLOR" ]; then
 		nocolor
@@ -481,24 +493,13 @@ main() {
 		exit 0
 	fi
 	
-	### CHECK FOR ROOT ACCESS ###
-	if [ "$UID" != "0" ]; then
-		msgerr "${color_red}Installing package need root access!${color_reset}"
-		exit 1
-	fi
-	
+	needroot "Installing package"
 	check_directory
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then
 		msgerr "Cant install/remove package simultaneously."
 		msgerr "remove ${color_yellow}/tmp/spkg.lock${color_reset} if no install/remove package process running."
-		exit 1
-	fi
-	
-	### NOT STATED PACKAGE ###
-	if [ -z $PKGNAME ]; then
-		msgerr "${color_red}Please state the package to install.${color_reset}"
 		exit 1
 	fi
 	
