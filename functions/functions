@@ -166,8 +166,6 @@ updinfopages() {
 getpkginfo() {
 	
 	description=$(cat $BUILD_SCRIPT | grep ^'# description' | sed 's/\://' | cut -d ' ' -f 3-)
-	homepage=$(cat $BUILD_SCRIPT | grep ^'# homepage' | sed 's/\://' | cut -d ' ' -f 3-)
-	maintainer=$(cat $BUILD_SCRIPT | grep ^'# maintainer' | sed 's/\://' | cut -d ' ' -f 3-)
 	backup=$(cat $BUILD_SCRIPT | grep ^'# backup' | sed 's/\://' | cut -d ' ' -f 3-)
 	conflict=$(cat $BUILD_SCRIPT | grep ^'# conflict' | sed 's/\://' | cut -d ' ' -f 3-)
 	depends=$(cat $BUILD_SCRIPT | grep ^'# depends' | sed 's/\://' | cut -d ' ' -f 3-)
@@ -185,12 +183,10 @@ getpkginfofrompkg() {
 	version=$(tar xf $1 .pkginfo -O | grep ^version | cut -d " " -f3)
 	release=$(tar xf $1 .pkginfo -O | grep ^release | cut -d " " -f3)
 	description=$(tar xf $1 .pkginfo -O | grep ^description | cut -d " " -f3-)
-	homepage=$(tar xf $1 .pkginfo -O | grep ^homepage | cut -d " " -f3-)
-	maintainer=$(tar xf $1 .pkginfo -O | grep ^maintainer | cut -d " " -f3-)
-	backup=$(tar xf $1 .pkginfo -O | grep ^backup | cut -d " " -f3-)
-	conflict=$(tar xf $1 .pkginfo -O | grep ^conflict | cut -d " " -f3-)
-	depends=$(tar xf $1 .pkginfo -O | grep ^depends | cut -d " " -f3-)
-	makedepends=$(tar xf $1 .pkginfo -O | grep ^makedepends | cut -d " " -f3-)
+	backup=$(tar xf $1 .pkginfo -O | grep ^backup | cut -d " " -f3)
+	conflict=$(tar xf $1 .pkginfo -O | grep ^conflict | cut -d " " -f3)
+	depends=$(tar xf $1 .pkginfo -O | grep ^depends | cut -d " " -f3)
+	makedepends=$(tar xf $1 .pkginfo -O | grep ^makedepends | cut -d " " -f3)
 
 }
 

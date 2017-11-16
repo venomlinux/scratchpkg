@@ -131,14 +131,15 @@ showpackageinfo() {
 				[ "$version" ] && echo "version = $version"
 				[ "$release" ] && echo "release = $release"
 				[ "$description" ] && echo "description = $description"
-				[ "$backup" ] && echo "backup = $backup"
-				[ "$conflict" ] && echo "conflict = $conflict"
-				[ "$depends" ] && echo "depends = $depends"
-				[ "$makedepends" ] && echo "makedepends = $makedepends"
+				[ "$backup" ] && for b in ${backup[@]}; do echo "backup = $b"; done
+				[ "$conflict" ] && for c in ${conflict[@]}; do echo "conflict = $c"; done
+				[ "$depends" ] && for d in ${depends[@]}; do echo "depends = $d"; done
+				[ "$makedepends" ] && for md in ${makedepends[@]}; do echo "makedepends = $md"; done
 				echo ""
 			if [ $(tar -tf "$PACKAGE_INFO" | grep -x ".pkgreadme") ]; then
 				echo -e "${color_green}readme:${color_reset}"
 				tar -xf $PACKAGE_INFO .pkgreadme -O
+				echo ""
 				echo ""
 			fi
 			if [ $(tar -tf "$PACKAGE_INFO" | grep -x ".pkginstall") ]; then
@@ -706,7 +707,7 @@ main() {
 	
 	### CHECK_UPDATE ###
 	if [ $CHECK_UPDATE ]; then
-		showupdate
+		showupdate | column -t
 		exit 0
 	fi
 	

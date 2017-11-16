@@ -252,10 +252,10 @@ packaging() {
 	echo "version = $version" >> .pkginfo
 	echo "release = $release" >> .pkginfo
 	[ -n "$description" ] && echo "description = $description" >> .pkginfo
-	[ -n "$backup" ] && echo "backup = ${backup[@]}" >> .pkginfo
-	[ -n "$conflict" ] && echo "conflict = ${conflict[@]}" >> .pkginfo
-	[ -n "$depends" ] && echo "depends = ${depends[@]}" >> .pkginfo
-	[ -n "$makedepends" ] && echo "makedepends = ${makedepends[@]}" >> .pkginfo
+	[ -n "$backup" ] && for b in ${backup[@]}; do echo "backup = $b" >> .pkginfo; done
+	[ -n "$conflict" ] && for c in ${conflict[@]}; do echo "conflict = $c" >> .pkginfo; done
+	[ -n "$depends" ] && for d in ${depends[@]}; do echo "depends = $d" >> .pkginfo; done
+	[ -n "$makedepends" ] && for md in ${makedepends[@]}; do echo "makedepends = $md" >> .pkginfo; done
 	[ -n "$noextract" ] && echo "noextract = $noextract" >> .pkginfo
 	
 	msg "Packaging ${color_green}$name-$version-$release${color_reset}..."
@@ -628,9 +628,7 @@ main() {
 	
 	loadspkgbuild
 	
-	[ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ] && NO_ORPHAN_CHECK=yes
-	
-	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
+	if [ "$INSTALL_PKG" ] || [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		NO_ORPHAN_CHECK=yes
 	fi
 	
