@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export LC_ALL=C
+
 spkglock() {
 	
 	if [ ! -f /tmp/spkg.lock ]; then

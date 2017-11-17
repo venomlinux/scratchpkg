@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export LC_ALL=C
+
 listinstalled() {
 	for installed in $(ls $INDEX_DIR); do
 		getinstalledname $installed
