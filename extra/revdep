@@ -1,0 +1,23 @@
+#!/bin/bash -e
+
+INDEX_DIR="/var/spkg/index"
+
+if [ ! -d $INDEX_DIR ]; then
+	echo "$INDEX_DIR not exist!"
+	exit 1
+fi
+
+find {,/usr}/{bin,lib,libexec,sbin} -type f ! -path */debug/* ! -path */java/* ! -path */vmware*/* \
+     ! -path */syslinux/* 2>/dev/null | while read BUILD_BINARY ; do
+	case "$(file -Lbi "${BUILD_BINARY}")" in
+	*application/x-sharedlib* | *application/x-executable*)
+		if [ "$(ldd $BUILD_BINARY 2>/dev/null | grep "not found" | sort | uniq)" ]; then
+			LIB_NAME=$(ldd $BUILD_BINARY 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
+			FILENAME=$(echo $BUILD_BINARY | sed -e '1s/^.//')
+			PKG_NAME=$(basename $(dirname $(grep -Rx $FILENAME $INDEX_DIR | cut -d ':' -f1)))
+			for i in ${LIB_NAME[@]}; do
+				echo "($PKG_NAME) $BUILD_BINARY is missing $i"
+			done
+		fi
+	esac
+done

@@ -1,0 +1,37 @@
+#!/bin/bash
+
+index_dir="/var/spkg/index"
+
+if [ ! "$1" ]; then
+	echo "specify list file"
+	exit 1
+fi
+
+if [ ! -f "$1" ]; then
+	echo "file $1 not exist"
+	exit 1
+fi
+
+list=$(cat $1)
+
+for i in $list; do
+	if [ -d $index_dir/$i ]; then
+		echo "$i is installed"
+	else
+		echo "installing $i..."
+		if [ $UID != 0 ]; then
+			if [ -x /usr/bin/fakeroot ]; then
+				echo "==> Build using fakeroot"
+				fakeroot scratch -p $i && sudo scratch -p $i -i
+			else
+				sudo scratch -p $i -i
+			fi
+		else
+			scratch -p $i -i
+		fi
+		if [ ! -d $index_dir/$i ]; then
+			echo "Error installing $i..."
+			read
+		fi
+	fi
+done

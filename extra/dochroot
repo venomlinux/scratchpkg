@@ -1,0 +1,41 @@
+#!/bin/bash
+	
+if [ "$UID" != "0" ]; then
+	echo "chroot need root access!"
+	exit 1
+fi
+
+LFS=/mnt/lfs
+
+if [ ! -d $LFS ]; then
+	echo "Dir $LFS not exist"
+	exit 1
+fi
+
+pushd $LFS
+
+mount -v --bind /dev $LFS/dev
+mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620
+mount -vt proc proc $LFS/proc
+mount -vt sysfs sysfs $LFS/sys
+mount -vt tmpfs tmpfs $LFS/run
+
+if [ -h $LFS/dev/shm ]; then
+  mkdir -pv $LFS/$(readlink $LFS/dev/shm)
+fi
+
+if [ -d $LFS/tools ]; then
+	chroot "$LFS" /tools/bin/env -i HOME=/root TERM="$TERM" PS1='\u:\w\$ ' PATH=/bin:/usr/bin:/sbin:/usr/sbin:/tools/bin /tools/bin/bash --login +h
+else
+	chroot "$LFS" /usr/bin/env -i HOME=/root TERM="$TERM" PS1='\u:\w\$ ' PATH=/bin:/usr/bin:/sbin:/usr/sbin /bin/bash --login
+fi
+
+popd
+echo chroot exited
+
+echo "Unmounting virtual filesystem"
+umount -v $LFS/dev/pts
+umount -v $LFS/dev
+umount -v $LFS/run
+umount -v $LFS/proc
+umount -v $LFS/sys

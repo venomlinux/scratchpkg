@@ -1,0 +1,69 @@
+#!/bin/bash -e
+
+calcdep() {
+	
+	dep=$(scratch -d $1 | awk '{print $3}')
+	for i in $dep; do
+		deps="$deps $i"
+	done
+	
+}
+
+loop() {
+	
+	for depends in ${dep[@]}; do
+		if [ "$(echo "$checked" | tr ' ' '\n' | grep -x "$depends")" ]; then
+			continue
+		else
+			checked="$checked $depends"
+		fi
+		#echo $checked
+		calcdep $depends
+		loop
+	done
+}
+
+checkpkg() {
+	
+	for repo in ${PORT_REPO[@]}; do
+		if [ -f $repo/$pkgname/spkgbuild ]; then
+			PORT_EXIST=yes
+			break
+		fi
+	done
+	[ "$PORT_EXIST" ] || (echo "Port $pkgname not exist" && exit 1)
+}
+
+index_dir="/var/spkg/index"
+
+if [ ! "$1" ]; then
+	echo "specify package name to list its dependencies"
+	exit 1
+fi
+
+source /etc/scratchpkg.conf
+pkgname=$1
+
+checkpkg			# check for existence port
+calcdep $pkgname	# calculate dependencies
+loop				# loop through all dependencies
+
+#echo $deps | tr ' ' '\n'
+#read
+
+# filter all same dependencies and sort backwards
+for i in $(echo $deps | tr ' ' '\n'); do
+	[ $(echo $filterdep | tr ' ' '\n' | grep -x $i) ] || filterdep="$filterdep $i"
+done
+
+filterdep="$filterdep $pkgname" # add package to install to final dependency list
+
+for alldep in $(echo $filterdep | tr ' ' '\n'); do
+	if [ -d $index_dir/$alldep ]; then
+		echo "$alldep [installed]"
+	else
+		echo "$alldep"
+	fi
+done
+
+exit 0

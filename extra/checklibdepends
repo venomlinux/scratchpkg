@@ -1,0 +1,41 @@
+#!/bin/bash -e
+
+if [ ! $1 ]; then
+  echo -e "this script requires one arguments."
+  exit 1
+fi
+
+if [ ! -d /var/spkg/index/$1 ]; then
+	echo "Package $1 not installed"
+	exit 1
+fi
+
+pushd / >/dev/null
+	while IFS=' ' read -r LINE; do
+		case "$(file -Lbi "${LINE}")" in
+			*application/x-sharedlib* | *application/x-executable*)
+			NEEDED_LIB=$(objdump -x "$LINE" | grep NEEDED | awk '{print $2}')
+			for i in ${NEEDED_LIB[@]}; do
+				if [ "$i" != "ld-linux-x86-64.so.2" ]; then
+					libpath=$(ldd "$LINE" | grep -v "not found" | grep -w "$i" | awk '{print $3}')
+					#echo "==> $libpath"
+					if [ "$libpath" ]; then
+						FILEPATH=$(readlink -f $(echo $libpath))
+						FILENAME=$(echo $FILEPATH | sed -e '1s/^.//')
+						PKG_NAME=$(basename $(dirname $(grep -Rx $FILENAME /var/spkg/index | cut -d ':' -f1)))
+						if [ "$PKG_NAME" != $1 ]; then
+							if [ ! "$(echo "$deppkg" | grep -w "$PKG_NAME")" ]; then
+								deppkg="$deppkg $PKG_NAME "
+							fi
+						fi
+					else
+						echo "$LINE (missing shared lib) => $i"
+					fi
+				fi
+			done
+		esac
+	done < <(tac /var/spkg/index/$1/.files | grep -E ^"(bin/|lib/|libexec/|sbin/|usr/bin/|usr/lib/|usr/libexec/|usr/sbin/)" | grep -v "/$")
+popd >/dev/null
+
+echo "Shared lib from package(s):"
+echo $deppkg | tr ' ' '\n'

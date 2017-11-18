@@ -1,0 +1,50 @@
+#!/bin/bash -e
+
+checkpkg() {
+	
+	for repo in ${PORT_REPO[@]}; do
+		if [ -f $repo/$pkgname/spkgbuild ]; then
+			PORT_EXIST=yes
+			break
+		fi
+	done
+	[ "$PORT_EXIST" ] || (echo "Port $pkgname not exist" && exit 1)
+}
+
+index_dir="/var/spkg/index"
+
+if [ ! "$1" ]; then
+	echo "specify package name to install"
+	exit 1
+fi
+
+source /etc/scratchpkg.conf
+pkgname=$1
+checkpkg
+
+if [ -d $index_dir/$1 ]; then
+	echo "Package $1 already installed" && exit 0
+fi
+
+for i in $(deplist $1 | awk '{print $1}'); do
+	if [ -d $index_dir/$i ]; then
+		continue
+	else
+		if [ $UID != 0 ]; then
+			if [ -x /usr/bin/fakeroot ]; then
+				echo "==> Build using fakeroot"
+				fakeroot scratch -p $i && sudo scratch -p $i -i || exit 1
+			else
+				sudo scratch -p $i -i || exit 1
+			fi
+		else
+			scratch -p $i -i || exit 1
+		fi
+		if [ ! -d $index_dir/$i ]; then
+			echo "Error installing $i..."
+			read
+		fi
+	fi
+done
+
+exit 0

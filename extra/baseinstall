@@ -1,0 +1,90 @@
+#!/bin/bash
+
+index_dir="/var/spkg/index"
+
+basepkg=(linux-api-headers
+man-pages
+glibc
+tzdata
+zlib
+file
+readline
+m4
+bc
+binutils
+gmp
+mpfr
+libmpc
+gcc
+bzip2
+pkg-config
+ncurses
+attr
+acl
+libcap
+sed
+shadow
+psmisc
+iana-etc
+bison
+flex
+grep
+bash
+libtool
+gdbm
+gperf
+expat
+inetutils
+perl
+perl-xml-parser
+intltool
+autoconf
+automake
+xz
+kmod
+gettext
+procps-ng
+e2fsprogs
+coreutils
+diffutils
+gawk
+findutils
+groff
+grub
+less
+gzip
+iproute2
+kbd
+libpipeline
+make
+patch
+sysklogd
+sysvinit
+eudev
+util-linux
+man-db
+tar
+texinfo
+vim
+filesystem
+rc-init
+base-meta)
+
+for list in ${basepkg[@]}; do
+	if [ -d $index_dir/$list ]; then
+		echo "$list is installed"
+	else
+		case $list in
+			gcc | bash | perl | coreutils | filesystem )
+				scratch -p $list -i -id -ic
+				;;
+			* )
+				scratch -p $list -i -id
+				;;
+		esac
+		if [ ! -d /var/spkg/index/$list ]; then
+			echo "ERROR $list"
+			read
+		fi
+	fi
+done
