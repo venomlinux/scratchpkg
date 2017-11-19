@@ -1,6 +1,5 @@
 #!/bin/bash
 
-DESTDIR=${DESTDIR:-}
 BINDIR=${BINDIR:-/usr/bin}
 
 FUNCDIR=/usr/share/scratchpkg
