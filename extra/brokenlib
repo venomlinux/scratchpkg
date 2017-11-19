@@ -1,0 +1,67 @@
+#!/bin/bash -e
+
+INDEX_DIR="/var/spkg/index"
+COLOR="/usr/share/scratchpkg/color"
+
+. $COLOR
+
+onepkg() {
+	
+	pushd / >/dev/null
+		while IFS=' ' read -r line; do
+			case "$(file -Lbi "${line}")" in
+			*application/x-sharedlib* | *application/x-executable*)
+				if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
+					LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
+					for i in ${LIB_NAME[@]}; do
+						echo -e "$line ${color_green}>>>${color_reset} $i"
+					done
+				fi
+			esac
+		done < <(grep -E "^(bin|lib|libexec|sbin|usr/bin|usr/lib|usr/libexec|usr/sbin)" $INDEX_DIR/$1/.files | grep -Ev "(/firmware/|/java/|/debug/)")
+	popd >/dev/null
+	
+}
+
+allpkg() {
+	
+	pushd / >/dev/null
+		for pkgs in $(ls $INDEX_DIR); do
+			while IFS=' ' read -r line; do
+				case "$(file -Lbi "${line}")" in
+				*application/x-sharedlib* | *application/x-executable*)
+					if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
+						LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
+						PKG_NAME=$(basename $(dirname $(grep -Rx $line $INDEX_DIR | cut -d ':' -f1)))
+						for i in ${LIB_NAME[@]}; do
+							echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $i"
+						done
+						if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
+							continue
+						else
+							ALLPKG+=($PKG_NAME)
+						fi
+					fi
+				esac
+			done < <(grep -E "^(bin|lib|libexec|sbin|usr/bin|usr/lib|usr/libexec|usr/sbin)" $INDEX_DIR/$pkgs/.files | grep -Ev "(/firmware/|/java/|/debug/)")
+		done
+	popd >/dev/null
+	
+	echo
+	echo "This package(s) need rebuild:"
+	echo ${ALLPKG[@]} | tr ' ' '\n'
+	
+}
+
+if [ "$1" ]; then
+	if [ ! -d "$INDEX_DIR/$1" ]; then
+		echo "Package '$1' not installed"
+		exit 1
+	else
+		onepkg $1
+	fi
+else
+	allpkg
+fi
+
+exit 0
