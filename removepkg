@@ -68,6 +68,8 @@ removepkg() {
 	[ "$(grep -x usr/share/info/ $INDEX_DIR/$1/.files)" ] && INFOPAGESUPD=yes
 	[ "$(grep usr/lib/ $INDEX_DIR/$1/.files | grep -E "*.so")" ] && LIBDBUPD=yes
 	
+	runpreremovehooks $1
+	
 	rm -R $INDEX_DIR/$1
 
 	if [ -d $INDEX_DIR/$1 ]; then
@@ -87,6 +89,8 @@ removepkg() {
 		OK) msg "postremove	: ${color_green}OK${color_reset}" ;;
 		KO) msg "postremove	: ${color_red}FAIL${color_reset}" ;;
 	esac
+	
+	runremovehooks
 	
 	# remove lock file
 	spkglock
@@ -197,6 +201,39 @@ check_directory() {
 	done
 	
 	[ "$DIR_ERROR" ] && exit 1
+}
+
+runremovehooks() {
+	
+	if [ "${#runthishook[@]}" -gt 0 ]; then
+		for hook in ${runthishook[@]}; do
+			description=$(cat "$hook" | grep ^Description | cut -d ' ' -f3-)
+			operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
+			target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
+			exec=$(cat "$hook" | grep ^Exec | cut -d ' ' -f3-)
+			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ] && [ -n "$exec" ]; then
+				msg "$description"
+				$exec
+			fi
+			unset description operation target exec
+		done
+	fi
+	
+}
+
+runpreremovehooks() {
+	
+	for hook in $(ls $HOOK_DIR/*.hook); do
+		operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
+		target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
+			if [ "$(echo $operation | grep -w "remove" )" ]; then
+				if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
+					runthishook+=($hook)
+				fi
+			fi
+		unset operation target
+	done
+	
 }
 
 parse_options() {
