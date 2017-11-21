@@ -197,7 +197,7 @@ buildpackage() {
 	
 	pushd $SRC
 	
-	(set -e -x ; build)
+	(exec > >(tee -i $LOG_DIR/$name.log) ; exec 2>&1 ; set -e -x ; build)
 		
 		if [ $? != 0 ]; then
 			msgerr "Build ${color_red}$PKGNAME${color_reset} failed."	
@@ -364,7 +364,7 @@ checkdeps() {
 
 check_directory() {
 	
-	for dir in $WORK_DIR $SOURCE_DIR $PACKAGE_DIR; do
+	for dir in $WORK_DIR $SOURCE_DIR $PACKAGE_DIR $LOG_DIR; do
 		if [ ! -d $dir ]; then
 			msgwarn "Directory ${color_yellow}$dir${color_reset} not exist."
 			DIR_ERROR=yes

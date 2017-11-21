@@ -8,6 +8,7 @@ ROOT_DIR=/
 INDEX_DIR=/var/spkg/index
 BACKUP_DIR=/var/spkg/backup
 REJECTED_DIR=/var/spkg/rejected
+LOG_DIR=/var/spkg/log
 HOOK_DIR=/etc/hooks
 	
 if [ -f $CONF_FILE ]; then
