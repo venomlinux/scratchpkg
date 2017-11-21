@@ -117,11 +117,11 @@ installpkg() {
 		KO) msg "postupgrade	: ${color_red}FAIL${color_reset}" ;;
 	esac
 	
-	if [ "$UPGRADE_PKG" ]; then
-		runupgradehooks
-	else
+	#if [ "$UPGRADE_PKG" ]; then
+	#	runupgradehooks
+	#else
 		runinstallhooks
-	fi
+	#fi
 	
 	if [ -f $INDEX_DIR/$name/.pkgreadme ]; then
 		msg "This package has ${color_green}readme${color_reset}"
@@ -384,41 +384,51 @@ checkneworphan() {
 
 runinstallhooks() {
 	
-	for hook in $(ls $HOOK_DIR/*.hook); do
-		description=$(cat "$hook" | grep ^Description | cut -d ' ' -f3-)
-		operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
-		target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
-		exec=$(cat "$hook" | grep ^Exec | cut -d ' ' -f3-)
-		if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ] && [ -n "$exec" ]; then
-			if [ "$(echo $operation | grep -w "install" )" ]; then
-				if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
-					msg "$description"
-					$exec
+	if [ "$UPGRADE_PKG" ]; then
+		opr=upgrade
+	else
+		opr=install
+	fi
+	
+	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
+		for hook in $(ls $HOOK_DIR/*.hook); do
+			description=$(cat "$hook" | grep ^Description | cut -d ' ' -f3-)
+			operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
+			target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
+			exec=$(cat "$hook" | grep ^Exec | cut -d ' ' -f3-)
+			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ] && [ -n "$exec" ]; then
+				if [ "$(echo $operation | grep -w "$opr" )" ]; then
+					if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
+						msg "$description"
+						$exec
+					fi
 				fi
 			fi
-		fi
-		unset description operation target exec
-	done
+			unset description operation target exec
+		done
+	fi
 	
 }
 
 runupgradehooks() {
 	
-	for hook in $(ls $HOOK_DIR/*.hook); do
-		description=$(cat "$hook" | grep ^Description | cut -d ' ' -f3-)
-		operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
-		target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
-		exec=$(cat "$hook" | grep ^Exec | cut -d ' ' -f3-)
-		if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ] && [ -n "$exec" ]; then
-			if [ "$(echo $operation | grep -w "upgrade" )" ]; then
-				if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
-					msg "$description"
-					$exec
+	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
+		for hook in $(ls $HOOK_DIR/*.hook); do
+			description=$(cat "$hook" | grep ^Description | cut -d ' ' -f3-)
+			operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
+			target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
+			exec=$(cat "$hook" | grep ^Exec | cut -d ' ' -f3-)
+			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ] && [ -n "$exec" ]; then
+				if [ "$(echo $operation | grep -w "upgrade" )" ]; then
+					if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
+						msg "$description"
+						$exec
+					fi
 				fi
 			fi
-		fi
-		unset description operation target exec
-	done
+			unset description operation target exec
+		done
+	fi
 	
 }
 

@@ -223,16 +223,18 @@ runremovehooks() {
 
 runpreremovehooks() {
 	
-	for hook in $(ls $HOOK_DIR/*.hook); do
-		operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
-		target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
-			if [ "$(echo $operation | grep -w "remove" )" ]; then
-				if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
-					runthishook+=($hook)
+	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
+		for hook in $(ls $HOOK_DIR/*.hook); do
+			operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
+			target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
+				if [ "$(echo $operation | grep -w "remove" )" ]; then
+					if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
+						runthishook+=($hook)
+					fi
 				fi
-			fi
-		unset operation target
-	done
+			unset operation target
+		done
+	fi
 	
 }
 
