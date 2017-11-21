@@ -405,6 +405,8 @@ clearpkgcache() {
 
 updports() {
 	
+	checktool httpup
+	
 	needroot "Updating ports"
 	
 	for repo in ${PORT_REPO[@]}; do
@@ -709,7 +711,7 @@ main() {
 	
 	### CHECK_UPDATE ###
 	if [ $CHECK_UPDATE ]; then
-		showupdate | column -t
+		showupdate
 		exit 0
 	fi
 	
