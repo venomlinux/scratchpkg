@@ -5,7 +5,12 @@ if [ "$UID" != "0" ]; then
 	exit 1
 fi
 
-LFS=/mnt/lfs
+LFS=$1
+
+if [ -z $1 ]; then
+	echo "Please set mount point for chroot!"
+	exit 1
+fi
 
 if [ ! -d $LFS ]; then
 	echo "Dir $LFS not exist"
