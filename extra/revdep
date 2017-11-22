@@ -51,9 +51,18 @@ allpkg() {
 		done
 	popd >/dev/null
 	
+	echo -ne "\033[0K"
+	
 	echo
-	echo "This package(s) need rebuild:"
-	echo ${ALLPKG[@]} | tr ' ' '\n'
+	if [ "${#ALLPKG[@]}" -gt 0 ]; then
+		echo "This package(s) need rebuild:"
+		for rebuild in ${ALLPKG[@]}; do
+			echo -e "${color_green}>>>${color_reset} $rebuild"
+		done
+	else
+		echo "All packages is doing fine."
+	fi
+	echo
 	
 }
 
