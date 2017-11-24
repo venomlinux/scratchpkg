@@ -252,8 +252,8 @@ getname() {
 	name=$(tar xf $PKGNAME .pkginfo -O | grep ^name | cut -d " " -f3)
 	version=$(tar xf $PKGNAME .pkginfo -O | grep ^version | cut -d " " -f3)
 	release=$(tar xf $PKGNAME .pkginfo -O | grep ^release | cut -d " " -f3)
-	depends=$(tar xf $PKGNAME .pkginfo -O | grep ^depends | cut -d " " -f3)
-	makedepends=$(tar xf $PKGNAME .pkginfo -O | grep ^makedepends | cut -d " " -f3)
+	depends=$(tar xf $PKGNAME .pkginfo -O | grep ^depends | cut -d " " -f3-)
+	makedepends=$(tar xf $PKGNAME .pkginfo -O | grep ^makedepends | cut -d " " -f3-)
 	conflict=$(tar xf $PKGNAME .pkginfo -O | grep ^conflict | cut -d " " -f3-)
 	
 	packagename=$name-$version-$release
