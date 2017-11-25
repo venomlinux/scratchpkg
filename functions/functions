@@ -1,5 +1,10 @@
 #!/bin/bash
 
+FUNCTIONS=${FUNCTIONS:-'/usr/share/scratchpkg'}
+
+source "$FUNCTIONS/options"
+source "$FUNCTIONS/color"
+
 ### SET SOME VALUE ###
 CONF_FILE="/etc/scratchpkg.conf"
 BUILD_SCRIPT="spkgbuild"
@@ -17,14 +22,9 @@ else
 	msgerr "Configuration file not found."
 	exit 1
 fi
-
-FUNCTIONS=${FUNCTIONS:-'/usr/share/scratchpkg'}
-
-source "$FUNCTIONS/options"
-source "$FUNCTIONS/color"
 	
 ### SET BSDTAR FOR EXTRACT PROGRAM IF LIBARCHIVE IS INSTALLED ###
-if [ -d $INDEX_DIR/libarchive ]; then
+if [ "$(type -pa bsdtar)" ]; then
 	EXTPROG=bsdtar
 else
 	EXTPROG=tar

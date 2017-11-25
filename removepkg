@@ -1,4 +1,6 @@
 #!/bin/bash
+	
+. /usr/share/scratchpkg/functions || exit 1
 
 export LC_ALL=C
 
@@ -59,14 +61,6 @@ removepkg() {
 	if [ ! "$NO_POSTREMOVE" ]; then
 		run_postremove
 	fi
-	
-	[ "$(grep -x usr/share/mime/ $INDEX_DIR/$1/.files)" ] && MIMEUPD=yes
-	[ "$(grep -x usr/share/icons/hicolor/ $INDEX_DIR/$1/.files)" ] && ICONCACHEUPD=yes
-	[ "$(grep -x usr/share/glib-2.0/schemas/ $INDEX_DIR/$1/.files)" ] && GLIBSCHEMASUPD=yes
-	[ "$(grep -x usr/share/applications/ $INDEX_DIR/$1/.files)" ] && DESKTOPUPD=yes
-	[ "$(grep -x usr/share/man/ $INDEX_DIR/$1/.files)" ] && MANDBUPD=yes
-	[ "$(grep -x usr/share/info/ $INDEX_DIR/$1/.files)" ] && INFOPAGESUPD=yes
-	[ "$(grep usr/lib/ $INDEX_DIR/$1/.files | grep -E "*.so")" ] && LIBDBUPD=yes
 	
 	runpreremovehooks $1
 	
@@ -207,13 +201,15 @@ runremovehooks() {
 	
 	if [ "${#runthishook[@]}" -gt 0 ]; then
 		for hook in ${runthishook[@]}; do
-			description=$(cat "$hook" | grep ^Description | cut -d ' ' -f3-)
-			operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
-			target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
-			exec=$(cat "$hook" | grep ^Exec | cut -d ' ' -f3-)
-			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ] && [ -n "$exec" ]; then
+			description=$(cat "$hook" | grep ^"# Description" | sed 's/\://' | cut -d ' ' -f 3-)
+			operation=$(cat "$hook" | grep ^"# Operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# Target" | sed 's/\://' | cut -d ' ' -f 3-)
+			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
 				msg "$description"
-				$exec
+				. $hook
+				if [ "`type -t exechook`" = "function" ]; then
+					exechook
+				fi
 			fi
 			unset description operation target exec
 		done
@@ -225,8 +221,8 @@ runpreremovehooks() {
 	
 	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
 		for hook in $(ls $HOOK_DIR/*.hook); do
-			operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
-			target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
+			operation=$(cat "$hook" | grep ^"# Operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# Target" | sed 's/\://' | cut -d ' ' -f 3-)
 				if [ "$(echo $operation | grep -w "remove" )" ]; then
 					if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
 						runthishook+=($hook)
@@ -274,8 +270,6 @@ parse_options() {
 
 main() {
 	
-	. /usr/share/scratchpkg/functions || exit 1
-	
 	parse_options "$@"
 	
 	### DISABLE COLOR ###
@@ -316,14 +310,10 @@ main() {
 		checkneworphan
 	fi	
 	
-	### UPDATE SYSTEM DATABASE ###
-	[ "$MIMEUPD" = "yes" ] && updmimedb
-	[ "$ICONCACHEUPD" = "yes" ] && updiconcache
-	[ "$GLIBSCHEMASUPD" = "yes" ] && updglibschemas
-	[ "$DESKTOPUPD" = "yes" ] && upddesktopdb
-	[ "$MANDBUPD" = "yes" ] && updmandb
-	[ "$INFOPAGESUPD" = "yes" ] && updinfopages
-	[ "$LIBDBUPD" = "yes" ] && updlibdb
+	# msg2 "Running ldconfig..."
+	if [ -x /sbin/ldconfig ]; then
+		/sbin/ldconfig
+	fi
 		
 	exit 0
 	

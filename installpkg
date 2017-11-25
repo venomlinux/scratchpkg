@@ -1,4 +1,6 @@
 #!/bin/bash
+	
+. /usr/share/scratchpkg/functions || exit 1
 
 export LC_ALL=C
 
@@ -388,19 +390,21 @@ runhooks() {
 	
 	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
 		for hook in $(ls $HOOK_DIR/*.hook); do
-			description=$(cat "$hook" | grep ^Description | cut -d ' ' -f3-)
-			operation=$(cat "$hook" | grep ^Operation | cut -d ' ' -f3-)
-			target=$(cat "$hook" | grep ^Target | cut -d ' ' -f3-)
-			exec=$(cat "$hook" | grep ^Exec | cut -d ' ' -f3-)
-			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ] && [ -n "$exec" ]; then
+			description=$(cat "$hook" | grep ^"# Description" | sed 's/\://' | cut -d ' ' -f 3-)
+			operation=$(cat "$hook" | grep ^"# Operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# Target" | sed 's/\://' | cut -d ' ' -f 3-)
+			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
 				if [ "$(echo $operation | grep -w "$opr" )" ]; then
 					if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
 						msg "$description"
-						$exec
+						. $hook
+						if [ "`type -t exechook`" = "function" ]; then
+							exechook
+						fi
 					fi
 				fi
 			fi
-			unset description operation target exec
+			unset description operation target
 		done
 	fi
 	
@@ -498,8 +502,6 @@ parse_options() {
 
 main() {
 	
-	. /usr/share/scratchpkg/functions || exit 1
-	
 	parse_options "$@"
 	
 	### NOT STATED PACKAGE ###
@@ -570,14 +572,10 @@ main() {
 		checkneworphan
 	fi
 	
-	### UPDATE INFO PAGES ###
-	[ "$(grep -x usr/share/mime/ $INDEX_DIR/$name/.files)" ] && updmimedb
-	[ "$(grep -x usr/share/icons/hicolor/ $INDEX_DIR/$name/.files)" ] && updiconcache
-	[ "$(grep -x usr/share/glib-2.0/schemas/ $INDEX_DIR/$name/.files)" ] && updglibschemas
-	[ "$(grep -x usr/share/applications/ $INDEX_DIR/$name/.files)" ] && upddesktopdb
-	[ "$(grep -x usr/share/man/ $INDEX_DIR/$name/.files)" ] && updmandb
-	[ "$(grep -x usr/share/info/ $INDEX_DIR/$name/.files)" ] && updinfopages
-	[ "$(grep usr/lib/ $INDEX_DIR/$name/.files | grep -E "*.so")" ] && updlibdb
+	# msg2 "Running ldconfig..."
+	if [ -x /sbin/ldconfig ]; then
+		/sbin/ldconfig
+	fi
 	
 	exit 0
 }

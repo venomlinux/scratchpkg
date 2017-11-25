@@ -51,8 +51,8 @@ allpkg() {
 	
 	echo -ne "\033[0K"
 	
-	echo
 	if [ "${#ALLPKG[@]}" -gt 0 ]; then
+		echo
 		echo "This package(s) need rebuild:"
 		for rebuild in ${ALLPKG[@]}; do
 			echo -e "${color_green}>>>${color_reset} $rebuild"
