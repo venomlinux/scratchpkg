@@ -1,8 +1,8 @@
 #!/bin/bash
-	
-. /usr/share/scratchpkg/functions || exit 1
 
 export LC_ALL=C
+	
+. /usr/share/scratchpkg/functions || exit 1
 
 spkglock() {
 	
@@ -527,8 +527,13 @@ main() {
 		exit 0
 	fi
 	
+	### CHECK FOR ROOT ACCESS ###
 	needroot "Installing package"
-	check_directory
+	
+	### CHECK DIRECTORY ###
+	checkdirexist "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
+	checkdirwrite "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
+	checkdirread "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then

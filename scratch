@@ -1,8 +1,41 @@
 #!/bin/bash
+
+export LC_ALL=C
 	
 . /usr/share/scratchpkg/functions || exit 1
 
-export LC_ALL=C
+showinfo() {
+	
+	echo
+	echo "      SCRATCHPKG CONFIG"
+	echo "  -------------------------"
+	echo
+	echo "CFLAGS=$CFLAGS"
+	echo "CXXFLAGS=$CXXFLAGS"
+	echo "MAKEFLAGS=$MAKEFLAGS"
+	echo	
+	echo "CONF_FILE=$CONF_FILE"
+	echo "BUILD_SCRIPT=$BUILD_SCRIPT"
+	echo
+	echo "ROOT_DIR=$ROOT_DIR"
+	echo "INDEX_DIR=$INDEX_DIR"
+	echo
+	echo "PACKAGE_DIR=$PACKAGE_DIR"
+	echo "SOURCE_DIR=$SOURCE_DIR"
+	echo "WORK_DIR=$WORK_DIR"
+	echo "BACKUP_DIR=$BACKUP_DIR"
+	echo "REJECTED_DIR=$REJECTED_DIR"
+	echo "LOG_DIR=$LOG_DIR"
+	echo "HOOK_DIR=$HOOK_DIR"
+	echo
+	echo "NO_EXTRACT=$NO_EXTRACT"
+	echo
+	echo "OPTIONS=${OPTIONS[@]}"
+	echo "PURGE_FILES=${PURGE_FILES[@]}"
+	echo "DOC_DIRS=${DOC_DIRS[@]}"
+	echo "MAN_DIRS=${MAN_DIRS[@]}"
+	
+}
 
 listinstalled() {
 	for installed in $(ls $INDEX_DIR); do
@@ -532,6 +565,9 @@ parse_options() {
 		-up|--update-ports)
 			UPD_PORTS=yes
 			;;
+		--info)
+			SHOW_INFO=yes
+			;;
 		-c|--cat-port)
 			if [ ! "$2" ]; then
 				msg "Option '$1' require an argument (package to show its port script)"
@@ -654,6 +690,14 @@ main() {
 	if [ "$NO_COLOR" ]; then
 		nocolor
 	fi
+	
+	### SHOW SCRATCHPKG INFO ###
+	if [ "$SHOW_INFO" ]; then
+		showinfo
+		exit 0
+	fi
+
+	checkdirexist "$INDEX_DIR"
 	
 	### UPDATE PORTS ###
 	if [ $UPD_PORTS ]; then

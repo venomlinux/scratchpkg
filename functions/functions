@@ -9,12 +9,21 @@ source "$FUNCTIONS/color"
 CONF_FILE="/etc/scratchpkg.conf"
 BUILD_SCRIPT="spkgbuild"
 
-ROOT_DIR=/
-INDEX_DIR=/var/spkg/index
-BACKUP_DIR=/var/spkg/backup
-REJECTED_DIR=/var/spkg/rejected
-LOG_DIR=/var/spkg/log
-HOOK_DIR=/etc/hooks
+ROOT_DIR="/"
+INDEX_DIR="/var/lib/scratchpkg/index"
+
+PACKAGE_DIR="/var/cache/scratchpkg/packages"
+SOURCE_DIR="/var/cache/scratchpkg/sources"
+WORK_DIR="/tmp"
+BACKUP_DIR="/var/cache/scratchpkg/backup"
+REJECTED_DIR="/var/cache/scratchpkg/rejected"
+LOG_DIR="/var/cache/scratchpkg/log"
+HOOK_DIR="/etc/hooks"
+
+OPTIONS=(libtool emptydirs strip docs purge zipman buildflags makeflags)
+PURGE_FILES=(usr/{,share/}info/dir)
+DOC_DIRS=(usr/{,local/}{,share/}{doc,gtk-doc} opt/*/{doc,gtk-doc})
+MAN_DIRS=({usr{,/local}{,/share},opt/*}/man)
 	
 if [ -f $CONF_FILE ]; then
 	. $CONF_FILE
@@ -232,5 +241,44 @@ build() {
 }" > $TEMPLATE_NAME/$BUILD_SCRIPT
 	msg "Template port have created for ${color_green}$TEMPLATE_NAME${color_reset}."
 	fi
+	
+}
+
+checkdirexist() {
+	
+	for dir in "$@"; do
+		if [ ! -d $dir ]; then
+			msgwarn "Directory ${color_yellow}$dir${color_reset} not exist."
+			DIR_ERROR=yes
+		fi
+	done
+	
+	[ "$DIR_ERROR" ] && exit 1
+	
+}
+
+checkdirwrite() {
+	
+	for dir in "$@"; do
+		if [ ! -w $dir ]; then
+			msgwarn "Directory ${color_yellow}$dir${color_reset} not writable."
+			DIR_ERROR=yes
+		fi
+	done
+	
+	[ "$DIR_ERROR" ] && exit 1
+	
+}
+
+checkdirread() {
+	
+	for dir in "$@"; do
+		if [ ! -x $dir ] || [ ! -r $1 ]; then
+			msgwarn "Directory ${color_yellow}$dir${color_reset} not readable."
+			DIR_ERROR=yes
+		fi
+	done
+	
+	[ "$DIR_ERROR" ] && exit 1
 	
 }
