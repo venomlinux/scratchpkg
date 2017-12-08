@@ -6,6 +6,18 @@ source "/usr/share/scratchpkg/message"
 faileduppkg=()
 successuppkg=()
 
+msg "Updating ports..."
+if [ $UID != 0 ]; then
+	if [ $(type -pa sudo) ]; then
+		sudo scratch -up
+	else
+		msgerr "Updating package need root access!"
+		exit 1
+	fi
+else
+	scratch -up
+fi
+
 if [[ ! $(scratch -cu | grep "up to date") ]]; then
 	outdatepkg=($(scratch -cu | awk '{print $2}'))
 	totalopkgs=$(echo ${#outdatepkg[@]})
@@ -16,7 +28,7 @@ if [[ ! $(scratch -cu | grep "up to date") ]]; then
 				echo -e "[ $count/$totalopkgs ] Updating $i..."
 				sudo scratch -u -p $i && successuppkg+=($i) || faileduppkg+=($i)
 			else
-				echo "Updating package need root access!"
+				msgerr "Updating package need root access!"
 				exit 1
 			fi
 		else
