@@ -52,6 +52,6 @@ depinst() {
 }
 
 checkpkg
-depinst
+depinst "$@"
 
 exit 0
