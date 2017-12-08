@@ -1,6 +1,9 @@
-#!/bin/bash
+#!/bin/bash -e
 
-index_dir="/var/spkg/index"
+INDEX_DIR="/var/lib/scratchpkg/index"
+
+source "/usr/share/scratchpkg/color"
+source "/usr/share/scratchpkg/message"
 
 basepkg=(linux-api-headers
 man-pages
@@ -71,9 +74,10 @@ rc-init
 base-meta)
 
 for list in ${basepkg[@]}; do
-	if [ -d $index_dir/$list ]; then
-		echo "$list is installed"
+	if [ -d $INDEX_DIR/$list ]; then
+		msg "$list is installed"
 	else
+		msg "Installing $list..."
 		case $list in
 			gcc | bash | perl | coreutils | filesystem )
 				scratch -p $list -i -id -ic
@@ -82,9 +86,12 @@ for list in ${basepkg[@]}; do
 				scratch -p $list -i -id
 				;;
 		esac
-		if [ ! -d /var/spkg/index/$list ]; then
-			echo "ERROR $list"
+		if [ ! -d $INDEX_DIR/$list ]; then
+			msgerr "Failed installing $list."
+			msgerr "Press ENTER to skip and continue, press CTRL + C to cancel."
 			read
 		fi
 	fi
 done
+
+exit 0

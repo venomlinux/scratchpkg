@@ -1,12 +1,17 @@
 #!/bin/bash -e
 
+INDEX_DIR="/var/lib/scratchpkg/index"
+
+source "/usr/share/scratchpkg/color"
+source "/usr/share/scratchpkg/message"
+
 if [ ! $1 ]; then
-  echo -e "this script requires one arguments."
-  exit 1
+	msgerr "This script requires one arguments."
+	exit 1
 fi
 
-if [ ! -d /var/spkg/index/$1 ]; then
-	echo "Package $1 not installed"
+if [ ! -d $INDEX_DIR/$1 ]; then
+	msgerr "Package '$1' not installed."
 	exit 1
 fi
 
@@ -18,11 +23,10 @@ pushd / >/dev/null
 			for i in ${NEEDED_LIB[@]}; do
 				if [ "$i" != "ld-linux-x86-64.so.2" ]; then
 					libpath=$(ldd "$LINE" | grep -v "not found" | grep -w "$i" | awk '{print $3}')
-					#echo "==> $libpath"
 					if [ "$libpath" ]; then
 						FILEPATH=$(readlink -f $(echo $libpath))
 						FILENAME=$(echo $FILEPATH | sed -e '1s/^.//')
-						PKG_NAME=$(basename $(dirname $(grep -Rx $FILENAME /var/spkg/index | cut -d ':' -f1)))
+						PKG_NAME=$(basename $(dirname $(grep -Rx $FILENAME $INDEX_DIR | cut -d ':' -f1)))
 						if [ "$PKG_NAME" != $1 ]; then
 							if [ ! "$(echo "$deppkg" | grep -w "$PKG_NAME")" ]; then
 								deppkg="$deppkg $PKG_NAME "
@@ -34,7 +38,7 @@ pushd / >/dev/null
 				fi
 			done
 		esac
-	done < <(tac /var/spkg/index/$1/.files | grep -E ^"(bin/|lib/|libexec/|sbin/|usr/bin/|usr/lib/|usr/libexec/|usr/sbin/)" | grep -v "/$")
+	done < <(tac $INDEX_DIR/$1/.files | grep -E ^"(bin/|lib/|libexec/|sbin/|usr/bin/|usr/lib/|usr/libexec/|usr/sbin/)" | grep -v "/$")
 popd >/dev/null
 
 echo "Shared lib from package(s):"

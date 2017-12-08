@@ -2,7 +2,7 @@
 
 calcdep() {
 	
-	dep=$(scratch -d $1 | awk '{print $3}')
+	dep=$(scratch -d $1 | grep -v "port not exist" | awk '{print $3}')
 	for i in $dep; do
 		deps="$deps $i"
 	done
@@ -34,22 +34,21 @@ checkpkg() {
 	[ "$PORT_EXIST" ] || (echo "Port $pkgname not exist" && exit 1)
 }
 
-index_dir="/var/spkg/index"
+INDEX_DIR="/var/lib/scratchpkg/index"
+CONF_FILE="/etc/scratchpkg.conf"
 
 if [ ! "$1" ]; then
-	echo "specify package name to list its dependencies"
+	echo "Please specify package name to list its dependencies"
 	exit 1
 fi
 
-source /etc/scratchpkg.conf
+source "$CONF_FILE"
+source "/usr/share/scratchpkg/color"
 pkgname=$1
 
 checkpkg			# check for existence port
 calcdep $pkgname	# calculate dependencies
 loop				# loop through all dependencies
-
-#echo $deps | tr ' ' '\n'
-#read
 
 # filter all same dependencies and sort backwards
 for i in $(echo $deps | tr ' ' '\n'); do
@@ -59,8 +58,8 @@ done
 filterdep="$filterdep $pkgname" # add package to install to final dependency list
 
 for alldep in $(echo $filterdep | tr ' ' '\n'); do
-	if [ -d $index_dir/$alldep ]; then
-		echo "$alldep [installed]"
+	if [ -d $INDEX_DIR/$alldep ]; then
+		echo -e "$alldep ${color_green}[installed]${color_reset}"
 	else
 		echo "$alldep"
 	fi

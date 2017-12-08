@@ -1,37 +1,38 @@
-#!/bin/bash
+#!/bin/bash -e
 
-index_dir="/var/spkg/index"
+INDEX_DIR="/var/lib/scratchpkg/index"
+
+source "/usr/share/scratchpkg/color"
+source "/usr/share/scratchpkg/message"
 
 if [ ! "$1" ]; then
-	echo "specify list file"
+	msgerr "Please specify list file."
 	exit 1
 fi
 
 if [ ! -f "$1" ]; then
-	echo "file $1 not exist"
+	msgerr "File '$1' not exist."
 	exit 1
 fi
 
 list=$(cat $1)
 
 for i in $list; do
-	if [ -d $index_dir/$i ]; then
-		echo "$i is installed"
+	if [ -d $INDEX_DIR/$i ]; then
+		msg "$i is installed"
 	else
-		echo "installing $i..."
+		msg "installing $i..."
 		if [ $UID != 0 ]; then
-			if [ -x /usr/bin/fakeroot ]; then
-				echo "==> Build using fakeroot"
-				fakeroot scratch -p $i && sudo scratch -p $i -i
-			else
-				sudo scratch -p $i -i
-			fi
+			sudo scratch -p $i -i
 		else
 			scratch -p $i -i
 		fi
-		if [ ! -d $index_dir/$i ]; then
-			echo "Error installing $i..."
+		if [ ! -d $INDEX_DIR/$i ]; then
+			msgerr "Failed installing $i."
+			msgerr "Press ENTER to skip and continue, press CTRL + C to cancel."
 			read
 		fi
 	fi
 done
+
+exit 0

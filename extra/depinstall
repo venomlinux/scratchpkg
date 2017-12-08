@@ -1,5 +1,23 @@
 #!/bin/bash -e
 
+INDEX_DIR="/var/lib/scratchpkg/index"
+CONF_FILE="/etc/scratchpkg.conf"
+
+if [ ! "$1" ]; then
+	echo "Please specify package name to install."
+	exit 1
+fi
+
+if [ -d $INDEX_DIR/$1 ]; then
+	echo "Package $1 already installed" && exit 0
+fi
+
+source "$CONF_FILE"
+source "/usr/share/scratchpkg/color"
+source "/usr/share/scratchpkg/message"
+
+pkgname=$1
+
 checkpkg() {
 	
 	for repo in ${PORT_REPO[@]}; do
@@ -8,43 +26,32 @@ checkpkg() {
 			break
 		fi
 	done
-	[ "$PORT_EXIST" ] || (echo "Port $pkgname not exist" && exit 1)
+	[ "$PORT_EXIST" ] || (msgerr "Port '$pkgname' not exist" && exit 1)
 }
 
-index_dir="/var/spkg/index"
-
-if [ ! "$1" ]; then
-	echo "specify package name to install"
-	exit 1
-fi
-
-source /etc/scratchpkg.conf
-pkgname=$1
-checkpkg
-
-if [ -d $index_dir/$1 ]; then
-	echo "Package $1 already installed" && exit 0
-fi
-
-for i in $(deplist $1 | awk '{print $1}'); do
-	if [ -d $index_dir/$i ]; then
-		continue
-	else
-		if [ $UID != 0 ]; then
-			if [ -x /usr/bin/fakeroot ]; then
-				echo "==> Build using fakeroot"
-				fakeroot scratch -p $i && sudo scratch -p $i -i || exit 1
-			else
-				sudo scratch -p $i -i || exit 1
-			fi
+depinst() {
+	
+	for i in $(deplist $1 | awk '{print $1}'); do
+		if [ -d $INDEX_DIR/$i ]; then
+			continue
 		else
-			scratch -p $i -i || exit 1
+			msg "Installing $i..."
+			if [ $UID != 0 ]; then
+				sudo scratch -p $i -i
+			else
+				scratch -p $i -i
+			fi
+			if [ ! -d $INDEX_DIR/$i ]; then
+				msgerr "Failed installing $i."
+				msgerr "Press ENTER to skip and continue, press CTRL + C to cancel."
+				read
+			fi
 		fi
-		if [ ! -d $index_dir/$i ]; then
-			echo "Error installing $i..."
-			read
-		fi
-	fi
-done
+	done
+
+}
+
+checkpkg
+depinst
 
 exit 0

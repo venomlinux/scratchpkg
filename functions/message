@@ -1,0 +1,29 @@
+#!/bin/bash
+
+msg() {
+	echo -e "${color_green}==>${color_reset} $1"
+}
+
+msginfo() {
+	echo -e "${color_cyan}==> INFO:${color_reset} $1"
+}
+
+msgerr() {
+	echo -e "${color_red}==> ERROR:${color_reset} $1"
+}
+
+msgwarn() {
+	echo -e "${color_yellow}==> WARNING:${color_reset} $1"
+}
+
+msg2() {
+	echo -e "${color_blue}  ->${color_reset} $1"
+}
+
+msg3() {
+	echo -e "$1"
+}
+
+msg4() {
+	echo -e "     $1"
+}
