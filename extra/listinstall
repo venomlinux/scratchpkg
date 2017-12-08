@@ -19,7 +19,7 @@ list=$(cat $1)
 
 for i in $list; do
 	if [ -d $INDEX_DIR/$i ]; then
-		msg "$i is installed"
+		msg "$i ${color_green}[installed]${color_reset}"
 	else
 		echo
 		msg "installing $i..."
