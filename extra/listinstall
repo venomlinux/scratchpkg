@@ -21,6 +21,7 @@ for i in $list; do
 	if [ -d $INDEX_DIR/$i ]; then
 		msg "$i is installed"
 	else
+		echo
 		msg "installing $i..."
 		if [ $UID != 0 ]; then
 			sudo scratch -p $i -i
