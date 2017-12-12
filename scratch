@@ -454,6 +454,23 @@ updports() {
 	
 }
 
+duplicateports() {
+	
+	dup=$(find ${PORT_REPO[@]} -type d | rev | cut -d '/' -f1 | rev | sort | uniq -d)
+	
+	if [ "$dup" ]; then
+		for dp in $dup; do
+			for repo in ${PORT_REPO[@]}; do
+				reponame=$(basename $repo)
+				[ -d $repo/$dp ] && echo "$repo/$dp"
+			done
+		done
+	else
+		msg "No duplicate ports found."
+	fi
+	
+}
+
 interrupted() {
 	exit 1
 }
@@ -540,6 +557,9 @@ parse_options() {
 			;;
 		--no-backup)
 			NO_BACKUP=yes
+			;;
+		-dup|--duplicate-ports)
+			DUPLICATE_PORTS=yes
 			;;
 		-l|--list-installed)
 			LIST_INSTALLED=yes
@@ -694,6 +714,11 @@ main() {
 	### SHOW SCRATCHPKG INFO ###
 	if [ "$SHOW_INFO" ]; then
 		showinfo
+		exit 0
+	fi
+	### SHOW SCRATCHPKG INFO ###
+	if [ "$DUPLICATE_PORTS" ]; then
+		duplicateports
 		exit 0
 	fi
 
