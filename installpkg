@@ -390,9 +390,9 @@ runhooks() {
 	
 	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
 		for hook in $(ls $HOOK_DIR/*.hook); do
-			description=$(cat "$hook" | grep ^"# Description" | sed 's/\://' | cut -d ' ' -f 3-)
-			operation=$(cat "$hook" | grep ^"# Operation" | sed 's/\://' | cut -d ' ' -f 3-)
-			target=$(cat "$hook" | grep ^"# Target" | sed 's/\://' | cut -d ' ' -f 3-)
+			description=$(cat "$hook" | grep ^"# description" | sed 's/\://' | cut -d ' ' -f 3-)
+			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
 			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
 				if [ "$(echo $operation | grep -w "$opr" )" ]; then
 					if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then

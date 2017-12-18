@@ -199,7 +199,7 @@ buildpackage() {
 	
 	pushd $SRC
 	
-	(exec &> >(tee -i $LOG_DIR/$name.log); echo $(date); set -e -x; build)
+	(exec &> >(tee -i $LOG_DIR/$name.log); echo "$name-$version"; echo $(date); set -e -x; build)
 		
 		if [ $? != 0 ]; then
 			msgerr "Build ${color_red}$PKGNAME${color_reset} failed."	

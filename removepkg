@@ -183,9 +183,9 @@ runremovehooks() {
 	
 	if [ "${#runthishook[@]}" -gt 0 ]; then
 		for hook in ${runthishook[@]}; do
-			description=$(cat "$hook" | grep ^"# Description" | sed 's/\://' | cut -d ' ' -f 3-)
-			operation=$(cat "$hook" | grep ^"# Operation" | sed 's/\://' | cut -d ' ' -f 3-)
-			target=$(cat "$hook" | grep ^"# Target" | sed 's/\://' | cut -d ' ' -f 3-)
+			description=$(cat "$hook" | grep ^"# description" | sed 's/\://' | cut -d ' ' -f 3-)
+			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
 			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
 				msg "$description"
 				. $hook
@@ -193,7 +193,7 @@ runremovehooks() {
 					exechook
 				fi
 			fi
-			unset description operation target exec
+			unset description operation target
 		done
 	fi
 	
@@ -203,8 +203,8 @@ runpreremovehooks() {
 	
 	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
 		for hook in $(ls $HOOK_DIR/*.hook); do
-			operation=$(cat "$hook" | grep ^"# Operation" | sed 's/\://' | cut -d ' ' -f 3-)
-			target=$(cat "$hook" | grep ^"# Target" | sed 's/\://' | cut -d ' ' -f 3-)
+			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
 				if [ "$(echo $operation | grep -w "remove" )" ]; then
 					if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
 						runthishook+=($hook)
@@ -265,7 +265,7 @@ main() {
 	### CHECK DIRECTORY ###
 	checkdirexist "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
 	checkdirwrite "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
-	checkdirread "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
+	checkdirread  "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
 	
 	### PACKAGE NAME ###
 	if [ -z $RMNAME ]; then

@@ -79,18 +79,16 @@ searchpkg() {
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
 			OUTPUT=()
-			for list in $(ls $port); do
-				if [ -f $port/$list/$BUILD_SCRIPT ]; then
-					if [ "$(cat $port/$list/$BUILD_SCRIPT | grep ^'# description' | tr -d ':' | cut -d ' ' -f 3- | grep -i $SEARCH_PKG)" ] || [ "$(echo $list | grep -i $SEARCH_PKG)" ]; then
-						OUTPUT+=($list)
-					fi
-				fi
-			done
-			for out in ${OUTPUT[@]}; do
-				if [ -f $port/$out/$BUILD_SCRIPT ]; then
-					pushd $port/$out
-						getpkginfo
-					popd
+			pushd $port
+				OUTPUT=$(grep -R "# description" | grep -i "$SEARCH_PKG" | cut -d '/' -f1)
+			popd
+			if [ "$OUTPUT" ]; then
+				found=yes
+				for out in ${OUTPUT[@]}; do
+					if [ -f $port/$out/$BUILD_SCRIPT ]; then
+						pushd $port/$out
+							getpkginfo
+						popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
 							search_result="${color_purple}($portname)${color_reset} ${color_gray}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
@@ -100,7 +98,7 @@ searchpkg() {
 									msg3 "$search_result ${color_green}[installed]${color_reset}"
 									msg4 "$description"
 								else
-									msg3 "$search_result ${color_yellow}[outdated] $iversion-$irelease${color_reset}"
+									msg3 "$search_result ${color_yellow}[installed $iversion-$irelease]${color_reset}"
 									msg4 "$description"
 								fi
 							else
@@ -109,17 +107,21 @@ searchpkg() {
 							fi
 							unset description
 						fi
-				fi
-			done
+					fi
+				done
+			fi
 		fi
 	done
+	if [ "$found" != "yes" ]; then
+		msg "No matching package found."
+	fi
 }
 
 checkowner() {
 
 	for installed in $(ls $INDEX_DIR); do
 		for output in $(cat $INDEX_DIR/$installed/.files | grep $OWNER_FILE_NAME); do
-			msg "${color_cyan}$installed${color_reset} => ${color_purple}$output${color_reset}"
+			echo -e "${color_cyan}$installed${color_reset} => ${color_purple}$output${color_reset}"
 		done
 	done
 	
