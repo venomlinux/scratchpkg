@@ -357,8 +357,8 @@ getpkgcache() {
 	
 	for repo in ${PORT_REPO[@]}; do
 		for port in $(ls $repo); do
-			if [ -d $repo/$port ]; then
-				. $repo/$port/spkgbuild
+			if [ -f $repo/$port/$BUILD_SCRIPT ]; then
+				. $repo/$port/$BUILD_SCRIPT
 				PORT_PACKAGES+=($name-$version-$release.spkg.txz)
 				if [ ! -z $source ]; then
 					for src in ${source[@]}; do
