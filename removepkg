@@ -216,6 +216,26 @@ runpreremovehooks() {
 	
 }
 
+help() {
+	
+	echo "Usage:"
+	echo "  $(basename $0) package name [ <options> <arguments> ]"
+	echo
+	echo "Options:"
+	echo "  -id, --ignore-dependency    skip dependency check"
+	echo "  -v,  --verbose              verbose install process"
+	echo "       --no-preremove         don't run pre-remove script"
+	echo "       --no-postremove        don't run post-remove script"
+	echo "       --no-orphan-check      skip orphaned package check after install package"
+	echo "       --no-color             disable colour for output"
+	echo "  -h,  --help                 show this help message"
+	echo
+	echo "Example:"
+	echo "  $(basename $0) firefox -id -v        remove package firefox, skipping dependency check"
+	echo "                                  and verbose deleted file"
+	
+}
+
 parse_options() {
 	
 	while [ "$1" ]; do
@@ -223,11 +243,11 @@ parse_options() {
 		-id|--ignore-dependency)
 			IGNORE_DEP=yes
 			;;
-		-ds|--disable-script)
-			DISABLE_SCRIPT=yes
-			;;
 		-v|--verbose)
 			VERBOSE_REMOVE=yes
+			;;
+		-h|--help)
+			SHOW_HELP=yes
 			;;
 		--no-preremove)
 			NO_PREREMOVE=yes
@@ -257,6 +277,12 @@ main() {
 	### DISABLE COLOR ###
 	if [ "$NO_COLOR" ]; then
 		nocolor
+	fi
+	
+	### SHOW HELP ###
+	if [ "$SHOW_HELP" ]; then
+		help
+		exit 0
 	fi
 	
 	### CHECK FOR ROOT ACCESS ###

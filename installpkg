@@ -427,20 +427,27 @@ removemakedepends() {
 
 help() {
 	
-	echo -e "Usage:"
-	echo -e "\t`basename $0` packagefile < options >"
-	echo -e ""
-	echo -e "Example:"
-	echo -e "\t`basename $0` foobar-1.0-1.spkg.txz -u --no-backup		this will upgrade package foobar-1.0-1 without \n\t\t\t\t\t\t\t\tbackup its old configuration file"
-	echo -e ""
-	echo -e "Options:"
-	echo -e "\t-u,\t--upgrade		update package"
-	echo -e "\t-r,\t--reinstall		reinstall package"
-	echo -e "\t-id,\t--ignore-dependency	ignore dependency"
-	echo -e "\t-ic,\t--ignore-conflict	ignore conflict when installing package"
-	echo -e "\t-v,\t--verbose		verbose install process"
-	echo -e "\t\t--no-preinstall		skip preinstall script when build/install package"
-	echo -e "\t\t--no-postinstall	skip postinstall script after install package"
+	echo "Usage:"
+	echo "  $(basename $0) package.spkg.txz [ <options> <arguments> ]"
+	echo
+	echo "Options:"
+	echo "  -u,  --upgrade              update package"
+	echo "  -r,  --reinstall            reinstall package"
+	echo "  -id, --ignore-dependency    skip dependency check"
+	echo "  -ic, --ignore-conflict      ignore conflict when installing package"
+	echo "  -v,  --verbose              verbose install process"
+	echo "       --no-preinstall        don't run pre-install script"
+	echo "       --no-postinstall       don't run post-install script"
+	echo "       --no-preupgrade        don't run pre-upgrade script"
+	echo "       --no-postupgrade       don't run post-upgrade script"
+	echo "       --no-backup            skip backup when upgrading package"
+	echo "       --no-orphan-check      skip orphaned package check after install package"
+	echo "       --no-color             disable colour for output"
+	echo "  -h,  --help                 show this help message"
+	echo
+	echo "Example:"
+	echo "  $(basename $0) foobar-1.0-1.spkg.txz -u --no-backup        upgrade package foobar-1.0-1 without backup"
+	echo "                                                         its old configuration files"
 	
 }
 
@@ -472,7 +479,7 @@ parse_options() {
 		--no-preupgrade)
 			NO_PREUPGRADE=yes
 			;;
-		--no-preupgrade)
+		--no-postupgrade)
 			NO_POSTUPGRADE=yes
 			;;
 		--no-backup)
@@ -504,6 +511,17 @@ main() {
 	
 	parse_options "$@"
 	
+	### DISABLE COLOR ###
+	if [ "$NO_COLOR" ]; then
+		nocolor
+	fi
+	
+	### SHOW HELP ###
+	if [ "$SHOW_HELP" ]; then
+		help
+		exit 0
+	fi
+	
 	### NOT STATED PACKAGE ###
 	if [ -z $PKGNAME ]; then
 		msgerr "Please state the package to install."
@@ -514,17 +532,6 @@ main() {
 	if [ ! -f $PKGNAME ]; then
 		msgerr "Package ${color_red}$1${color_reset} not exist!"
 		exit 1
-	fi
-	
-	### DISABLE COLOR ###
-	if [ "$NO_COLOR" ]; then
-		nocolor
-	fi
-	
-	### SHOW HELP ###
-	if [ "$SHOW_HELP" ]; then
-		help
-		exit 0
 	fi
 	
 	### CHECK FOR ROOT ACCESS ###
