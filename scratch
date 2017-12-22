@@ -480,7 +480,7 @@ interrupted() {
 pushtoport() {
 	
 	for port in ${PORT_REPO[@]}; do
-		if [ -d $port/$PORTNAME/$BUILD_SCRIPT ]; then
+		if [ -f $port/$PORTNAME/$BUILD_SCRIPT ]; then
 			PORT_EXIST=yes
 			pushd $port/$PORTNAME
 				INSTALL_PKG="$INSTALL_PKG" \
