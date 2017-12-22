@@ -16,7 +16,9 @@ Install
 -------
 
 Installing just simply execute INSTALL.sh:
-'./INSTALL.sh'
+
+`./INSTALL.sh`
 
 If packaging, append DESTDIR=/tmp/path:
-'DESTDIR=/tmp/path ./INSTALL.sh'
+
+`DESTDIR=/tmp/path ./INSTALL.sh`
