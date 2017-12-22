@@ -12,27 +12,11 @@ Installing packaged tar is extract it into real system then write all files was 
 
 scratchpkg read build script (spkgbuild) in ports directory to get all variables and functions needed before build it. All information of package will written into package like version, description, depends and etc. So the build package is not gonna need its ports anymore to get the information. This is really good when checking for package dependent or install package that was built from other machine.
 
-spkgbuild
----------
+Install
+-------
 
-this is example of package's port:
+Installing just simply execute INSTALL.sh:
+'./INSTALL.sh'
 
-   # description	: 
-   # backup	: 
-   # conflict	: 
-   # depends	: 
-   # makedepends	: 
-   # noextract	: 
-
-   name=foobar
-   version=
-   release=1
-   options=()
-   source=()
-
-   build() {
-   	cd $name-$version
-   	./configure --prefix=/usr
-   	make
-   	make DESTDIR=$PKG install
-   }
+If packaging, append DESTDIR=/tmp/path:
+'DESTDIR=/tmp/path ./INSTALL.sh'
