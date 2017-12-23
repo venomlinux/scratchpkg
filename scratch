@@ -91,7 +91,7 @@ searchpkg() {
 						popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
-							search_result="${color_gray}($portname)${color_reset} ${color_purple}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
+							search_result="${color_blue}($portname)${color_reset} ${color_purple}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
 								getinstalledname $name
 								if [ "$name-$version-$release" = "$installedname" ]; then
