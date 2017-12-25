@@ -467,7 +467,7 @@ help() {
 	echo -e "  -i,  --install             install package into system"
 	echo -e "  -u,  --upgrade             upgrade package"
 	echo -e "  -r,  --reinstall           reinstall package"
-	echo "  -id, --ignore-dependency      skip dependency check"
+	echo -e "  -id, --ignore-dependency   skip dependency check"
 	echo -e "  -ic, --ignore-conflict     ignore conflict when installing package"
 	echo -e "       --verbose             verbose install process"
 	echo -e "       --no-preinstall       skip preinstall script when build/install package"
