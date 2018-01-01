@@ -15,7 +15,7 @@ if [ ! -f "$1" ]; then
 	exit 1
 fi
 
-list=$(cat $1)
+list=$(cat $1 | grep -v '^#')
 
 for i in $list; do
 	if [ -d $INDEX_DIR/$i ]; then
