@@ -45,13 +45,17 @@ fi
 
 if [ "${#successuppkg[@]}" -gt 0 ]; then
 	echo "Successfully update this package(s):"
-	echo ${successuppkg[@]} | tr ' ' '\n'
-	echo
+	for ok in ${successuppkg[@]}; do
+		${color_green}>>>${color_reset} $ok
+	done
 fi
 
 if [ "${#faileduppkg[@]}" -gt 0 ]; then
+	echo
 	echo "Failed update this package(s):"
-	echo ${faileduppkg[@]} | tr ' ' '\n'
+	for ko in ${successuppkg[@]}; do
+		${color_red}>>>${color_reset} $ko
+	done
 fi
 
 exit 0

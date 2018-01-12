@@ -3,30 +3,41 @@
 INDEX_DIR="/var/lib/scratchpkg/index"
 CONF_FILE="/etc/scratchpkg.conf"
 
+source "$CONF_FILE"
+source "/usr/share/scratchpkg/color"
+source "/usr/share/scratchpkg/message"
+
 if [ ! "$1" ]; then
 	echo "Please specify package name to install."
 	exit 1
 fi
 
-if [ -d $INDEX_DIR/$1 ]; then
-	echo "Package $1 already installed" && exit 0
-fi
+checkinstalled() {
 
-source "$CONF_FILE"
-source "/usr/share/scratchpkg/color"
-source "/usr/share/scratchpkg/message"
+	if [ -d $INDEX_DIR/$1 ]; then
+		msg "Package ${color_green}$1${color_reset} already installed"
+	else
+		depinst $1
+	fi
 
-pkgname=$1
+}
+	
 
 checkpkg() {
 	
-	for repo in ${PORT_REPO[@]}; do
-		if [ -f $repo/$pkgname/spkgbuild ]; then
-			PORT_EXIST=yes
-			break
+	for arg in "$@"; do
+		for repo in ${PORT_REPO[@]}; do
+			if [ -f $repo/$arg/spkgbuild ]; then
+				PORT_EXIST=yes
+				break
+			fi
+		done
+		if [ ! "$PORT_EXIST" ]; then
+			msgerr "Port ${color_red}$arg${color_reset} not exist"
+			exit 1
 		fi
+		unset PORT_EXIST
 	done
-	[ "$PORT_EXIST" ] || (msgerr "Port '$pkgname' not exist" && exit 1)
 }
 
 depinst() {
@@ -51,7 +62,11 @@ depinst() {
 
 }
 
-checkpkg
-depinst "$@"
+checkpkg "$@"
+
+while [ $1 ]; do
+	checkinstalled $1
+	shift
+done
 
 exit 0

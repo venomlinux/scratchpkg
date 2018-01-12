@@ -65,7 +65,7 @@ allpkg() {
 
 if [ "$1" ]; then
 	if [ ! -d "$INDEX_DIR/$1" ]; then
-		msgerr "Package '$1' not installed"
+		msgerr "Package ${color_red}$1${color_reset} not installed."
 		exit 1
 	else
 		onepkg $1
