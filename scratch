@@ -80,7 +80,7 @@ searchpkg() {
 		if [ -d $port ]; then
 			OUTPUT=()
 			pushd $port
-				OUTPUT=$(grep -R "# description" | grep -i "$SEARCH_PKG" | cut -d '/' -f1)
+				OUTPUT=$(grep -R "# description" | grep -i "$SEARCH_PKG" | grep "$BUILD_SCRIPT" | cut -d '/' -f1)
 			popd
 			if [ "$OUTPUT" ]; then
 				found=yes
