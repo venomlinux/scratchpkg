@@ -458,7 +458,8 @@ updports() {
 
 duplicateports() {
 	
-	dup=$(find ${PORT_REPO[@]} -type d | grep '/' | rev | cut -d '/' -f1 | rev | sort | uniq -d)
+	dup=$(find ${PORT_REPO[@]} -type d -print | egrep -xv "($(echo ${PORT_REPO[@]} | tr ' ' '|'))" | \
+		rev | cut -d '/' -f1 | rev | sort | uniq -d)
 	
 	if [ "$dup" ]; then
 		for dp in $dup; do
