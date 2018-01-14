@@ -21,7 +21,7 @@ REJECTED_DIR="/var/cache/scratchpkg/rejected"
 LOG_DIR="/var/cache/scratchpkg/log"
 HOOK_DIR="/etc/hooks"
 
-OPTIONS=(libtool emptydirs strip docs purge zipman buildflags makeflags)
+OPTIONS=(!libtool emptydirs strip docs purge zipman buildflags makeflags)
 PURGE_FILES=(usr/{,share/}info/dir)
 DOC_DIRS=(usr/{,local/}{,share/}{doc,gtk-doc} opt/*/{doc,gtk-doc})
 MAN_DIRS=({usr{,/local}{,/share},opt/*}/man)
