@@ -11,7 +11,7 @@ INDEX_DIR=/var/lib/scratchpkg
 mkdir -pv ${DESTDIR}{${BINDIR},${FUNCDIR},${CONFDIR},${HOOK_DIR},${HTTPUPDIR}}
 install -m755 buildpkg installpkg removepkg scratch ${DESTDIR}${BINDIR}
 install -m644 functions/* ${DESTDIR}${FUNCDIR}
-install -m644 scratchpkg.conf ${DESTDIR}${CONFDIR}/scratchpkg.conf.orig
+install -m644 scratchpkg.conf ${DESTDIR}${CONFDIR}/scratchpkg.conf
 install -m644 ports/*.httpup ${DESTDIR}${HTTPUPDIR}
 install -m755 extra/* ${DESTDIR}${BINDIR}
 mkdir -p ${DESTDIR}${CACHE_DIR}/{backup,log,packages,rejected,sources} ${DESTDIR}${INDEX_DIR}/index

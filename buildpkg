@@ -305,12 +305,12 @@ buildpkg() {
 	fi
 	preparesource
 	
-	#[ "$UPGRADE_PKG" ] && NO_PREINSTALL=yes
+	[ "$UPGRADE_PKG" ] && NO_PREINSTALL=yes
 	
-	#if [ ! "$NO_PREINSTALL" ]; then
-		#runpreinstall
-		#NO_PREINSTALL=yes
-	#fi
+	if [ ! "$NO_PREINSTALL" ]; then
+		runpreinstall
+		NO_PREINSTALL=yes
+	fi
 	
 	if check_options makeflags n; then
 		unset "MAKEFLAGS"
@@ -670,7 +670,7 @@ main() {
 		else	
 			updatepkgdepends
 		fi
-		#[ -f $name.install ] && . $name.install
+		[ -f $name.install ] && . $name.install
 		buildpkg
 		IGNORE_DEP=yes
 		if [ ! "$NO_ORPHAN_CHECK" ]; then
