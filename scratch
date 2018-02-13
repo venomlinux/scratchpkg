@@ -474,6 +474,24 @@ duplicateports() {
 	
 }
 
+listports() {
+	
+	for repo in ${PORT_REPO[@]}; do
+		if [ "$LIST_PORT" = "$(basename $repo)" ]; then
+			PORT_EXIST=yes
+			for ports in $(ls $repo); do
+				if [ -f "$repo/$ports/$BUILD_SCRIPT" ]; then
+					. "$repo/$ports/$BUILD_SCRIPT"
+					echo -e "$name ${color_green}$version${color_reset}-${color_blue}$release${color_reset}"
+				fi
+			done
+		fi
+	done
+	
+	[ "$PORT_EXIST" ] || msgerr "Repository ${color_red}$LIST_PORT${color_reset} not exist."
+	
+}
+
 interrupted() {
 	exit 1
 }
@@ -522,7 +540,7 @@ showhelp() {
 	echo "  -ic, --ignore-conflict      skip file/package conflict check"
 	echo "  -fr, --force-rebuild        rebuild package"
 	echo "  -sd, --source-dir           set directory path for sources"
-	echo "  -o,  --output               set directory path for compiled package"
+	echo "  -pd, --package-dir          set directory path for compiled package"
 	echo "  -v,  --verbose              verbose process"
 	echo "  -im, --ignore-mdsum         skip md5sum check for sources"
 	echo "  -um, --update-mdsum         update md5sum file for port"
@@ -535,6 +553,7 @@ showhelp() {
 	echo "       --no-backup            skip backup when upgrading package"
 	echo "  -dup,--duplicate-ports      list duplicate ports"
 	echo "  -l,  --list-installed       show list installed packages"
+	echo "  -lp, --list-ports           show list ports for repository"
 	echo "  -lo, --list-orphan          show list orphaned packages installed"
 	echo "  -ci, --check-integrity      check integrity between package's index and files in system"
 	echo "  -cu, --check-update         check for package update"
@@ -567,200 +586,212 @@ showhelp() {
 
 parse_options() {
 	
-	while [ "$1" ]; do
-		case $1 in
-		-i|--install)
-			INSTALL_PKG=yes
-			;;
-		-u|--upgrade)
-			UPGRADE_PKG=yes
-			;;
-		-r|--reinstall)
-			REINSTALL_PKG=yes
-			;;
-		-id|--ignore-dependency)
-			IGNORE_DEP=yes
-			;;
-		-ic|--ignore-conflict)
-			IGNORE_CONFLICT=yes
-			;;
-		--no-preinstall)
-			NO_PREINSTALL=yes
-			;;
-		--no-postinstall)
-			NO_POSTINSTALL=yes
-			;;
-		-fr|--force-rebuild)
-			FORCE_REBUILD=yes
-			;;
-		-v|--verbose)
-			VERBOSE_INSTALL=yes
-			;;
-		-im|--ignore-mdsum)
-			IGNORE_MDSUM=yes
-			;;
-		-um|--update-mdsum)
-			UPDATE_MDSUM=yes
-			;;
-		-do|--download-only)
-			DOWNLOAD_ONLY=yes
-			;;
-		-eo|--extract-only)
-			EXTRACT_ONLY=yes
-			;;
-		-kw|--keep-work)
-			KEEP_WORK=yes
-			;;
-		-rd|--redownload)
-			REDOWNLOAD_SOURCE=yes
-			;;
-		--no-backup)
-			NO_BACKUP=yes
-			;;
-		-dup|--duplicate-ports)
-			DUPLICATE_PORTS=yes
-			;;
-		-l|--list-installed)
-			LIST_INSTALLED=yes
-			;;
-		-lo|--list-orphan)
-			LIST_ORPHAN=yes
-			;;
-		-ci|--check-integrity)
-			CHECK_INTEGRITY=yes
-			;;
-		-cu|--check-update)
-			CHECK_UPDATE=yes
-			;;
-		--no-color)
-			NO_COLOR=yes
-			;;
-		--cache)
-			PKG_CACHE=yes
-			;;
-		--clear-cache)
-			CLEAR_PKG_CACHE=yes
-			;;
-		-up|--update-ports)
-			UPD_PORTS=yes
-			;;
-		-h|--help)
-			SHOW_HELP=yes
-			;;
-		--info)
-			SHOW_INFO=yes
-			;;
-		-c|--cat-port)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package to show its port script)"
+	if [ -z "$1" ]; then
+		showhelp
+	else
+		while [ "$1" ]; do
+			case $1 in
+			-i|--install)
+				INSTALL_PKG=yes
+				;;
+			-u|--upgrade)
+				UPGRADE_PKG=yes
+				;;
+			-r|--reinstall)
+				REINSTALL_PKG=yes
+				;;
+			-id|--ignore-dependency)
+				IGNORE_DEP=yes
+				;;
+			-ic|--ignore-conflict)
+				IGNORE_CONFLICT=yes
+				;;
+			--no-preinstall)
+				NO_PREINSTALL=yes
+				;;
+			--no-postinstall)
+				NO_POSTINSTALL=yes
+				;;
+			-fr|--force-rebuild)
+				FORCE_REBUILD=yes
+				;;
+			-v|--verbose)
+				VERBOSE_INSTALL=yes
+				;;
+			-im|--ignore-mdsum)
+				IGNORE_MDSUM=yes
+				;;
+			-um|--update-mdsum)
+				UPDATE_MDSUM=yes
+				;;
+			-do|--download-only)
+				DOWNLOAD_ONLY=yes
+				;;
+			-eo|--extract-only)
+				EXTRACT_ONLY=yes
+				;;
+			-kw|--keep-work)
+				KEEP_WORK=yes
+				;;
+			-rd|--redownload)
+				REDOWNLOAD_SOURCE=yes
+				;;
+			--no-backup)
+				NO_BACKUP=yes
+				;;
+			-dup|--duplicate-ports)
+				DUPLICATE_PORTS=yes
+				;;
+			-l|--list-installed)
+				LIST_INSTALLED=yes
+				;;
+			-lo|--list-orphan)
+				LIST_ORPHAN=yes
+				;;
+			-ci|--check-integrity)
+				CHECK_INTEGRITY=yes
+				;;
+			-cu|--check-update)
+				CHECK_UPDATE=yes
+				;;
+			--no-color)
+				NO_COLOR=yes
+				;;
+			--cache)
+				PKG_CACHE=yes
+				;;
+			--clear-cache)
+				CLEAR_PKG_CACHE=yes
+				;;
+			-up|--update-ports)
+				UPD_PORTS=yes
+				;;
+			-h|--help)
+				SHOW_HELP=yes
+				;;
+			--info)
+				SHOW_INFO=yes
+				;;
+			-lp|--list-port)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (repository name to show its list ports)"
+					exit 1
+				fi
+					LIST_PORT="$2"
+				shift
+				;;
+			-c|--cat-port)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package to show its port script)"
+					exit 1
+				fi
+					CAT_PORT="$2"
+				shift
+				;;
+			-dp|--dependent)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package to show its dependent)"
+					exit 1
+				fi
+					PACKAGE_DEPENDENT="$2"
+				shift
+				;;
+			-gdp|--global-dependent)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package to show its global dependent)"
+					exit 1
+				fi
+					GLOBAL_PACKAGE_DEPENDENT="$2"
+				shift
+				;;
+			-d|--depends)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package name to show its depends)"
+					exit 1
+				fi
+					PACKAGE_DEPENDS="$2"
+				shift
+				;;
+			-pi|--package-info)
+				if [ ! "$2" ] || [ ! "$(echo $2 | grep '.spkg.txz')" ]; then
+					msg "Option '$1' require an argument (package '*.spkg.txz' to show its info)."
+					exit 1
+				fi
+					PACKAGE_INFO="$2"
+				shift
+				;;
+			-co|--check-owner)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (file name to show its owner)."
+					exit 1
+				fi
+					OWNER_FILE_NAME="$2"
+				shift
+				;;
+			-st|--show-tree)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package name to show its file tree)."
+					exit 1
+				fi
+					TREE_PORT_NAME="$2"
+				shift
+				;;
+			-s|--search)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (name/description to search for packages)."
+					exit 1
+				fi
+					SEARCH_PKG="$2"
+				shift
+				;;
+			-p|--package)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package name to install/build)."
+					exit 1
+				fi
+					PORTNAME="$2"
+				shift
+				;;
+			-t|--create-template)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (port name to create template)."
+					exit 1
+				fi
+					TEMPLATE_NAME="$2"
+				shift
+				;;
+			--path)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package name to show its path)"
+					exit 1
+				fi
+					PORT_PATH="$2"
+				shift
+				;;
+			-sd|--source-dir)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (source path for package)."
+					exit 1
+				fi
+				SOURCE_PKG="$2"
+				shift
+				;;
+			-pd|--package-dir)
+				if [ ! "$2" ]; then
+					msg "Option '$1' require an argument (package path for compiled package)."
+					exit 1
+				fi
+				OUTPUT_PKG="$2"
+				shift
+				;;
+			*)
+				msg "Option invalid!"
 				exit 1
-			fi
-				CAT_PORT="$2"
+				;;			
+			esac
 			shift
-			;;
-		-dp|--dependent)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package to show its dependent)"
-				exit 1
-			fi
-				PACKAGE_DEPENDENT="$2"
-			shift
-			;;
-		-gdp|--global-dependent)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package to show its dependent)"
-				exit 1
-			fi
-				GLOBAL_PACKAGE_DEPENDENT="$2"
-			shift
-			;;
-		-d|--depends)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package name to show its depends)"
-				exit 1
-			fi
-				PACKAGE_DEPENDS="$2"
-			shift
-			;;
-		-pi|--package-info)
-			if [ ! "$2" ] || [ ! "$(echo $2 | grep '.spkg.txz')" ]; then
-				msg "Option '$1' require an argument (package '*.spkg.txz' to show its info)."
-				exit 1
-			fi
-				PACKAGE_INFO="$2"
-			shift
-			;;
-		-co|--check-owner)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (file name to show its owner)."
-				exit 1
-			fi
-				OWNER_FILE_NAME="$2"
-			shift
-			;;
-		-st|--show-tree)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package name to show tree)."
-				exit 1
-			fi
-				TREE_PORT_NAME="$2"
-			shift
-			;;
-		-s|--search)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package name to search)."
-				exit 1
-			fi
-				SEARCH_PKG="$2"
-			shift
-			;;
-		-p|--package)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package name to install/build)."
-				exit 1
-			fi
-				PORTNAME="$2"
-			shift
-			;;
-		-t|--create-template)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (port name to create template)."
-				exit 1
-			fi
-				TEMPLATE_NAME="$2"
-			shift
-			;;
-		--path)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package name to show its path)"
-				exit 1
-			fi
-				PORT_PATH="$2"
-			shift
-			;;
-		-sd|--source-dir)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (source path for package)."
-				exit 1
-			fi
-			SOURCE_PKG="$2"
-			shift
-			;;
-		-o|--output)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (output path for compiled package)."
-				exit 1
-			fi
-			OUTPUT_PKG="$2"
-			shift
-			;;
-		*)
-			msg "Option invalid!"
-			exit 1
-			;;			
-		esac
-		shift
-	done
+		done
+	fi
 	
 }
 
@@ -790,113 +821,119 @@ main() {
 		duplicateports
 		exit 0
 	fi
+	
+	### LIST PORT AND VERSION ###
+	if [ "$LIST_PORT" ]; then
+		listports
+		exit 0
+	fi
 
 	checkdirexist "$INDEX_DIR"
 	
 	### UPDATE PORTS ###
-	if [ $UPD_PORTS ]; then
+	if [ "$UPD_PORTS" ]; then
 		updports
 		exit 0
 	fi
 	
 	### LIST PACKAGES & SOURCE CACHE ###
-	if [ $PKG_CACHE ]; then
+	if [ "$PKG_CACHE" ]; then
 		pkgcache
 		exit 0
 	fi
 	
 	### DELETE PACKAGES & SOURCE CACHE ###
-	if [ $CLEAR_PKG_CACHE ]; then
+	if [ "$CLEAR_PKG_CACHE" ]; then
 		clearpkgcache
 		exit 0
 	fi
 	
 	### SHOW PORT PATH ###
-	if [ $PORT_PATH ]; then
+	if [ "$PORT_PATH" ]; then
 		showportpath
 		exit 0
 	fi
 	
 	### CAT PORT ###
-	if [ $CAT_PORT ]; then
+	if [ "$CAT_PORT" ]; then
 		catport
 		exit 0
 	fi
 	
 	### CREATE PORT TEMPLATE ###
-	if [ $TEMPLATE_NAME ]; then
+	if [ "$TEMPLATE_NAME" ]; then
 		createtemplate
 		exit 0
 	fi
 	
 	### SHOW DEPENDENT (search through only installed package) ###
-	if [ $PACKAGE_DEPENDENT ]; then
+	if [ "$PACKAGE_DEPENDENT" ]; then
 		showdependent
 		exit 0
 	fi
 	
 	### SHOW GLOBAL DEPENDENT (search through ports repo) ###
-	if [ $GLOBAL_PACKAGE_DEPENDENT ]; then
+	if [ "$GLOBAL_PACKAGE_DEPENDENT" ]; then
 		showglobaldependent
 		exit 0
 	fi
 	
 	### SHOW DEPENDS OF A PACKAGE ###
-	if [ $PACKAGE_DEPENDS ]; then
+	if [ "$PACKAGE_DEPENDS" ]; then
 		showdepends
 		exit 0
 	fi
 	
 	### CHECK_UPDATE ###
-	if [ $CHECK_UPDATE ]; then
+	if [ "$CHECK_UPDATE" ]; then
 		showupdate
 		exit 0
 	fi
 	
 	### SHOW INFO OF A PACKAGE ###
-	if [ $PACKAGE_INFO ]; then
+	if [ "$PACKAGE_INFO" ]; then
 		showpackageinfo
 		exit 0
 	fi
 	
 	### LIST INSTALLED ###
-	if [ $LIST_INSTALLED ]; then
+	if [ "$LIST_INSTALLED" ]; then
 		listinstalled
 		exit 0
 	fi
 	
 	### LIST ORPHAN ###
-	if [ $LIST_ORPHAN ]; then
+	if [ "$LIST_ORPHAN" ]; then
 		listorphan
 		exit 0
 	fi
 	
 	### SEARCH PACKAGE ###
-	if [ $SEARCH_PKG ]; then
+	if [ "$SEARCH_PKG" ]; then
 		searchpkg
 		exit 0
 	fi
 	
 	### CHECK PACKAGE OWNER OF A FILE ###
-	if [ $OWNER_FILE_NAME ]; then
+	if [ "$OWNER_FILE_NAME" ]; then
 		checkowner
 		exit 0
 	fi
 	
 	### SHOW TREE OF A INSTALLED PACKAGE ###
-	if [ $TREE_PORT_NAME ]; then
+	if [ "$TREE_PORT_NAME" ]; then
 		showtree
 		exit 0
 	fi
 	
 	### CHECK INTEGRITY ###
-	if [ $CHECK_INTEGRITY ]; then
+	if [ "$CHECK_INTEGRITY" ]; then
 		checkintegrity
 		exit 0
 	fi
 
 	### BUILD PACKAGE ###
-	if [ $PORTNAME ]; then
+	if [ "$PORTNAME" ]; then
 		pushtoport
 		exit 0
 	fi
