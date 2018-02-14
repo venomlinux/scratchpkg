@@ -482,7 +482,11 @@ listports() {
 			for ports in $(ls $repo); do
 				if [ -f "$repo/$ports/$BUILD_SCRIPT" ]; then
 					. "$repo/$ports/$BUILD_SCRIPT"
-					echo -e "$name ${color_green}$version${color_reset}-${color_blue}$release${color_reset}"
+					if [ -f "$PACKAGE_DIR/$name-$version-$release.spkg.txz" ]; then
+						echo -e "$name ${color_green}$version${color_reset}-${color_blue}$release${color_reset} ${color_purple}[*]${color_reset}"
+					else
+						echo -e "$name ${color_green}$version${color_reset}-${color_blue}$release${color_reset}"
+					fi
 				fi
 			done
 		fi
