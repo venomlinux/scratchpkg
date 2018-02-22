@@ -230,15 +230,15 @@ packaging() {
 		purgefiles
 	fi
 	
-	if check_options !emptydirs y; then
+	if check_options emptydirs n; then
 		removeemptydirs
 	fi
 	
-	if check_options !docs y && [[ -n ${DOC_DIRS[*]} ]]; then
+	if check_options docs n && [[ -n ${DOC_DIRS[*]} ]]; then
 		removedocs
 	fi
 	
-	if check_options !libtool y; then
+	if check_options libtool n; then
 		removelibtool
 	fi
 	
@@ -483,7 +483,7 @@ help() {
 	echo -e "  -ns, --no-strip            skip strip package library and binary"
 	echo -e "  -rd, --redownload          re-download source file"
 	echo -e "  -sd, --source-dir <path>   override source dir"
-	echo -e "  -o,  --output <path>       override output path for packages"
+	echo -e "  -pd, --package-dir <path>  set directory path for compiled package"
 	echo -e "  -h,  --help                show this help message"
 	echo
 	echo -e "Example:"
@@ -565,9 +565,9 @@ parse_options() {
 			SOURCE_PKG="$2"
 			shift
 			;;
-		-o|--output)
+		-pd|--package-dir)
 			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (output path for compiled package)."
+				msg "Option '$1' require an argument (package path for compiled package)."
 				exit 1
 			fi
 			OUTPUT_PKG="$2"

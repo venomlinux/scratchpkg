@@ -543,8 +543,8 @@ showhelp() {
 	echo "  -id, --ignore-dependency    skip dependency check"
 	echo "  -ic, --ignore-conflict      skip file/package conflict check"
 	echo "  -fr, --force-rebuild        rebuild package"
-	echo "  -sd, --source-dir           set directory path for sources"
-	echo "  -pd, --package-dir          set directory path for compiled package"
+	echo "  -sd, --source-dir <path>    set directory path for sources"
+	echo "  -pd, --package-dir <path>   set directory path for compiled package"
 	echo "  -v,  --verbose              verbose process"
 	echo "  -im, --ignore-mdsum         skip md5sum check for sources"
 	echo "  -um, --update-mdsum         update md5sum file for port"
@@ -569,13 +569,13 @@ showhelp() {
 	echo "  -dp, --dependent            show package's dependent (check through package index)"
 	echo "  -gdp,--global-dependent     show package's dependent (check through port's repository)"
 	echo "  -d,  --depends              show package's depends"
-	echo "  -pi, --package-info         show package's info"
+	echo "  -pi, --package-info <pkg>   show package's info"
 	echo "  -co, --check-owner          show file's owner"
 	echo "  -p,  --package              set package name to build/install"
 	echo "  -st, --show-tree            show list files of installed package"
 	echo "  -s,  --search               search for packages in port's repository"
 	echo "  -t,  --create-template      create port's template for package"
-	echo "       --path                 show ports directory path"
+	echo "  -pp, --port-path            show ports directory path"
 	echo "       --no-color             disable colour for output"
 	echo "  -h,  --help                 show this help message"
 	echo
@@ -764,7 +764,7 @@ parse_options() {
 					TEMPLATE_NAME="$2"
 				shift
 				;;
-			--path)
+			-pp|--port-path)
 				if [ ! "$2" ]; then
 					msg "Option '$1' require an argument (package name to show its path)"
 					exit 1
