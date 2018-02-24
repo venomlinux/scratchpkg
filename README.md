@@ -1,6 +1,6 @@
 # scratchpkg
 
-A package manager for Linux From Scratch
+A package manager for Linux From Scratch.
 
 ## Description
 
@@ -40,36 +40,48 @@ The example of `spkgbuild` as follows:
         install -dm $SRC/example.conf $PKG/etc/example.conf
     }
     
-You can also use headers (except for description, as it needs for search function of `scratch`) as array, example: depends=(package1 package2 package3).
+You can also use headers (except for description, as it needs for search function of `scratch`) as array, example:
 
-*Note:* When create new package, its recommended to build using fakeroot first to make sure the build script is not broken and leave untracked file inside system
+    backup=(etc/example.conf etc/foobar.conf)
+    conflict=(foobar2)
+    depends=(package1 package2 package3)
+    makedepends=(cmake gcc)
+    noextract=(example.tar.gz foobar.tar.xz)
+
+*Note: When create new package, its recommended to build using fakeroot first to make sure the build script is not broken and leave untracked file inside system.*
 
 #### Format:
 
-* `description`: Short description for package
-* `backup`: File need backup when upgrading package (without leading with '/')
-* `conflict`: Specify package conflict, separate with space
-* `depends`: Dependencies and runtime dependencies, separate with space
-* `makedepends`: Make dependencies, checked only when build package, not checked when install prebuit package, separate with space
-* `noextract`: Specify file no need to extract, separate with space
-* `name`: Package name, need same as port directory
-* `version`: Package's version
-* `release`: Package's release version, useful when build script need change with same same package version
-* `options`: Package's build options, see 'Package options' for available options
-* `source`: Package's source urls, separate with space, can use as '$name-$version.tar.gz::https://github.com/achieve/$version.tar.gz'
+* `description`: Short description for package.
+* `backup`: File need backup when upgrading package (without leading with '/').
+* `conflict`: Specify package conflict, separate with space.
+* `depends`: Dependencies and runtime dependencies, separate with space.
+* `makedepends`: Make dependencies, checked only when build package, not checked when install prebuit package, separate with space.
+* `noextract`: Specify file no need to extract, separate with space.
+* `name`: Package name, need same as port directory's name.
+* `version`: Package's version.
+* `release`: Package's release version, useful when build script need change with same package version.
+* `options`: Package's build options, see 'Package options' for available options.
+* `source`: Package's source urls, separate with space, can use as '$name-$version.tar.gz::https://github.com/achieve/$version.tar.gz'.
     
 ## Package options
 
-    libtool:     Keep libtool file (*.la) in packages
-    emptydirs:   Keep empty directories in packages
-    strip:       Strip symbols from binaries/libraries
-    docs:        Keep docs directories specified by DOC_DIRS
-    purge:       Remove files specified in PURGE_FILES
-    zipman:      Compress manual (man and info) pages in MAN_DIRS with gzip
-    buildflags:  Enable buildflags (CFLAGS and CXXFLAGS)
-    makeflags:   Enable makeflags (MAKEFLAGS)
+    libtool:     Keep libtool file (*.la) in packages.
+    emptydirs:   Keep empty directories in packages.
+    strip:       Strip symbols from binaries/libraries.
+    docs:        Keep docs directories specified by DOC_DIRS.
+    purge:       Remove files specified in PURGE_FILES.
+    zipman:      Compress manual (man and info) pages in MAN_DIRS with gzip.
+    buildflags:  Enable buildflags (CFLAGS and CXXFLAGS).
+    makeflags:   Enable makeflags (MAKEFLAGS).
   
-This option is set in `/etc/scratchpkg.conf` for global options: `OPTIONS=()`. For per package, set options in package's spkgbuild: `options=()`.
+This option is set in `/etc/scratchpkg.conf` for global options;
+
+  `OPTIONS=()`
+  
+For per package, set options in package's spkgbuild;
+
+  `options=()`
 
 Add '!' in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows;
 
@@ -194,14 +206,14 @@ Add '!' in front of options to disable it, example for disable strip and remove 
                                                              
 ## Extra tools
 
-* `baseinstall`: A script to build base system
-* `chroot-scratch`: Chroot script
-* `depinstall`: Install package listed by `deplist`
-* `deplist`: Script for calculate all needed dependencies (dependencies order not right)
-* `libdepends`: Script to list package depends by shared libraries
-* `listinstall`: Install listed packages in a file
-* `revdep`: A reverse dependency script (like in Gentoo and CRUX, but my version), need to run after upgrade and remove package to check broken package(s)
-* `sysupdate`: An update script to update all outdated packages, use `-up|--update-ports` flags to sync ports first
+* `baseinstall`: A script to build base system.
+* `chroot-scratch`: Chroot script.
+* `depinstall`: Install package listed by `deplist`.
+* `deplist`: Script for calculate all needed dependencies (dependencies order not right).
+* `libdepends`: Script to list package depends by shared libraries.
+* `listinstall`: Install listed packages in a file.
+* `revdep`: A reverse dependency script (like in Gentoo and CRUX, but my version), need to run after upgrade and remove package to check broken package(s). Specify package name if want to check single package only.
+* `sysupdate`: An update script to update all outdated packages, use `-up|--update-ports` flags to sync ports first.
                                                              
 ## Hooks
 
@@ -217,14 +229,14 @@ Add '!' in front of options to disable it, example for disable strip and remove 
 
 ### Format:
 
-* `description`: Short description, printed when cmd executed
-* `operation`: Specify when cmd need to run, available options; install, upgrade & remove
-* `target`: Path file/directory checked need to run the cmd (without leading with '/')
-* `exechook()`: Command need to run should be in this function
+* `description`: Short description, printed when cmd executed.
+* `operation`: Specify when cmd need to run, available options; install, upgrade & remove.
+* `target`: Path file/directory checked need to run the cmd (without leading with '/').
+* `exechook()`: Command need to run should be in this function.
 
 ## Install
 
-Installing is performed by just simply execute/ running the file INSTALL.sh:
+Installing is performed by just simply execute/running the file INSTALL.sh:
 
 `./INSTALL.sh`
 
