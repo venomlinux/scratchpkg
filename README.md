@@ -27,17 +27,17 @@ The example of `spkgbuild` as follows:
     release=1
     options=(!docs libtool)
     source=(https://dl.example.com/foobar.tar.xz
-        $name-$version.tar.gz::https://github.com/achieve/$version.tar.gz
-        example.conf)
+            $name-$version.tar.gz::https://github.com/achieve/$version.tar.gz
+            example.conf)
 
     build() {
-    	cd $name-$version
+        cd $name-$version
       
-    	./configure --prefix=/usr
-    	make
-    	make DESTDIR=$PKG install
+        ./configure --prefix=/usr
+        make
+        make DESTDIR=$PKG install
       
-      install -dm $SRC/example.conf $PKG/etc/example.conf
+        install -dm $SRC/example.conf $PKG/etc/example.conf
     }
     
 You can also use headers (except for description, as it needs for search function of `scratch`) as array, example: depends=(package1 package2 package3).
@@ -50,7 +50,7 @@ You can also use headers (except for description, as it needs for search functio
 * `backup`: File need backup when upgrading package (without leading with '/')
 * `conflict`: Specify package conflict, separate with space
 * `depends`: Dependencies and runtime dependencies, separate with space
-* `makedepends`: Make dependencies, need only when build package, no need when install prebuit package, separate with space
+* `makedepends`: Make dependencies, checked only when build package, not checked when install prebuit package, separate with space
 * `noextract`: Specify file no need to extract, separate with space
 * `name`: Package name, need same as port directory
 * `version`: Package's version
@@ -70,6 +70,10 @@ You can also use headers (except for description, as it needs for search functio
     makeflags:   Enable makeflags (MAKEFLAGS)
   
 This option is set in `/etc/scratchpkg.conf` for global options: `OPTIONS=()`. For per package, set options in package's spkgbuild: `options=()`.
+
+Add '!' in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows;
+
+    `options=(!strip !emptydirs)`
 
 ## Scratchpkg tools
 
