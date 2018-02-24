@@ -6,19 +6,19 @@ A package manager for Linux From Scratch
 Description
 -----------
 
-scratchpkg is a package manager were built to manage package for Linux From Scratch system. This package manager is fully written in bash. The script to build package using port system like Arch's makepkg, CRUX's pkgmk and NuTyX's cards. Package were build and install into temporary location using DESTDIR method then compressed the directory using tar.
+Scratchpkg is a package manager built in order to manage packages for the Linux From Scratch system/distro. This package manager is fully written in bash. The package building script uses the port system like in Arch's makepkg, CRUX's pkgmk and NuTyX's cards. Packages are built and installed into a temporary location using DESTDIR method and are afterwards compressed in a file  directory using tar.
 
-Installing packaged tar is extract it into real system then write all files was extracted into index directory. So scratchpkg will track all files installed. scratchpkg does not automatically resolve dependency but it does checking for dependency before build the package and print the missing dependency.
+Installing the packaged tar means it is extracted into real system. After that all files are extracted into an index directory. So scratchpkg will track all installed files. Scratchpkg doesn't automatically resolve dependencies but it checks dependencies before building the package and prints the missing dependency.
 
-scratchpkg read build script (spkgbuild) in ports directory to get all variables and functions needed before build it. All information of package will written into package like version, description, depends and etc. So the build package is not gonna need its ports anymore to get the information. This is really good when checking for package dependent or install package that was built from other machine.
+Scratchpkg reads the build script (spkgbuild) in the ports directory in order to get all necessary variables and functions before building them. Full package information  like version, description, depends etc ... will be written into the package. So the built package isn't needing its port anymore for getting the necessary information. This is really an advantage supposing you would like to check for package dependencies or install a package that was built for another machine.
 
 Install
 -------
 
-Installing just simply execute INSTALL.sh:
+Installing is performed by just simply execute/ running the file INSTALL.sh:
 
 `./INSTALL.sh`
 
-If packaging, append DESTDIR=/tmp/path:
+If packaging, append DESTDIR=/tmp/path in front of your command:
 
 `DESTDIR=/tmp/path ./INSTALL.sh`
