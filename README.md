@@ -10,16 +10,6 @@ Installing the packaged tar means it is extracted into real system. After that a
 
 Scratchpkg reads the build script (spkgbuild) in the ports directory in order to get all necessary variables and functions before building them. Full package information  like version, description, depends etc ... will be written into the package. So the built package isn't needing its port anymore for getting the necessary information. This is really an advantage supposing you would like to check for package dependencies or install a package that was built for another machine.
 
-## Install
-
-Installing is performed by just simply execute/ running the file INSTALL.sh:
-
-`./INSTALL.sh`
-
-If packaging, append DESTDIR=/tmp/path in front of your command:
-
-`DESTDIR=/tmp/path ./INSTALL.sh`
-
 ## spkgbuild
 
 `spkgbuild` is build script sourced by `buildpkg` to build the package.
@@ -52,19 +42,21 @@ The example of `spkgbuild` as follows:
     
 You can also use headers (except for description, as it needs for search function of `scratch`) as array, example: depends=(package1 package2 package3).
 
-#### Format
-* `description`: short description for package
-* `backup`: file need backup when upgrading package
-* `conflict`: specify package conflict, separate with space
-* `depends`: dependencies and runtime dependencies, separate with space
-* `makedepends`: make dependencies, need only when build package, no need when install prebuit package, separate with space
-* `noextract`: specify file no need to extract, separate with space
+*Note:* When create new package, its recommended to build using fakeroot first to make sure the build script is not broken and leave untracked file inside system
 
-* `name`: package name, need same as port directory
-* `version`: package's version
-* `release`: package's release version, useful when build script need change with same same package version
-* `options`: package's build options, see 'Package options' for available options
-* `source`: package's source urls, separate with space, can use as '$name-$version.tar.gz::https://github.com/achieve/$version.tar.gz
+#### Format:
+
+* `description`: Short description for package
+* `backup`: File need backup when upgrading package (without leading with '/')
+* `conflict`: Specify package conflict, separate with space
+* `depends`: Dependencies and runtime dependencies, separate with space
+* `makedepends`: Make dependencies, need only when build package, no need when install prebuit package, separate with space
+* `noextract`: Specify file no need to extract, separate with space
+* `name`: Package name, need same as port directory
+* `version`: Package's version
+* `release`: Package's release version, useful when build script need change with same same package version
+* `options`: Package's build options, see 'Package options' for available options
+* `source`: Package's source urls, separate with space, can use as '$name-$version.tar.gz::https://github.com/achieve/$version.tar.gz
     
 ## Package options
 
@@ -77,12 +69,12 @@ You can also use headers (except for description, as it needs for search functio
     buildflags:  Enable buildflags (CFLAGS and CXXFLAGS)
     makeflags:   Enable makeflags (MAKEFLAGS)
   
-this option is set in `/etc/scratchpkg.conf` for global options: `OPTIONS=()`
-
-or set in packages spkgbuild for per package: `options=()`
+This option is set in `/etc/scratchpkg.conf` for global options: `OPTIONS=()`. For per package, set options in package's spkgbuild: `options=()`.
 
 ## Scratchpkg tools
+
 ### scratch
+
     Usage:
 
       scratch [ <options> <arguments> ]
@@ -138,6 +130,7 @@ or set in packages spkgbuild for per package: `options=()`
                                         reinstall firefox
                                         
 ### buildpkg
+
     Usage:
       buildpkg [ <options> <arguments> ]
 
@@ -172,6 +165,7 @@ or set in packages spkgbuild for per package: `options=()`
       * buildpkg need run inside port directory
       
 ### installpkg
+
     Usage:
       installpkg package.spkg.txz [ <options> <arguments> ]
 
@@ -194,6 +188,42 @@ or set in packages spkgbuild for per package: `options=()`
       installpkg foobar-1.0-1.spkg.txz -u --no-backup        upgrade package foobar-1.0-1 without backup
                                                              its old configuration files
                                                              
-# test1
-## test2
-### test3
+## Extra tools
+
+* `baseinstall`: A script to build base system
+* `chroot-scratch`: Chroot script
+* `depinstall`: Install package listed by `deplist`
+* `deplist`: Script for calculate all needed dependencies (dependencies order not right)
+* `libdepends`: Script to list package depends by shared libraries
+* `listinstall`: Install listed packages in a file
+* `revdep`: A reverse dependency script (like in Gentoo and CRUX, but my version), need to run after upgrade and remove package to check broken package(s)
+* `sysupdate`: An update script to update all outdated packages, use `-up|--update-ports` flags to sync ports first
+                                                             
+## Hooks
+
+`hooks` is specified command need to run after install/remove/upgrade package. `hook` suffix is '\*.hook' and need to be placed in HOOK_DIR (default; /etc/hook/). The example of `hook` file for gdk-pixbuf package as follows:
+
+    # description	: Probing GDK-Pixbuf loader modules...
+    # operation	: install upgrade remove
+    # target	: usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/
+
+    exechook() {
+    	/usr/bin/gdk-pixbuf-query-loaders --update-cache
+    }
+
+### Format:
+
+* `description`: Short description, printed when cmd executed
+* `operation`: Specify when cmd need to run, available options; install, upgrade & remove
+* `target`: Path file/directory checked need to run the cmd (without leading with '/')
+* `exechook()`: Command need to run should be in this function
+
+## Install
+
+Installing is performed by just simply execute/ running the file INSTALL.sh:
+
+`./INSTALL.sh`
+
+If packaging, append DESTDIR=/tmp/path in front of your command:
+
+`DESTDIR=/tmp/path ./INSTALL.sh`
