@@ -56,7 +56,7 @@ You can also use headers (except for description, as it needs for search functio
 * `version`: Package's version
 * `release`: Package's release version, useful when build script need change with same same package version
 * `options`: Package's build options, see 'Package options' for available options
-* `source`: Package's source urls, separate with space, can use as '$name-$version.tar.gz::https://github.com/achieve/$version.tar.gz
+* `source`: Package's source urls, separate with space, can use as '$name-$version.tar.gz::https://github.com/achieve/$version.tar.gz'
     
 ## Package options
 
