@@ -37,7 +37,7 @@ The example of `spkgbuild` as follows:
         make
         make DESTDIR=$PKG install
       
-        install -dm $SRC/example.conf $PKG/etc/example.conf
+        install -d $SRC/example.conf $PKG/etc/example.conf
     }
     
 You can also use headers (except for description, as it needs for search function of `scratch`) as array, example:
@@ -50,7 +50,7 @@ You can also use headers (except for description, as it needs for search functio
 
 *Note: When create new package, its recommended to build using fakeroot first to make sure the build script is not broken and leave untracked file inside system.*
 
-#### Format:
+#### spkgbuild format:
 
 * `description`: Short description for package.
 * `backup`: File need backup when upgrading package (without leading with '/').
@@ -62,9 +62,23 @@ You can also use headers (except for description, as it needs for search functio
 * `version`: Package's version.
 * `release`: Package's release version, useful when build script need change with same package version.
 * `options`: Package's build options, see 'Package options' for available options.
-* `source`: Package's source urls, separate with space, can use as '$name-$version.tar.gz::https://github.com/achieve/$version.tar.gz'.
+* `source`: Package's source urls, separate with space, can use as `<new-source-name>::<source-url>` to save source file with different name (see `spkgbuild` example).
     
 ## Package options
+  
+This options is set in `/etc/scratchpkg.conf` for global options:
+
+  `OPTIONS=()`
+  
+For per package, set options in package's spkgbuild:
+
+  `options=()`
+
+Add '!' in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows:
+
+    `options=(!strip !emptydirs)`
+    
+Available options:
 
     libtool:     Keep libtool file (*.la) in packages.
     emptydirs:   Keep empty directories in packages.
@@ -74,25 +88,13 @@ You can also use headers (except for description, as it needs for search functio
     zipman:      Compress manual (man and info) pages in MAN_DIRS with gzip.
     buildflags:  Enable buildflags (CFLAGS and CXXFLAGS).
     makeflags:   Enable makeflags (MAKEFLAGS).
-  
-This option is set in `/etc/scratchpkg.conf` for global options;
-
-  `OPTIONS=()`
-  
-For per package, set options in package's spkgbuild;
-
-  `options=()`
-
-Add '!' in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows;
-
-    `options=(!strip !emptydirs)`
-
+    
 ## Scratchpkg tools
 
-Scratchpkg tools is separate into 4 main tools and some extra scripts (may add from time to time)
+Scratchpkg tools is separate into 4 main tools and some extra scripts (may added from time to time).
 
 ### scratch
-`scratch` is like multi tools. Its have many functions like check dependency, dependent, orphan package, duplicate ports, list installed package and etc. run `scratch --help` to see available functions.
+`scratch` is like multi tools. Its have many functions like search packages, check dependency, dependent, orphan package, duplicate ports, list installed package and etc. `scratch` also can build package without `cd` into port directory to build package. Run `scratch --help` to see available functions.
 
     Usage:
 
@@ -149,7 +151,7 @@ Scratchpkg tools is separate into 4 main tools and some extra scripts (may add f
                                         reinstall firefox
                                         
 ### buildpkg
-`buildpkg` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.txz` format.
+`buildpkg` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.txz` format. To build package, you need `cd` into port directory before run `buildpkg` command.
 
     Usage:
       buildpkg [ <options> <arguments> ]
@@ -240,9 +242,9 @@ Extra tools is some scripts come with scratchpkg to help users do things more ea
 * `revdep`: A reverse dependency script (like in Gentoo and CRUX, but my version), need to run after upgrade and remove package to check broken package(s). Specify package name if want to check single package only.
 * `sysupdate`: An update script to update all outdated packages, use `-up|--update-ports` flags to sync ports first.
                                                              
-## Hooks
+## Hook
 
-`hooks` is specified command need to run after install/remove/upgrade package. `hook` suffix is '\*.hook' and need to be placed in HOOK_DIR (default; /etc/hook/). The example of `hook` file for gdk-pixbuf package as follows:
+`hook` is specified command need to run after install/remove/upgrade package. `hook` suffix is `*.hook` and need to be placed in `HOOK_DIR` (default is `/etc/hook/`). The example of `hook` file for gdk-pixbuf package as follows:
 
     # description	: Probing GDK-Pixbuf loader modules...
     # operation	: install upgrade remove
@@ -252,7 +254,7 @@ Extra tools is some scripts come with scratchpkg to help users do things more ea
     	/usr/bin/gdk-pixbuf-query-loaders --update-cache
     }
 
-### Format:
+### Hook format:
 
 * `description`: Short description, printed when cmd executed.
 * `operation`: Specify when cmd need to run, available options; install, upgrade & remove.
