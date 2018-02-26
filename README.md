@@ -76,7 +76,7 @@ For per package, set options in package's spkgbuild:
 
 Add '!' in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows:
 
-    `options=(!strip !emptydirs)`
+`options=(!strip !emptydirs)`
     
 Available options:
 
