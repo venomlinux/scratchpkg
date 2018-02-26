@@ -89,7 +89,10 @@ Add '!' in front of options to disable it, example for disable strip and remove 
 
 ## Scratchpkg tools
 
+Scratchpkg tools is separate into 4 main tools and some extra scripts (may add from time to time)
+
 ### scratch
+`scratch` is like multi tools. Its have many functions like check dependency, dependent, orphan package, duplicate ports, list installed package and etc. run `scratch --help` to see available functions.
 
     Usage:
 
@@ -146,6 +149,7 @@ Add '!' in front of options to disable it, example for disable strip and remove 
                                         reinstall firefox
                                         
 ### buildpkg
+`buildpkg` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.txz` format.
 
     Usage:
       buildpkg [ <options> <arguments> ]
@@ -181,6 +185,7 @@ Add '!' in front of options to disable it, example for disable strip and remove 
       * buildpkg need run inside port directory
       
 ### installpkg
+`installpkg` is a tool to install and upgrade package created by `buildpkg`. Install package is simply extract `<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `INDEX_DIR`. Upgrading package is also using same extract as install, it will replace old files then compare list file from old and new package and remove old file which not exist in new package (like Slackware pkgtool does).
 
     Usage:
       installpkg package.spkg.txz [ <options> <arguments> ]
@@ -204,12 +209,32 @@ Add '!' in front of options to disable it, example for disable strip and remove 
       installpkg foobar-1.0-1.spkg.txz -u --no-backup        upgrade package foobar-1.0-1 without backup
                                                              its old configuration files
                                                              
+### removepkg
+removepkg is a tool to remove package from system. It will read file listed in package `INDEX_DIR` and remove it.
+
+    Usage:
+      removepkg package name [ <options> <arguments> ]
+
+    Options:
+      -id, --ignore-dependency    skip dependency check
+      -v,  --verbose              verbose install process
+           --no-preremove         don't run pre-remove script
+           --no-postremove        don't run post-remove script
+           --no-orphan-check      skip orphaned package check after install package
+           --no-color             disable colour for output
+      -h,  --help                 show this help message
+    
+    Example:
+      removepkg firefox -id -v        remove package firefox, skipping dependency check
+                                      and verbose deleted file
+
 ## Extra tools
+Extra tools is some scripts come with scratchpkg to help users do things more easier. More extra scripts may added from time to time.
 
 * `baseinstall`: A script to build base system.
 * `chroot-scratch`: Chroot script.
 * `depinstall`: Install package listed by `deplist`.
-* `deplist`: Script for calculate all needed dependencies (dependencies order not right).
+* `deplist`: Script for calculate all needed dependencies (dependencies order is not right).
 * `libdepends`: Script to list package depends by shared libraries.
 * `listinstall`: Install listed packages in a file.
 * `revdep`: A reverse dependency script (like in Gentoo and CRUX, but my version), need to run after upgrade and remove package to check broken package(s). Specify package name if want to check single package only.
