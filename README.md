@@ -74,7 +74,7 @@ For per package, set options in package's spkgbuild:
 
   `options=()`
 
-Add '!' in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows:
+Add `!` in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows:
 
 `options=(!strip !emptydirs)`
     
@@ -91,7 +91,7 @@ Available options:
     
 ## Scratchpkg tools
 
-Scratchpkg tools is separate into 4 main tools and some extra scripts (may added from time to time).
+Scratchpkg tools is separate into 4 main tools and several extra scripts (may added from time to time).
 
 ### scratch
 `scratch` is like multi tools. Its have many functions like search packages, check dependency, dependent, orphan package, duplicate ports, list installed package and etc. `scratch` also can build package without `cd` into port directory to build package. Run `scratch --help` to see available functions.
@@ -212,7 +212,7 @@ Scratchpkg tools is separate into 4 main tools and some extra scripts (may added
                                                              its old configuration files
                                                              
 ### removepkg
-removepkg is a tool to remove package from system. It will read file listed in package `INDEX_DIR` and remove it.
+`removepkg` is a tool to remove package from system. It will read file listed in package `INDEX_DIR` and remove it.
 
     Usage:
       removepkg package name [ <options> <arguments> ]
