@@ -502,90 +502,94 @@ interrupted() {
 
 pushtoport() {
 	
-	for port in ${PORT_REPO[@]}; do
-		if [ -f $port/$PORTNAME/$BUILD_SCRIPT ]; then
-			PORT_EXIST=yes
-			pushd $port/$PORTNAME
-				INSTALL_PKG="$INSTALL_PKG" \
-				UPGRADE_PKG="$UPGRADE_PKG" \
-				REINSTALL_PKG="$REINSTALL_PKG" \
-				IGNORE_DEP="$IGNORE_DEP" \
-				IGNORE_CONFLICT="$IGNORE_CONFLICT" \
-				VERBOSE_INSTALL="$VERBOSE_INSTALL" \
-				FORCE_REBUILD="$FORCE_REBUILD" \
-				IGNORE_MDSUM="$IGNORE_MDSUM" \
-				UPDATE_MDSUM="$UPDATE_MDSUM" \
-				DOWNLOAD_ONLY="$DOWNLOAD_ONLY" \
-				EXTRACT_ONLY="$EXTRACT_ONLY" \
-				KEEP_WORK="$KEEP_WORK" \
-				REDOWNLOAD_SOURCE="$REDOWNLOAD_SOURCE" \
-				SOURCE_PKG="$SOURCE_PKG" \
-				OUTPUT_PKG="$OUTPUT_PKG" \
-				NO_COLOR="$NO_COLOR" \
-				buildpkg || exit 1
-			popd
-			break
-		fi
+	for pkg in "${INSTALLPKG[@]}"; do
+		for port in ${PORT_REPO[@]}; do
+			if [ -f $port/$pkg/$BUILD_SCRIPT ]; then
+				PORT_EXIST=yes
+				pushd $port/$pkg
+					INSTALL_PKG="$INSTALL_PKG" \
+					UPGRADE_PKG="$UPGRADE_PKG" \
+					REINSTALL_PKG="$REINSTALL_PKG" \
+					IGNORE_DEP="$IGNORE_DEP" \
+					IGNORE_CONFLICT="$IGNORE_CONFLICT" \
+					VERBOSE_INSTALL="$VERBOSE_INSTALL" \
+					FORCE_REBUILD="$FORCE_REBUILD" \
+					IGNORE_MDSUM="$IGNORE_MDSUM" \
+					UPDATE_MDSUM="$UPDATE_MDSUM" \
+					DOWNLOAD_ONLY="$DOWNLOAD_ONLY" \
+					EXTRACT_ONLY="$EXTRACT_ONLY" \
+					KEEP_WORK="$KEEP_WORK" \
+					REDOWNLOAD_SOURCE="$REDOWNLOAD_SOURCE" \
+					SOURCE_PKG="$SOURCE_PKG" \
+					OUTPUT_PKG="$OUTPUT_PKG" \
+					NO_COLOR="$NO_COLOR" \
+					buildpkg || exit 1
+				popd
+				break
+			fi
+		done
 	done
 
-	[ ! "$PORT_EXIST" ] && msgerr "Port ${color_red}$PORTNAME${color_reset} not found."
+	[ ! "$PORT_EXIST" ] && msgerr "Port ${color_red}$pkg${color_reset} not found."
 }
 
 showhelp() {
 	
-	echo "Usage:"
-	echo "  $(basename $0) [ <options> <arguments> ]"
-	echo
-	echo "Options:"
-	echo "  -i,  --install              install package"
-	echo "  -u,  --upgrade              upgrade package"
-	echo "  -r,  --reinstall            reinstall package"
-	echo "  -id, --ignore-dependency    skip dependency check"
-	echo "  -ic, --ignore-conflict      skip file/package conflict check"
-	echo "  -fr, --force-rebuild        rebuild package"
-	echo "  -sd, --source-dir <path>    set directory path for sources"
-	echo "  -pd, --package-dir <path>   set directory path for compiled package"
-	echo "  -v,  --verbose              verbose process"
-	echo "  -im, --ignore-mdsum         skip md5sum check for sources"
-	echo "  -um, --update-mdsum         update md5sum file for port"
-	echo "  -do, --download-only        download sources only"
-	echo "  -eo, --extract-only         extract sources only"
-	echo "  -kw, --keep-work            keep working directory"
-	echo "  -rd, --redownload           re-download sources"
-	echo "       --no-preinstall        don't run pre-install script"
-	echo "       --no-postinstall       don't run post-install script"
-	echo "       --no-backup            skip backup when upgrading package"
-	echo "  -dup,--duplicate-ports      list duplicate ports"
-	echo "  -l,  --list-installed       show list installed packages"
-	echo "  -lp, --list-ports           show list ports for repository"
-	echo "  -lo, --list-orphan          show list orphaned packages installed"
-	echo "  -ci, --check-integrity      check integrity between package's index and files in system"
-	echo "  -cu, --check-update         check for package update"
-	echo "       --cache                show old package and source caches"
-	echo "       --clear-cache          remove all old package and source caches"
-	echo "  -up, --update-ports         update port's repository"
-	echo "       --info                 show $(basename $0)pkg info (setting)"
-	echo "  -c,  --cat-port             cat port's buildscript ($BUILD_SCRIPT)"
-	echo "  -dp, --dependent            show package's dependent (check through package index)"
-	echo "  -gdp,--global-dependent     show package's dependent (check through port's repository)"
-	echo "  -d,  --depends              show package's depends"
-	echo "  -pi, --package-info <pkg>   show package's info"
-	echo "  -co, --check-owner          show file's owner"
-	echo "  -p,  --package              set package name to build/install"
-	echo "  -st, --show-tree            show list files of installed package"
-	echo "  -s,  --search               search for packages in port's repository"
-	echo "  -t,  --create-template      create port's template for package"
-	echo "  -pp, --port-path            show ports directory path"
-	echo "       --no-color             disable colour for output"
-	echo "  -h,  --help                 show this help message"
-	echo
-	echo "Example:"
-	echo "  $(basename $0) -p firefox -id -kw -i     build, keep working dir, ignore missing dependency"
-	echo "                                    and then install firefox"
-	echo
-	echo "  $(basename $0) -r -fr -im -p firefox     rebuild, skip md5sum check for sources and then"
-	echo "                                    reinstall firefox"
-	
+	cat << EOF
+Usage:
+
+  scratch [ <options> <arguments> ]
+
+Options:
+  -i,  --install              install package
+  -u,  --upgrade              upgrade package
+  -r,  --reinstall            reinstall package
+  -id, --ignore-dependency    skip dependency check
+  -ic, --ignore-conflict      skip file/package conflict check
+  -fr, --force-rebuild        rebuild package
+  -sd, --source-dir <path>    set directory path for sources
+  -pd, --package-dir <path>   set directory path for compiled package
+  -v,  --verbose              verbose process
+  -im, --ignore-mdsum         skip md5sum check for sources
+  -um, --update-mdsum         update md5sum file for port
+  -do, --download-only        download sources only
+  -eo, --extract-only         extract sources only
+  -kw, --keep-work            keep working directory
+  -rd, --redownload           re-download sources
+       --no-preinstall        don't run pre-install script
+       --no-postinstall       don't run post-install script
+       --no-backup            skip backup when upgrading package
+  -dup,--duplicate-ports      list duplicate ports
+  -l,  --list-installed       show list installed packages
+  -lp, --list-ports           show list ports for repository
+  -lo, --list-orphan          show list orphaned packages installed
+  -ci, --check-integrity      check integrity between package's index and files in system
+  -cu, --check-update         check for package update
+       --cache                show old package and source caches
+       --clear-cache          remove all old package and source caches
+  -up, --update-ports         update port's repository
+       --info                 show scratchpkg info (setting)
+  -c,  --cat-port             cat port's buildscript (spkgbuild)
+  -dp, --dependent            show package's dependent (check through package index)
+  -gdp,--global-dependent     show package's dependent (check through port's repository)
+  -d,  --depends              show package's depends
+  -pi, --package-info <pkg>   show package's info
+  -co, --check-owner          show file's owner
+  -p,  --package <pkgnames>   set package name to build/install
+  -st, --show-tree            show list files of installed package
+  -s,  --search               search for packages in port's repository
+  -t,  --create-template      create port's template for package
+  -pp, --port-path            show ports directory path
+       --no-color             disable colour for output
+  -h,  --help                 show this help message
+  
+Example:
+  scratch -p firefox sudo -id -kw -i     build, keep working dir, ignore missing dependency
+                                         and then install firefox and sudo
+
+  scratch -r -fr -im -p firefox sudo     rebuild, skip md5sum check for sources and then
+                                         reinstall firefox and sudo
+EOF
 }
 
 parse_options() {
@@ -597,84 +601,111 @@ parse_options() {
 			case $1 in
 			-i|--install)
 				INSTALL_PKG=yes
+				shift
 				;;
 			-u|--upgrade)
 				UPGRADE_PKG=yes
+				shift
 				;;
 			-r|--reinstall)
 				REINSTALL_PKG=yes
+				shift
 				;;
 			-id|--ignore-dependency)
 				IGNORE_DEP=yes
+				shift
 				;;
 			-ic|--ignore-conflict)
 				IGNORE_CONFLICT=yes
+				shift
 				;;
 			--no-preinstall)
 				NO_PREINSTALL=yes
+				shift
 				;;
 			--no-postinstall)
 				NO_POSTINSTALL=yes
+				shift
 				;;
 			-fr|--force-rebuild)
 				FORCE_REBUILD=yes
+				shift
 				;;
 			-v|--verbose)
 				VERBOSE_INSTALL=yes
+				shift
 				;;
 			-im|--ignore-mdsum)
 				IGNORE_MDSUM=yes
+				shift
 				;;
 			-um|--update-mdsum)
 				UPDATE_MDSUM=yes
+				shift
 				;;
 			-do|--download-only)
 				DOWNLOAD_ONLY=yes
+				shift
 				;;
 			-eo|--extract-only)
 				EXTRACT_ONLY=yes
+				shift
 				;;
 			-kw|--keep-work)
 				KEEP_WORK=yes
+				shift
 				;;
 			-rd|--redownload)
 				REDOWNLOAD_SOURCE=yes
+				shift
 				;;
 			--no-backup)
 				NO_BACKUP=yes
+				shift
 				;;
 			-dup|--duplicate-ports)
 				DUPLICATE_PORTS=yes
+				shift
 				;;
 			-l|--list-installed)
 				LIST_INSTALLED=yes
+				shift
 				;;
 			-lo|--list-orphan)
 				LIST_ORPHAN=yes
+				shift
 				;;
 			-ci|--check-integrity)
 				CHECK_INTEGRITY=yes
+				shift
 				;;
 			-cu|--check-update)
 				CHECK_UPDATE=yes
+				shift
 				;;
 			--no-color)
 				NO_COLOR=yes
+				shift
 				;;
 			--cache)
 				PKG_CACHE=yes
+				shift
 				;;
 			--clear-cache)
 				CLEAR_PKG_CACHE=yes
+				shift
 				;;
 			-up|--update-ports)
 				UPD_PORTS=yes
+				shift
 				;;
 			-h|--help)
 				SHOW_HELP=yes
+				shift
 				;;
 			--info)
 				SHOW_INFO=yes
+				shift
 				;;
 			-lp|--list-port)
 				if [ ! "$2" ]; then
@@ -682,7 +713,7 @@ parse_options() {
 					exit 1
 				fi
 					LIST_PORT="$2"
-				shift
+				shift 2
 				;;
 			-c|--cat-port)
 				if [ ! "$2" ]; then
@@ -690,7 +721,7 @@ parse_options() {
 					exit 1
 				fi
 					CAT_PORT="$2"
-				shift
+				shift 2
 				;;
 			-dp|--dependent)
 				if [ ! "$2" ]; then
@@ -698,7 +729,7 @@ parse_options() {
 					exit 1
 				fi
 					PACKAGE_DEPENDENT="$2"
-				shift
+				shift 2
 				;;
 			-gdp|--global-dependent)
 				if [ ! "$2" ]; then
@@ -706,7 +737,7 @@ parse_options() {
 					exit 1
 				fi
 					GLOBAL_PACKAGE_DEPENDENT="$2"
-				shift
+				shift 2
 				;;
 			-d|--depends)
 				if [ ! "$2" ]; then
@@ -714,7 +745,7 @@ parse_options() {
 					exit 1
 				fi
 					PACKAGE_DEPENDS="$2"
-				shift
+				shift 2
 				;;
 			-pi|--package-info)
 				if [ ! "$2" ] || [ ! "$(echo $2 | grep '.spkg.txz')" ]; then
@@ -722,7 +753,7 @@ parse_options() {
 					exit 1
 				fi
 					PACKAGE_INFO="$2"
-				shift
+				shift 2
 				;;
 			-co|--check-owner)
 				if [ ! "$2" ]; then
@@ -730,7 +761,7 @@ parse_options() {
 					exit 1
 				fi
 					OWNER_FILE_NAME="$2"
-				shift
+				shift 2
 				;;
 			-st|--show-tree)
 				if [ ! "$2" ]; then
@@ -738,7 +769,7 @@ parse_options() {
 					exit 1
 				fi
 					TREE_PORT_NAME="$2"
-				shift
+				shift 2
 				;;
 			-s|--search)
 				if [ ! "$2" ]; then
@@ -746,14 +777,21 @@ parse_options() {
 					exit 1
 				fi
 					SEARCH_PKG="$2"
-				shift
+				shift 2
 				;;
 			-p|--package)
 				if [ ! "$2" ]; then
 					msg "Option '$1' require an argument (package name to install/build)."
 					exit 1
 				fi
-					PORTNAME="$2"
+				while [ "$2" ]; do
+					if echo "" $2 | grep -vq "^ -"; then
+						INSTALLPKG+=($2)
+						shift
+					else
+						break
+					fi
+				done
 				shift
 				;;
 			-t|--create-template)
@@ -762,7 +800,7 @@ parse_options() {
 					exit 1
 				fi
 					TEMPLATE_NAME="$2"
-				shift
+				shift 2
 				;;
 			-pp|--port-path)
 				if [ ! "$2" ]; then
@@ -770,7 +808,7 @@ parse_options() {
 					exit 1
 				fi
 					PORT_PATH="$2"
-				shift
+				shift 2
 				;;
 			-sd|--source-dir)
 				if [ ! "$2" ]; then
@@ -778,7 +816,7 @@ parse_options() {
 					exit 1
 				fi
 				SOURCE_PKG="$2"
-				shift
+				shift 2
 				;;
 			-pd|--package-dir)
 				if [ ! "$2" ]; then
@@ -786,14 +824,14 @@ parse_options() {
 					exit 1
 				fi
 				OUTPUT_PKG="$2"
-				shift
+				shift 2
 				;;
 			*)
 				msg "Option invalid!"
 				exit 1
+				shift
 				;;			
 			esac
-			shift
 		done
 	fi
 	
@@ -938,6 +976,11 @@ main() {
 
 	### BUILD PACKAGE ###
 	if [ "$PORTNAME" ]; then
+		pushtoport
+		exit 0
+	fi
+	
+	if [ "${#INSTALLPKG[@]}" -gt 0 ]; then
 		pushtoport
 		exit 0
 	fi

@@ -433,27 +433,29 @@ removemakedepends() {
 
 help() {
 	
-	echo "Usage:"
-	echo "  $(basename $0) package.spkg.txz [ <options> <arguments> ]"
-	echo
-	echo "Options:"
-	echo "  -u,  --upgrade              update package"
-	echo "  -r,  --reinstall            reinstall package"
-	echo "  -id, --ignore-dependency    skip dependency check"
-	echo "  -ic, --ignore-conflict      ignore conflict when installing package"
-	echo "  -v,  --verbose              verbose install process"
-	echo "       --no-preinstall        don't run pre-install script"
-	echo "       --no-postinstall       don't run post-install script"
-	echo "       --no-preupgrade        don't run pre-upgrade script"
-	echo "       --no-postupgrade       don't run post-upgrade script"
-	echo "       --no-backup            skip backup when upgrading package"
-	echo "       --no-orphan-check      skip orphaned package check after install package"
-	echo "       --no-color             disable colour for output"
-	echo "  -h,  --help                 show this help message"
-	echo
-	echo "Example:"
-	echo "  $(basename $0) foobar-1.0-1.spkg.txz -u --no-backup        upgrade package foobar-1.0-1 without backup"
-	echo "                                                         its old configuration files"
+	cat << EOF
+Usage:
+  installpkg package.spkg.txz [ <options> <arguments> ]
+
+Options:
+  -u,  --upgrade              update package
+  -r,  --reinstall            reinstall package
+  -id, --ignore-dependency    skip dependency check
+  -ic, --ignore-conflict      ignore conflict when installing package
+  -v,  --verbose              verbose install process
+       --no-preinstall        don't run pre-install script
+       --no-postinstall       don't run post-install script
+       --no-preupgrade        don't run pre-upgrade script
+       --no-postupgrade       don't run post-upgrade script
+       --no-backup            skip backup when upgrading package
+       --no-orphan-check      skip orphaned package check after install package
+       --no-color             disable colour for output
+  -h,  --help                 show this help message
+
+Example:
+  installpkg foobar-1.0-1.spkg.txz -u --no-backup        upgrade package foobar-1.0-1 without backup
+                                                         its old configuration files
+EOF
 	
 }
 

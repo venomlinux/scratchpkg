@@ -218,22 +218,23 @@ runpreremovehooks() {
 
 help() {
 	
-	echo "Usage:"
-	echo "  $(basename $0) package name [ <options> <arguments> ]"
-	echo
-	echo "Options:"
-	echo "  -id, --ignore-dependency    skip dependency check"
-	echo "  -v,  --verbose              verbose install process"
-	echo "       --no-preremove         don't run pre-remove script"
-	echo "       --no-postremove        don't run post-remove script"
-	echo "       --no-orphan-check      skip orphaned package check after install package"
-	echo "       --no-color             disable colour for output"
-	echo "  -h,  --help                 show this help message"
-	echo
-	echo "Example:"
-	echo "  $(basename $0) firefox -id -v        remove package firefox, skipping dependency check"
-	echo "                                  and verbose deleted file"
-	
+	cat << EOF	
+Usage:
+  removepkg package name [ <options> <arguments> ]
+
+Options:
+  -id, --ignore-dependency    skip dependency check
+  -v,  --verbose              verbose install process
+       --no-preremove         don't run pre-remove script
+       --no-postremove        don't run post-remove script
+       --no-orphan-check      skip orphaned package check after install package
+       --no-color             disable colour for output
+  -h,  --help                 show this help message
+
+Example:
+  removepkg firefox -id -v        remove package firefox, skipping dependency check
+                                  and verbose deleted file
+EOF
 }
 
 parse_options() {
@@ -242,30 +243,42 @@ parse_options() {
 		case $1 in
 		-id|--ignore-dependency)
 			IGNORE_DEP=yes
+			shift
 			;;
 		-v|--verbose)
 			VERBOSE_REMOVE=yes
+			shift
 			;;
 		-h|--help)
 			SHOW_HELP=yes
+			shift
 			;;
 		--no-preremove)
 			NO_PREREMOVE=yes
+			shift
 			;;
 		--no-postremove)
 			NO_POSTREMOVE=yes
+			shift
 			;;
 		--no-color)
 			NO_COLOR=yes
+			shift
 			;;
 		--no-orphan-check)
 			NO_ORPHAN_CHECK=yes
+			shift
 			;;
 		*)
-			RMNAME=$1
+			if echo "" $1 | grep -vq "^ -"; then
+				RMNAME+=($1)
+			else
+				msgerr "Invalid option '$1', aborted!"
+				exit 1
+			fi
+			shift
 			;;
 		esac
-		shift
 	done
 	
 }
@@ -293,18 +306,6 @@ main() {
 	checkdirwrite "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
 	checkdirread  "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
 	
-	### PACKAGE NAME ###
-	if [ -z $RMNAME ]; then
-		msgerr "Please state package name for remove."
-		exit 1
-	fi
-	
-	### CHECK PACKAGE IN DATABASE ###
-	if [ ! -d $INDEX_DIR/$RMNAME ]; then
-		msg "Package ${color_red}$RMNAME${color_reset} not installed."
-		exit 1
-	fi
-	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then
 		msgerr "Cant install/remove package simultaneously."
@@ -312,11 +313,14 @@ main() {
 		exit 1
 	fi
 	
-	### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
-	getoldname $RMNAME
-	
-	### REMOVE PACKAGE ###
-	removepkg $RMNAME
+	for pkg in ${RMNAME[@]}; do
+		if [ ! -d $INDEX_DIR/$pkg ]; then
+			msg "Package ${color_red}$pkg${color_reset} not installed."
+		else
+			getoldname $pkg ### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
+			removepkg $pkg  ### REMOVE PACKAGE ###
+		fi
+	done
 	
 	### CHECK NEW ORPHANED PACKAGE ###
 	if [ ! "$NO_ORPHAN_CHECK" ]; then
