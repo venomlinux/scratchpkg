@@ -58,6 +58,17 @@ rm_silent() {
 	command rm "$@" 2> /dev/null
 }
 
+testinput() {
+	
+	if [ ! "$1" ]; then
+		msg "This option require an argument."
+		return 1
+	else
+		return 0
+	fi
+	
+}
+
 needroot() {
 	
 	if [ $UID != 0 ]; then
@@ -188,11 +199,11 @@ getinstalledname() {
 
 createtemplate() {
 	
-	if [ -d $TEMPLATE_NAME ]; then
-		msg "Error directory ${color_red}$TEMPLATE_NAME${color_reset} already exist"
+	if [ -d $1 ]; then
+		msg "Error directory ${color_red}$1${color_reset} already exist"
 		exit 1
 	else
-		mkdir $TEMPLATE_NAME
+		mkdir $1
 		echo "# description	: 
 # backup	: 
 # conflict	: 
@@ -200,7 +211,7 @@ createtemplate() {
 # makedepends	: 
 # noextract	: 
 
-name=$TEMPLATE_NAME
+name=$1
 version=
 release=1
 options=()
@@ -211,8 +222,8 @@ build() {
 	./configure --prefix=/usr
 	make
 	make DESTDIR=\$PKG install
-}" > $TEMPLATE_NAME/$BUILD_SCRIPT
-	msg "Template port have created for ${color_green}$TEMPLATE_NAME${color_reset}."
+}" > $1/$BUILD_SCRIPT
+	msg "Template port have created for ${color_green}$1${color_reset}."
 	fi
 	
 }

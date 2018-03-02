@@ -501,84 +501,28 @@ parse_options() {
 	
 	while [ "$1" ]; do
 		case $1 in
-		# this option will pass to installpkg
-		-i|--install)
-			INSTALL_PKG=yes
-			;;
-		-u|--upgrade)
-			UPGRADE_PKG=yes
-			;;
-		-r|--reinstall)
-			REINSTALL_PKG=yes
-			;;
-		-id|--ignore-dependency)
-			IGNORE_DEP=yes
-			;;
-		-ic|--ignore-conflict)
-			IGNORE_CONFLICT=yes
-			;;
-		--no-preinstall)
-			NO_PREINSTALL=yes
-			;;
-		--no-preinstall)
-			NO_POSTINSTALL=yes
-			;;
-		-v|--verbose)
-			VERBOSE_INSTALL=yes
-			;;
-		--no-color)
-			NO_COLOR=yes
-			;;
-		--no-orphan-check)
-			NO_ORPHAN_CHECK=yes
-			;;
-		-fr|--force-rebuild)
-			FORCE_REBUILD=yes
-			;;
-		-im|--ignore-mdsum)
-			IGNORE_MDSUM=yes
-			;;
-		-um|--update-mdsum)
-			UPDATE_MDSUM=yes
-			;;
-		-do|--download-only)
-			DOWNLOAD_ONLY=yes
-			;;
-		-eo|--extract-only)
-			EXTRACT_ONLY=yes
-			;;
-		-kw|--keep-work)
-			KEEP_WORK=yes
-			;;
-		-rd|--redownload)
-			REDOWNLOAD_SOURCE=yes
-			;;
-		--no-backup)
-			NO_BACKUP=yes
-			;;
-		-h|--help)
-			SHOW_HELP=yes
-			;;
-		-sd|--source-dir)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (source path for package)."
-				exit 1
-			fi
-			SOURCE_PKG="$2"
-			shift
-			;;
-		-pd|--package-dir)
-			if [ ! "$2" ]; then
-				msg "Option '$1' require an argument (package path for compiled package)."
-				exit 1
-			fi
-			OUTPUT_PKG="$2"
-			shift
-			;;
-		*)
-			msg "Option invalid!"
-			exit 1
-			;;
+		-i  |           --install) INSTALL_PKG=yes                 ;;
+		-u  |           --upgrade) UPGRADE_PKG=yes; OPTS+=($1)     ;;
+		-r  |         --reinstall) REINSTALL_PKG=yes; OPTS+=($1)   ;;
+		-id | --ignore-dependency) IGNORE_DEP=yes; OPTS+=($1)      ;;
+		-ic |   --ignore-conflict) OPTS+=($1)                      ;;
+		          --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1)   ;;
+		          --no-preinstall) OPTS+=($1)                      ;;
+		-v  |           --verbose) OPTS+=($1)                      ;;
+		               --no-color) nocolor; OPTS+=($1)             ;;
+		              --no-backup) OPTS+=($1)                      ;;
+		        --no-orphan-check) NO_ORPHAN_CHECK=yes; OPTS+=($1) ;;
+		-fr |     --force-rebuild) FORCE_REBUILD=yes               ;;
+		-im |      --ignore-mdsum) IGNORE_MDSUM=yes                ;;
+		-um |      --update-mdsum) UPDATE_MDSUM=yes                ;;
+		-do |     --download-only) DOWNLOAD_ONLY=yes               ;;
+		-eo |      --extract-only) EXTRACT_ONLY=yes                ;;
+		-kw |         --keep-work) KEEP_WORK=yes                   ;;
+		-rd |        --redownload) REDOWNLOAD_SOURCE=yes           ;;
+		-h  |              --help) help; exit 0                    ;;
+		-sd |        --source-dir) testinput "$2" && SOURCE_DIR="$2"  || exit 1; shift ;;
+		-pd |       --package-dir) testinput "$2" && PACKAGE_DIR="$2" || exit 1; shift ;;
+		                        *) msg "Invalid option!"; exit 1   ;;
 		esac
 		shift
 	done
@@ -588,27 +532,6 @@ parse_options() {
 main() {
 	
 	parse_options "$@"
-	
-	### DISABLE COLOR ###
-	if [ "$NO_COLOR" ]; then
-		nocolor
-	fi
-	
-	### SHOW HELP ###
-	if [ "$SHOW_HELP" ]; then
-		help
-		exit 0
-	fi
-	
-	### SET OUTPUT PATH FOR PACKAGE ###
-	if [ $OUTPUT_PKG ]; then
-		PACKAGE_DIR="$OUTPUT_PKG"
-	fi
-	
-	### SET SOURCE PATH ###
-	if [ $SOURCE_PKG ]; then
-		SOURCE_DIR="$SOURCE_PKG"
-	fi
 	
 	#check_directory
 	checkdirexist "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
@@ -682,18 +605,7 @@ main() {
 	
 	### INSTALL PACKAGE ###
 	if [ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ]; then
-		IGNORE_CONFLICT="$IGNORE_CONFLICT" \
-		IGNORE_DEP="$IGNORE_DEP" \
-		REINSTALL_PKG="$REINSTALL_PKG" \
-		UPGRADE_PKG="$UPGRADE_PKG" \
-		VERBOSE_INSTALL="$VERBOSE_INSTALL" \
-		NO_PREINSTALL="$NO_PREINSTALL" \
-		NO_POSTINSTALL="$NO_POSTINSTALL" \
-		NO_COLOR="$NO_COLOR" \
-		NO_BACKUP="$NO_BACKUP" \
-		NO_ORPHAN_CHECK="$NO_ORPHAN_CHECK" \
-		installpkg $PACKAGE_DIR/$PKGNAME || exitscript1
-		exitscript0
+		installpkg $PACKAGE_DIR/$PKGNAME ${OPTS[@]} || exitscript1
 	fi
 	
 	exitscript0

@@ -237,47 +237,26 @@ Example:
 EOF
 }
 
+arg() {
+	if echo "" $1 | grep -vq "^ -"; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 parse_options() {
 	
 	while [ "$1" ]; do
 		case $1 in
-		-id|--ignore-dependency)
-			IGNORE_DEP=yes
-			shift
-			;;
-		-v|--verbose)
-			VERBOSE_REMOVE=yes
-			shift
-			;;
-		-h|--help)
-			SHOW_HELP=yes
-			shift
-			;;
-		--no-preremove)
-			NO_PREREMOVE=yes
-			shift
-			;;
-		--no-postremove)
-			NO_POSTREMOVE=yes
-			shift
-			;;
-		--no-color)
-			NO_COLOR=yes
-			shift
-			;;
-		--no-orphan-check)
-			NO_ORPHAN_CHECK=yes
-			shift
-			;;
-		*)
-			if echo "" $1 | grep -vq "^ -"; then
-				RMNAME+=($1)
-			else
-				msgerr "Invalid option '$1', aborted!"
-				exit 1
-			fi
-			shift
-			;;
+		-id | --ignore-dependency) IGNORE_DEP=yes;      shift ;;
+		-v  |           --verbose) VERBOSE_REMOVE=yes;  shift ;;
+		-h  |              --help) help; exit 0;        shift ;;
+		           --no-preremove) NO_PREREMOVE=yes;    shift ;;
+		          --no-postremove) NO_POSTREMOVE=yes;   shift ;;
+		               --no-color) nocolor;             shift ;;
+		        --no-orphan-check) NO_ORPHAN_CHECK=yes; shift ;;
+		                        *) arg "$1" && RMNAME+=($1) || { msgerr "Invalid option!"; exit 1; }; shift ;;
 		esac
 	done
 	
@@ -286,17 +265,6 @@ parse_options() {
 main() {
 	
 	parse_options "$@"
-	
-	### DISABLE COLOR ###
-	if [ "$NO_COLOR" ]; then
-		nocolor
-	fi
-	
-	### SHOW HELP ###
-	if [ "$SHOW_HELP" ]; then
-		help
-		exit 0
-	fi
 	
 	### CHECK FOR ROOT ACCESS ###
 	needroot "Removing package"
