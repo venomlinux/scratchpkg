@@ -4,6 +4,7 @@ INDEX_DIR="/var/lib/scratchpkg/index"
 
 source "/usr/share/scratchpkg/color"
 source "/usr/share/scratchpkg/message"
+source "/etc/scratchpkg.conf"
 
 if [ ! "$1" ]; then
 	msgerr "Please specify list file."
@@ -15,25 +16,96 @@ if [ ! -f "$1" ]; then
 	exit 1
 fi
 
+if [ -d $INDEX_DIR/rc-init ]; then
+	init=rcinit
+elif [ -d $INDEX_DIR/lfs-bootscripts ]; then
+	init=lfsbootscrpits
+else
+	init=none
+fi
+
 list=$(cat $1 | grep -v '^#')
 
-for i in $list; do
-	if [ -d $INDEX_DIR/$i ]; then
-		msg "$i ${color_green}[installed]${color_reset}"
-	else
-		echo
-		msg "installing $i..."
-		if [ $UID != 0 ]; then
-			sudo scratch -p $i -i
-		else
-			scratch -p $i -i
+getportpath() {
+	
+	for repo in ${PORT_REPO[@]}; do
+		if [[ -f $repo/$1/spkgbuild ]]; then
+			PPATH=$(dirname "$repo/$1/spkgbuild")
+			return 0
 		fi
-		if [ ! -d $INDEX_DIR/$i ]; then
-			msgerr "Failed installing $i."
-			msgerr "Press ENTER to skip and continue, press CTRL + C to cancel."
-			read
+	done
+	return 1
+	
+}
+
+listinstall() {
+	if [ -d $INDEX_DIR/$1 ]; then
+		echo "Package '$1' is installed"
+	else
+		if getportpath $1; then
+			echo "Installing $1..."
+			if [ $UID != 0 ]; then
+				if [ $(type -pa sudo) 2>/dev/null ]; then
+					sudo scratch -i -p $1
+					if [ $? != 0 ]; then
+						echo "Failed install package $1"
+						echo "CTRL + C to abort or ENTER to skip and continue"
+						read
+					fi
+				else
+					echo "This operation need root access!"
+					exit 1
+				fi
+			else
+				scratch -i -p $1
+				if [ $? != 0 ]; then
+					echo "Failed install package $1"
+					echo "CTRL + C to abort or ENTER to skip and continue"
+					read
+				fi
+			fi
 		fi
 	fi
+}
+
+# check existence of port
+for port in ${PKG[@]}; do
+	if ! getportpath $port; then
+		echo "Port '$port' not exist"
+		echo "CTRL + C to abort or ENTER to skip and continue"
+		read
+	fi
 done
+
+for pkg in $list; do
+	case $pkg in
+		smartmontools|bluez|acpid|gpm|cups|dhcpcd|apache|alsa-utils|ntp|rsync|lxdm|wpa_supplicant|dbus|networkmanager)
+			listinstall $pkg
+			listinstall $pkg-$init
+			;;
+		*)
+			listinstall $pkg
+			;;
+	esac
+done
+
+#for i in $list; do
+	#if [ -d $INDEX_DIR/$i ]; then
+		#msg "$i ${color_green}[installed]${color_reset}"
+	#else
+		#echo
+		#msg "installing $i..."
+		#if [ $UID != 0 ]; then
+			#sudo scratch -p $i -i
+		#else
+			#scratch -p $i -i
+		#fi
+		#if [ ! -d $INDEX_DIR/$i ]; then
+			#msgerr "Failed installing $i."
+			#msgerr "Press ENTER to skip and continue, press CTRL + C to cancel."
+			#read
+		#fi
+	#fi
+#done
 
 exit 0
