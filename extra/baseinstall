@@ -2,7 +2,8 @@
 
 INDEX_DIR="/var/lib/scratchpkg/index"
 
-PKG=(linux-api-headers
+PKG=(
+linux-api-headers
 man-pages
 glibc
 tzdata
@@ -68,8 +69,15 @@ tar
 texinfo
 vim
 filesystem
-rc-init
-base-meta)
+base-meta
+openssl
+ca-certificates-utils
+ca-certificates
+wget
+curl
+httpup
+scratchpkg
+)
 
 for i in ${PKG[@]}; do
 	if [[ -d "/var/lib/scratchpkg/index/$i" ]]; then
@@ -113,7 +121,7 @@ sleep 5
 				scratch -i -id -p $i
 				rm /usr/lib/{libncurses.so,libncursesw.so.6}
 				;;
-			gcc|coreutils|bash|filesystem)
+			gcc|coreutils|bash|filesystem|scratchpkg)
 				scratch -i -id -ic -p $i
 				;;
 			perl)
