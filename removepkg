@@ -270,9 +270,9 @@ main() {
 	needroot "Removing package"
 	
 	### CHECK DIRECTORY ###
-	checkdirexist "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
-	checkdirwrite "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
-	checkdirread  "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
+	checkdirexist "$INDEX_DIR"
+	checkdirwrite "$INDEX_DIR"
+	checkdirread  "$INDEX_DIR"
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then

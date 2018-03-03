@@ -15,4 +15,4 @@ install -m644 functions/* ${DESTDIR}${FUNCDIR}
 install -m644 scratchpkg.conf ${DESTDIR}${CONFDIR}/scratchpkg.conf
 install -m644 ports/*.httpup ${DESTDIR}${HTTPUPDIR}
 install -m755 extra/* ${DESTDIR}${BINDIR}
-mkdir -p ${DESTDIR}${CACHE_DIR}/{backup,log,packages,rejected,sources} ${DESTDIR}${INDEX_DIR}/index
+mkdir -p ${DESTDIR}${CACHE_DIR}/{log,packages,sources} ${DESTDIR}${INDEX_DIR}/index

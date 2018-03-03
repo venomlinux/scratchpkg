@@ -280,12 +280,13 @@ getoldname() {
 }
 
 backupconf() {
-	
+	echo backup
 	pushd $ROOT_DIR	
 		for bkp in ${backup[@]}; do
 			if [ -e $bkp ]; then
 				msg2 "Backup ${color_purple}$bkp${color_reset}"
-				cp $bkp $BACKUP_DIR
+				rm -f $bkp.spkgtmp
+				cp $bkp $bkp.spkgtmp
 				FILEBACKUP+=($bkp)
 			fi
 		done	
@@ -293,15 +294,13 @@ backupconf() {
 }
 
 restoreconf() {
-	
+	echo restore
 		if [ "${#FILEBACKUP[@]}" -gt 0 ]; then
 			pushd $ROOT_DIR
 				for b in ${FILEBACKUP[@]}; do
 					if [ -e $b ]; then
-						mkdir -p $REJECTED_DIR/${b%/*}
-						mv $b $REJECTED_DIR/$b
-						msg2 "Restore ${color_purple}$b${color_reset}"
-						mv $BACKUP_DIR/$(basename ${b}) $b
+						mv $b $b.spkgnew
+						mv $b.spkgtmp $b
 					fi
 				done
 			popd
@@ -315,25 +314,6 @@ checkoutdate() {
 		msg "Package ${color_green}$packagename${color_reset} is up-to-date."
 		exit 1
 	fi
-	
-}
-
-check_directory() {
-	
-	for dir in $INDEX_DIR $BACKUP_DIR $REJECTED_DIR; do
-		if [ ! -d $dir ]; then
-			msgwarn "Directory ${color_yellow}$dir${color_reset} not exist."
-			DIR_ERROR=yes
-		elif [ ! -w $dir ]; then
-			msgwarn "Directory ${color_yellow}$dir${color_reset} not writable."
-			DIR_ERROR=yes
-		elif [ ! -x $dir ] || [ ! -r $1 ]; then
-			msgwarn "Directory ${color_yellow}$dir${color_reset} not readable."
-			DIR_ERROR=yes
-		fi
-	done
-	
-	[ "$DIR_ERROR" ] && exit 1
 	
 }
 
@@ -503,9 +483,9 @@ main() {
 	needroot "Installing package"
 	
 	### CHECK DIRECTORY ###
-	checkdirexist "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
-	checkdirwrite "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
-	checkdirread "$INDEX_DIR" "$BACKUP_DIR" "$REJECTED_DIR"
+	checkdirexist "$INDEX_DIR"
+	checkdirwrite "$INDEX_DIR"
+	checkdirread "$INDEX_DIR"
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then

@@ -23,8 +23,6 @@ showinfo() {
 	echo "PACKAGE_DIR=$PACKAGE_DIR"
 	echo "SOURCE_DIR=$SOURCE_DIR"
 	echo "WORK_DIR=$WORK_DIR"
-	echo "BACKUP_DIR=$BACKUP_DIR"
-	echo "REJECTED_DIR=$REJECTED_DIR"
 	echo "LOG_DIR=$LOG_DIR"
 	echo "HOOK_DIR=$HOOK_DIR"
 	echo
