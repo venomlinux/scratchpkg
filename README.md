@@ -261,6 +261,34 @@ Extra tools is some scripts come with scratchpkg to help users do things more ea
 * `target`: Path file/directory checked need to run the cmd (without leading with '/').
 * `exechook()`: Command need to run should be in this function.
 
+## Install script
+
+Install scripts is a bash script contains command need to run before/after install/upgrade/remove packages in system. The suffix of install script is `<portname>.install`. This install script need to placed in port directory and later will included in tar-ed package. The script contains the following functions which run at different times:
+
+* `pre-_install()`: The script is run right before package is built or files are extracted. One argument is passed: new package version.
+* `post_install()`: The script is run right after files are extracted. One argument is passed: new package version.
+* `pre_upgrade()`: The script is run right before files are extracted. Two arguments are passed in the following order: new package version, old package version.
+* `post_upgrade()`: The script is run right after files are extracted. Two arguments are passed in the following order: new package version, old package version.
+* `pre_remove()`: The script is run right before files are removed. One argument is passed: old package version.
+* `post_remove()`: The script is run right after files are removed. One argument is passed: old package version.
+
+Example of install script for `dbus.install`:
+
+    pre_install() {
+        getent group messagebus >/dev/null || groupadd -g 18 messagebus
+        getent passwd messagebus >/dev/null || useradd -c "D-Bus Message Daemon User" -d /var/run/dbus -u 18 -g messagebus -s /bin/false messagebus
+    }
+
+    post_install() {
+        dbus-uuidgen --ensure
+    }
+
+## Port file
+
+Port file is a file contain URL of port's repository. The suffix of this port file is `<repository name>.httpup` (repository name should be same as PORT_REPO stated in `/etc/scratchpkg.conf`). This file will get read by `scratch` to sync the port's repository into system using a tool called `httpup`. By default, Port file need to placed into `/etc/ports`. Example of port file for `core` repository:
+
+    URL=https://raw.githubusercontent.com/emmett1/ports/master/core
+
 ## Install
 
 Installing is performed by just simply execute/running the file INSTALL.sh:
