@@ -280,7 +280,7 @@ getoldname() {
 }
 
 backupconf() {
-	echo backup
+	
 	pushd $ROOT_DIR	
 		for bkp in ${backup[@]}; do
 			if [ -e $bkp ]; then
@@ -294,7 +294,7 @@ backupconf() {
 }
 
 restoreconf() {
-	echo restore
+	
 		if [ "${#FILEBACKUP[@]}" -gt 0 ]; then
 			pushd $ROOT_DIR
 				for b in ${FILEBACKUP[@]}; do
