@@ -92,11 +92,12 @@ searchpkg() {
 							search_result="${color_blue}($portname)${color_reset} ${color_purple}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
 								getinstalledname $name
+								[ -d $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
 								if [ "$name-$version-$release" = "$installedname" ]; then
-									msg3 "$search_result ${color_green}[installed]${color_reset}"
+									msg3 "$search_result ${color_green}[installed]${color_reset} ${color_blue}[locked]${color_reset}"
 									msg4 "$description"
 								else
-									msg3 "$search_result ${color_yellow}[installed $iversion-$irelease]${color_reset}"
+									msg3 "$search_result ${color_yellow}[installed $iversion-$irelease]${color_reset} ${color_blue}[locked]${color_reset}"
 									msg4 "$description"
 								fi
 							else
@@ -252,8 +253,12 @@ showupdate() {
 				. $port/$package_name/$BUILD_SCRIPT
 				getinstalledname $name
 					if [ "$name-$version-$release" != "$installedname" ]; then
-						msg "$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset}"
+						if [ -f "$INDEX_DIR/$package_name/.lock" ]; then
+							ITSLOCK="[locked]"
+						fi
+						msg "$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_blue}$ITSLOCK${color_reset}"
 						OUTDATE=yes
+						unset ITSLOCK
 					fi
 				break
 			fi
@@ -521,6 +526,48 @@ portinstall() {
 	done
 }
 
+listlocked() {
+	
+	for pkg in "$INDEX_DIR"/*/.pkginfo; do
+		pkgpath=$(dirname $pkg)
+		pkgname=$(basename $pkgpath)
+		if [ -f "$pkgpath"/.lock ]; then
+			msg "$pkgname"
+		fi
+	done
+	
+}
+
+lockpkg() {
+	
+	needroot "Locking package"
+	
+	for pkg in "${LOCKPKG[@]}"; do
+		if [ ! -d $INDEX_DIR/$pkg ]; then
+			msgerr "Package '$pkg' is not installed."
+		else
+			touch $INDEX_DIR/$pkg/.lock && msg "Successfully locked package '$pkg'."
+		fi
+	done
+	
+}
+
+unlockpkg() {
+	
+	needroot "Unlocking package"
+	
+	for pkg in "${UNLOCKPKG[@]}"; do
+		if [ ! -d $INDEX_DIR/$pkg ]; then
+			msgerr "Package '$pkg' is not installed."
+		elif [ ! -f $INDEX_DIR/$pkg/.lock ]; then
+			msgerr "Package '$pkg' is not locked."
+		else
+			rm $INDEX_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
+		fi
+	done
+	
+}
+
 help() {
 	
 	cat << EOF
@@ -567,6 +614,7 @@ Options:
   -st, --show-tree            show list files of installed package
   -s,  --search               search for packages in port's repository
   -t,  --create-template      create port's template for package
+       --listlocked           list locked package
   -pp, --port-path            show ports directory path
        --no-color             disable colour for output
   -h,  --help                 show this help message
@@ -613,6 +661,7 @@ parse_options() {
 			            --clear-cache) clearpkgcache; exit 0;        shift ;;
 			-up |      --update-ports) updports; exit 0;             shift ;;
 			                   --info) showinfo; exit 0;             shift ;;
+			             --listlocked) listlocked; exit 0;           shift ;;
 			-h  |              --help) help; exit 0;                 shift ;;
 			-lp |         --list-port) testinput "$2" && listports "$2"           || exit 1; shift 2 ;;
 			-c  |          --cat-port) testinput "$2" && catport "$2"             || exit 1; shift 2 ;;
@@ -634,6 +683,20 @@ parse_options() {
 						                                      break
 					                                       fi
 				                                         done; shift;;
+			                   --lock) testinput "$2" && while [ "$2" ]; do
+					                                       if echo "" $2 | grep -vq "^ -"; then
+					                           	              LOCKPKG+=($2); shift
+					                                       else
+						                                      break
+					                                       fi
+				                                         done; shift;;
+			                 --unlock) testinput "$2" && while [ "$2" ]; do
+					                                       if echo "" $2 | grep -vq "^ -"; then
+					                           	              UNLOCKPKG+=($2); shift
+					                                       else
+						                                      break
+					                                       fi
+				                                         done; shift;;
 			                        *) msgerr "Invalid option!"; exit 1 ;;	
 			esac
 		done
@@ -646,6 +709,16 @@ main() {
 	parse_options "$@"
 
 	checkdirexist "$INDEX_DIR"
+	
+	if [ "${#LOCKPKG[@]}" -gt 0 ]; then
+		lockpkg
+		exit 0
+	fi
+	
+	if [ "${#UNLOCKPKG[@]}" -gt 0 ]; then
+		unlockpkg
+		exit 0
+	fi
 	
 	if [ "${#INSTALLPKG[@]}" -gt 0 ]; then
 		portinstall

@@ -312,7 +312,10 @@ checkoutdate() {
 	
 	if [ $packagename = $ipackagename ]; then
 		msg "Package ${color_green}$packagename${color_reset} is up-to-date."
-		exit 1
+		exit 0
+	elif [ -f "$INDEX_DIR/$name"/.lock ]; then
+		msgerr "Package '$name' is locked."
+		exit 0
 	fi
 	
 }
