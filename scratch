@@ -92,12 +92,12 @@ searchpkg() {
 							search_result="${color_blue}($portname)${color_reset} ${color_purple}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
 								getinstalledname $name
-								[ -d $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
+								[ -f $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
 								if [ "$name-$version-$release" = "$installedname" ]; then
-									msg3 "$search_result ${color_green}[installed]${color_reset} ${color_blue}[locked]${color_reset}"
+									msg3 "$search_result ${color_green}[installed]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
 									msg4 "$description"
 								else
-									msg3 "$search_result ${color_yellow}[installed $iversion-$irelease]${color_reset} ${color_blue}[locked]${color_reset}"
+									msg3 "$search_result ${color_yellow}[installed $iversion-$irelease]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
 									msg4 "$description"
 								fi
 							else
@@ -674,8 +674,8 @@ parse_options() {
 			-s  |            --search) testinput "$2" && searchpkg "$2"           || exit 1; shift 2 ;;
 			-t  |   --create-template) testinput "$2" && createtemplate "$2"      || exit 1; shift 2 ;;
 			-pp |         --port-path) testinput "$2" && showportpath "$2"        || exit 1; shift 2 ;;
-			-sd |        --source-dir) testinput "$2" && SOURCE_PKG="$2"          || exit 1; shift 2 ;;
-			-pd |       --package-dir) testinput "$2" && OUTPUT_PKG="$2"          || exit 1; shift 2 ;;
+			-sd |        --source-dir) testinput "$2" && { OPTS+=($1 $2); SOURCE_PKG="$2"; } || exit 1; shift 2 ;;
+			-pd |       --package-dir) testinput "$2" && { OPTS+=($1 $2); OUTPUT_PKG="$2"; } || exit 1; shift 2 ;;
 			-p  |           --package) testinput "$2" && while [ "$2" ]; do
 					                                       if echo "" $2 | grep -vq "^ -"; then
 					                           	              INSTALLPKG+=($2); shift
