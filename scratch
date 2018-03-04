@@ -674,8 +674,8 @@ parse_options() {
 			-s  |            --search) testinput "$2" && searchpkg "$2"           || exit 1; shift 2 ;;
 			-t  |   --create-template) testinput "$2" && createtemplate "$2"      || exit 1; shift 2 ;;
 			-pp |         --port-path) testinput "$2" && showportpath "$2"        || exit 1; shift 2 ;;
-			-sd |        --source-dir) testinput "$2" && { OPTS+=($1 $2); SOURCE_PKG="$2"; } || exit 1; shift 2 ;;
-			-pd |       --package-dir) testinput "$2" && { OPTS+=($1 $2); OUTPUT_PKG="$2"; } || exit 1; shift 2 ;;
+			-sd |        --source-dir) testinput "$2" && OPTS+=($1 $2)            || exit 1; shift 2 ;;
+			-pd |       --package-dir) testinput "$2" && OPTS+=($1 $2)            || exit 1; shift 2 ;;
 			-p  |           --package) testinput "$2" && while [ "$2" ]; do
 					                                       if echo "" $2 | grep -vq "^ -"; then
 					                           	              INSTALLPKG+=($2); shift
