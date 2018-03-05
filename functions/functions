@@ -16,10 +16,9 @@ INDEX_DIR="/var/lib/scratchpkg/index"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 WORK_DIR="/tmp"
-BACKUP_DIR="/var/cache/scratchpkg/backup"
-REJECTED_DIR="/var/cache/scratchpkg/rejected"
 LOG_DIR="/var/cache/scratchpkg/log"
 HOOK_DIR="/etc/hooks"
+PORT_DIR="/etc/ports"
 
 OPTIONS=(!libtool emptydirs strip docs purge zipman buildflags makeflags)
 PURGE_FILES=(usr/{,share/}info/dir)
@@ -88,73 +87,6 @@ checktool() {
 		msgerr "$1 not exist in your system!"
 		exit 1
 	fi
-	
-}
-
-updmimedb() {
-	
-	# msg2 "Update mime database..."
-	if [ -x /usr/bin/update-mime-database ]; then
-		/usr/bin/update-mime-database /usr/share/mime
-	fi
-	
-}
-
-updiconcache() {
-	
-	# ms2 "Update icon cache..."
-	if [ -x /usr/bin/gtk-update-icon-cache ]; then
-		/usr/bin/gtk-update-icon-cache -qf /usr/share/icons/hicolor
-	fi
-	
-}
-
-updglibschemas() {
-	
-	# msg2 "Update glib schemas..."
-	if [ -x /usr/bin/glib-compile-schemas ]; then
-		/usr/bin/glib-compile-schemas /usr/share/glib-2.0/schemas
-	fi
-	
-}
-
-upddesktopdb() {
-	
-	# msg2 "Update desktop database..."
-	if [ -x /usr/bin/update-desktop-database ]; then
-		/usr/bin/update-desktop-database
-	fi
-	
-}
-
-updmandb() {
-	
-	# msg2 "Update man database..."
-	if [ -x /usr/bin/mandb ]; then
-		/usr/bin/mandb -q
-	fi
-	
-}
-
-updlibdb() {
-	
-	# msg2 "Running ldconfig..."
-	if [ -x /sbin/ldconfig ]; then
-		/sbin/ldconfig
-	fi
-	
-}
-
-updinfopages() {
-	
-	pushd /usr/share/info
-		if [ -f dir ]; then
-			rm dir
-		fi
-		for f in *; do
-			install-info $f dir 2>/dev/null
-		done
-	popd
 	
 }
 

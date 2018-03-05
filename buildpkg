@@ -544,9 +544,27 @@ main() {
 		NO_ORPHAN_CHECK=yes
 	fi
 	
+	#### CHECK SPKGBUILD ###
+	#if [ -z "$name" ] || [ -z "$version" ] || [ -z "$release" ] || [ "$(basename `pwd`)" != "$name" ] || [ "`type -t build`" != "function" ]; then
+		#msgerr "Please check spkgbuild."
+		#exit 1
+	#fi
+	
 	### CHECK SPKGBUILD ###
-	if [ -z "$name" ] || [ -z "$version" ] || [ -z "$release" ] || [ "$(basename `pwd`)" != "$name" ] || [ "`type -t build`" != "function" ]; then
-		msgerr "Please check spkgbuild."
+	if [ -z "$name" ]; then
+		msgerr "'name' is empty!"
+		exit 1
+	elif [ "$(basename `pwd`)" != "$name" ]; then
+		msgerr "Port name and Directory name is different!"
+		exit 1
+	elif [ -z "$version" ]; then
+		msgerr "'version' is empty!"
+		exit 1
+	elif [ -z "$release" ]; then
+		msgerr "'release' is empty!"
+		exit 1
+	elif [ "`type -t build`" != "function" ]; then
+		msgerr "'build' function not exist!"
 		exit 1
 	fi
 	
