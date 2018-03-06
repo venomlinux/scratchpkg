@@ -93,9 +93,10 @@ searchpkg() {
 							portname=$(basename $port)
 							search_result="${color_blue}($portname)${color_reset} ${color_purple}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
-								installedname=$(getinstalledname $name)
+								iversion=$(installed_pkg_info version $name)
+								irelease=$(installed_pkg_info release $name)
 								[ -f $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
-								if [ "$name-$version-$release" = "$installedname" ]; then
+								if [ "$version-$release" = "$iversion-$irelease" ]; then
 									msg3 "$search_result ${color_green}[installed]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
 									msg4 "$description"
 								else
