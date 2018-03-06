@@ -255,6 +255,7 @@ upcheckconflict() {
 	
 }
 
+# get information from compressed package
 getname() {
 	
 	name=$(tar xf $PKGNAME .pkginfo -O | grep ^name | cut -d " " -f3)
@@ -268,6 +269,7 @@ getname() {
 	
 }
 
+# get information from package index
 getoldname() {
 	
 	iname=$(cat $INDEX_DIR/$name/.pkginfo | grep ^name | cut -d " " -f3)
@@ -426,10 +428,10 @@ Options:
   -id, --ignore-dependency    skip dependency check
   -ic, --ignore-conflict      ignore conflict when installing package
   -v,  --verbose              verbose install process
-       --no-preinstall        don't run pre-install script
-       --no-postinstall       don't run post-install script
-       --no-preupgrade        don't run pre-upgrade script
-       --no-postupgrade       don't run post-upgrade script
+       --no-preinstall        skip preinstall script before build/install package
+       --no-postinstall       skip postinstall script after install package
+       --no-preupgrade        skip preupgrade script before upgrade package
+       --no-postupgrade       skip postupgrade script after upgrade package
        --no-backup            skip backup when upgrading package
        --no-orphan-check      skip orphaned package check after install package
        --no-color             disable colour for output

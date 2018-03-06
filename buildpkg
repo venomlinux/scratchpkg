@@ -471,9 +471,12 @@ Options:
   -id, --ignore-dependency   skip dependency check
   -ic, --ignore-conflict     ignore conflict when installing package
        --verbose             verbose install process
-       --no-preinstall       skip preinstall script when build/install package
+       --no-preinstall       skip preinstall script before build/install package
        --no-postinstall      skip postinstall script after install package
+       --no-preupgrade       skip preupgrade script before upgrade package
+       --no-postupgrade      skip postupgrade script after upgrade package
        --no-color            disable color
+       --no-backup           skip backup when upgrading package
   -fr, --force-rebuild       rebuild package
   -im, --ignore-mdsum        skip md5sum checking
   -um, --update-mdsum        update md5sum
@@ -481,10 +484,9 @@ Options:
   -do, --download-only       download only source file
   -eo, --extract-only        extract only source file
   -kw, --keep-work           keep working directory
-  -ns, --no-strip            skip strip package library and binary
   -rd, --redownload          re-download source file
-  -sd, --source-dir <path>   override source dir
-  -pd, --package-dir <path>  set directory path for compiled package
+  -sd, --source-dir <path>   override directory path for sources
+  -pd, --package-dir <path>  override directory path for compiled package
   -h,  --help                show this help message
 
 Example:
@@ -507,7 +509,9 @@ parse_options() {
 		-id | --ignore-dependency) IGNORE_DEP=yes; OPTS+=($1)      ;;
 		-ic |   --ignore-conflict) OPTS+=($1)                      ;;
 		          --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1)   ;;
-		          --no-preinstall) OPTS+=($1)                      ;;
+		         --no-postinstall) OPTS+=($1)                      ;;
+		          --no-preupgrade) OPTS+=($1)                      ;;
+		         --no-postupgrade) OPTS+=($1)                      ;;
 		-v  |           --verbose) OPTS+=($1)                      ;;
 		               --no-color) nocolor; OPTS+=($1)             ;;
 		              --no-backup) OPTS+=($1)                      ;;
@@ -543,12 +547,6 @@ main() {
 	if [ "$INSTALL_PKG" ] || [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		NO_ORPHAN_CHECK=yes
 	fi
-	
-	#### CHECK SPKGBUILD ###
-	#if [ -z "$name" ] || [ -z "$version" ] || [ -z "$release" ] || [ "$(basename `pwd`)" != "$name" ] || [ "`type -t build`" != "function" ]; then
-		#msgerr "Please check spkgbuild."
-		#exit 1
-	#fi
 	
 	### CHECK SPKGBUILD ###
 	if [ -z "$name" ]; then

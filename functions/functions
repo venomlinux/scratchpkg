@@ -90,6 +90,12 @@ checktool() {
 	
 }
 
+allinstalled() {
+	
+	ls ${INDEX_DIR}/*/.pkginfo | rev | cut -d '/' -f2 | rev 2>/dev/null
+	
+}
+
 getpkginfo() {
 	
 	description=$(cat $BUILD_SCRIPT | grep ^'# description' | sed 's/\://' | cut -d ' ' -f 3-)
@@ -122,11 +128,24 @@ getinstalledname() {
 	iname=$(cat $INDEX_DIR/$1/.pkginfo | grep ^name | cut -d " " -f3)
 	iversion=$(cat $INDEX_DIR/$1/.pkginfo | grep ^version | cut -d " " -f3)
 	irelease=$(cat $INDEX_DIR/$1/.pkginfo | grep ^release | cut -d " " -f3)
-	depends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^depends | cut -d " " -f3-)
-	backup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
 	
-	installedname=$iname-$iversion-$irelease
+	echo "$iname-$iversion-$irelease"
 	
+}
+
+################################################################
+#  function to get information from installed package database
+#
+#   Usage:  installed_pkg_info <arg> <pkg>
+#
+#   Note: 'arg' could be name, version, release, depends,
+#         makedepends and descriptions.
+################################################################
+installed_pkg_info() {
+	
+	if [ -f $INDEX_DIR/$2/.pkginfo ]; then
+		echo $(cat $INDEX_DIR/$2/.pkginfo | grep ^$1 | cut -d " " -f3-)
+	fi
 }
 
 createtemplate() {

@@ -36,47 +36,49 @@ showinfo() {
 }
 
 listinstalled() {
-	for installed in $(ls $INDEX_DIR); do
-		getinstalledname $installed
-		installedpkg+=($installedname)
+	
+	for pkg in $(allinstalled); do
+		iname=$(installed_pkg_info name $pkg)
+		iversion=$(installed_pkg_info version $pkg)
+		irelease=$(installed_pkg_info release $pkg)
+		echo -e "$iname ${color_green}$iversion${color_reset}-${color_blue}$irelease${color_reset}"
 	done
 	
-	echo ${installedpkg[@]} | tr ' ' '\n'
-	msg "Total installed package(s): ${#installedpkg[@]}"
 }
 
 listorphan() {
 	
-	for all_installed in $(ls ${INDEX_DIR}); do
-		dep=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
+	# fetch all depends in all installed package
+	for pkg in $(allinstalled); do
+		dep=$(installed_pkg_info depends $pkg)
 		for deps in ${dep[@]}; do
 			ALL_DEP+=($deps)
 		done
 	done
-		
+	
+	# find orphan package
 	for all in $(ls $INDEX_DIR); do
 		ORPHAN=yes
-		getinstalledname $all
 		for depended in ${ALL_DEP[@]}; do
 			if [ $depended = $all ]; then
 				ORPHAN=no
 				break
 			fi
 		done
-			if [ "$ORPHAN" = yes ]; then
-				ORPHAN_PKG+=($installedname)
-			fi
+		if [ "$ORPHAN" = yes ]; then
+			iname=$(installed_pkg_info name $all)
+			iversion=$(installed_pkg_info version $all)
+			irelease=$(installed_pkg_info release $all)
+			echo -e "$iname ${color_green}$iversion${color_reset}-${color_blue}$irelease${color_reset}"
+		fi
 	done
 	
-	echo ${ORPHAN_PKG[@]} | tr ' ' '\n'
-	msg "Total orphan package(s): ${#ORPHAN_PKG[@]}"
 }
 
 searchpkg() {
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
-			OUTPUT=()
 			pushd $port
 				OUTPUT=$(grep -R "# description" | grep -i "$1" | grep "$BUILD_SCRIPT" | cut -d '/' -f1)
 			popd
@@ -91,7 +93,7 @@ searchpkg() {
 							portname=$(basename $port)
 							search_result="${color_blue}($portname)${color_reset} ${color_purple}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
 							if [ -d $INDEX_DIR/$name ]; then
-								getinstalledname $name
+								installedname=$(getinstalledname $name)
 								[ -f $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
 								if [ "$name-$version-$release" = "$installedname" ]; then
 									msg3 "$search_result ${color_green}[installed]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
@@ -118,9 +120,9 @@ searchpkg() {
 
 checkowner() {
 
-	for installed in $(ls $INDEX_DIR); do
-		for output in $(cat $INDEX_DIR/$installed/.files | grep $1); do
-			echo -e "${color_cyan}$installed${color_reset} => ${color_purple}$output${color_reset}"
+	for pkg in $(allinstalled); do
+		for output in $(cat $INDEX_DIR/$pkg/.files | grep $1); do
+			echo -e "${color_cyan}$pkg${color_reset} => ${color_purple}$output${color_reset}"
 		done
 	done
 	
@@ -128,7 +130,7 @@ checkowner() {
 
 showtree() {
 	
-	if [ ! -d $INDEX_DIR/$1 ]; then
+	if [ ! -f $INDEX_DIR/$1/.pkginfo ]; then
 		msg "Package ${color_red}$1${color_reset} not installed."
 	else
 		while IFS=' ' read -r line; do
@@ -141,17 +143,17 @@ showtree() {
 checkintegrity() {
 	
 	pushd $ROOT_DIR
-		for installed in $(ls $INDEX_DIR); do
+		for pkg in $(allinstalled); do
 			while IFS=' ' read -r line; do
 					if [ ! -e "$line" ]; then
-						msg "${color_yellow}$installed${color_reset} is missing: ${color_purple}/$line${color_reset}"
+						msg "${color_blue}$pkg${color_reset} is missing: ${color_purple}/$line${color_reset}"
 						MISSING_FILE=yes
 					fi
-			done < <(cat $INDEX_DIR/$installed/.files)
+			done < <(cat $INDEX_DIR/$pkg/.files)
 		done
 	popd
 	
-	[ "$UID" != "0" ] && msg "${color_yellow}(check integrity is recommended run as root user or using sudo)${color_reset}"
+	[ "$UID" != "0" ] && msg "${color_yellow}(check integrity is recommended run as root or using sudo)${color_reset}"
 	[ ! "$MISSING_FILE" ] && msg "Your system file is consistent with package tree."
 	
 }
@@ -195,15 +197,11 @@ showpackageinfo() {
 
 showdepends() {
 	
-	for portdepends in ${PORT_REPO[@]}; do
-		if [ -f $portdepends/$1/$BUILD_SCRIPT ]; then
-			pushd $portdepends/$1
-				getpkginfo
-			popd
-			break
-		fi
-	done
-	if [ -z $name ]; then
+	if getportpath "$1" >/dev/null; then
+		pushd $(getportpath "$1")
+			getpkginfo
+		popd
+	else
 		msgerr "Port ${color_red}$1${color_reset} not exist."
 		exit 1
 	fi
@@ -211,58 +209,37 @@ showdepends() {
 	for dep in ${depends[@]}; do
 		if [ -d $INDEX_DIR/$dep ]; then
 			msg2 "$dep ${color_green}[installed]${color_reset}"
-		else		
-			PORT_EXIST=no
-			for port in ${PORT_REPO[@]}; do
-				if [ -f $port/$dep/$BUILD_SCRIPT ]; then
-					PORT_EXIST=yes
-					break
-				fi
-			done
-				case $PORT_EXIST in
-					yes)	msg2 "$dep" ;;
-					no)		msg2 "$dep ${color_red}[port not exist]${color_reset}" ;;
-				esac
+		elif getportpath $dep >/dev/null; then
+			msg2 "$dep"
+		else
+			msg2 "$dep ${color_red}[port not exist]${color_reset}"
 		fi
 	done
 			
 	for mdep in ${makedepends[@]}; do
 		if [ -d $INDEX_DIR/$mdep ]; then
 			msg2 "$mdep ${color_cyan}(make)${color_reset} ${color_green}[installed]${color_reset}"
-		else		
-			PORT_EXIST=no
-			for port in ${PORT_REPO[@]}; do
-				if [ -f $port/$mdep/$BUILD_SCRIPT ]; then
-					PORT_EXIST=yes
-					break
-				fi
-			done
-				case $PORT_EXIST in
-					yes)	msg2 "$mdep ${color_cyan}(make)${color_reset}" ;;
-					no)		msg2 "$mdep ${color_cyan}(make)${color_reset} ${color_red}[port not exist]${color_reset}" ;;
-				esac
+		elif getportpath $mdep >/dev/null; then
+			msg2 "$mdep ${color_cyan}(make)${color_reset}"
+		else
+			msg "$mdep ${color_cyan}(make)${color_reset} ${color_red}[port not exist]${color_reset}"
 		fi
 	done
 }
 
 showupdate() {
 	
-	for package_name in $(ls $INDEX_DIR); do
-		for port in ${PORT_REPO[@]}; do
-			if [ -f $port/$package_name/$BUILD_SCRIPT ]; then
-				. $port/$package_name/$BUILD_SCRIPT
-				getinstalledname $name
-					if [ "$name-$version-$release" != "$installedname" ]; then
-						if [ -f "$INDEX_DIR/$package_name/.lock" ]; then
-							ITSLOCK="[locked]"
-						fi
-						msg "$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_blue}$ITSLOCK${color_reset}"
-						OUTDATE=yes
-						unset ITSLOCK
-					fi
-				break
+	for pkg in $(allinstalled); do
+		if getportpath $pkg >/dev/null; then
+			. $(getportpath $pkg)/$BUILD_SCRIPT
+			installedname=$(getinstalledname $name)
+			if [ "$name-$version-$release" != "$installedname" ]; then
+				[ -f "$INDEX_DIR/$package_name/.lock" ] && ITSLOCK="[locked]"
+				msg "$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_blue}$ITSLOCK${color_reset}"
+				OUTDATE=yes
+				unset ITSLOCK
 			fi
-		done
+		fi
 	done
 	
 	[ ! "$OUTDATE" ] && msg "All package is up to date."
@@ -278,28 +255,33 @@ showdependent() {
 			depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
 				for dep in ${depend[@]}; do
 					if [ $dep = $1 ]; then
-							msg2 "$all_installed"
+						DP=yes
+						msg2 "$all_installed"
 					fi
 				done
 			makedepend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^makedepends | cut -d " " -f3-)
 				for mdep in ${makedepend[@]}; do
 					if [ $mdep = $1 ]; then
-							msg2 "$all_installed ${color_cyan}(make)${color_reset}"
+						DP=yes
+						msg2 "$all_installed ${color_cyan}(make)${color_reset}"
 					fi
 				done
 		done
 	fi
+	
+	[ "$DP" ] || msg "No package depends on '$1'."
 }
 
 showglobaldependent() {
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
-			for all in $(ls $port); do
+			for all in $(ls $port/*/$BUILD_SCRIPT | rev | cut -d '/' -f2 | rev 2>/dev/null); do
 				if [ -f $port/$all/$BUILD_SCRIPT ]; then
 					depend=$(cat $port/$all/$BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d " " -f3-)
 					for dep in ${depend[@]}; do
 						if [ $dep = $1 ]; then
+							GDP=yes
 							if [ -d $INDEX_DIR/$all ]; then
 								msg2 "$all ${color_green}[installed]${color_reset}"
 							else
@@ -310,6 +292,7 @@ showglobaldependent() {
 					makedepend=$(cat $port/$all/$BUILD_SCRIPT | grep ^'# makedepends' | tr -d ':' | cut -d " " -f3-)
 					for mdep in ${makedepend[@]}; do
 						if [ $mdep = $1 ]; then
+							GDP=yes
 							if [ -d $INDEX_DIR/$all ]; then
 								msg2 "$all ${color_cyan}(make)${color_reset} ${color_green}[installed]${color_reset}"
 							else
@@ -320,14 +303,16 @@ showglobaldependent() {
 				fi
 			done
 		fi
-	done	
+	done
+	
+	[ "$GDP" ] || msg "No package depends on '$1'."
 }
 
 getportpath() {
 	
 	for repo in ${PORT_REPO[@]}; do
 		if [[ -f $repo/$1/$BUILD_SCRIPT ]]; then
-			PPATH=$(dirname "$repo/$1/$BUILD_SCRIPT")
+			echo "$(dirname $repo/$1/$BUILD_SCRIPT)"
 			return 0
 		fi
 	done
@@ -337,8 +322,8 @@ getportpath() {
 
 catport() {
 	
-	if getportpath "$1"; then
-		cat "$PPATH/$BUILD_SCRIPT"
+	if getportpath "$1" >/dev/null; then
+		cat "$(getportpath $1)/$BUILD_SCRIPT"
 		exit 0
 	else
 		msgerr "Port '$1' not exist"
@@ -348,8 +333,8 @@ catport() {
 
 showportpath() {
 	
-	if getportpath "$1"; then
-		echo "$PPATH"
+	if getportpath "$1" >/dev/null; then
+		msg "$(getportpath $1)"
 		exit 0
 	else
 		msgerr "Port '$1' not exist"
@@ -492,7 +477,7 @@ listports() {
 	for repo in ${PORT_REPO[@]}; do
 		if [ "$1" = "$(basename $repo)" ]; then
 			REPO_EXIST=yes
-			for ports in $(ls $repo); do
+			for ports in $(ls $repo/*/$BUILD_SCRIPT | rev | cut -d '/' -f2 | rev 2>/dev/null); do
 				if [ -f "$repo/$ports/$BUILD_SCRIPT" ]; then
 					. "$repo/$ports/$BUILD_SCRIPT"
 					if [ -f "$PACKAGE_DIR/$name-$version-$release.spkg.txz" ]; then
@@ -505,7 +490,7 @@ listports() {
 		fi
 	done
 	
-	[ "$REPO_EXIST" ] && exit 0 || msgerr "Repository ${color_red}$1${color_reset} not exist."
+	[ "$REPO_EXIST" ] || msgerr "Repository ${color_red}$1${color_reset} not exist."
 	
 }
 
@@ -516,12 +501,12 @@ interrupted() {
 portinstall() {
 	
 	for pkg in "${INSTALLPKG[@]}"; do
-		if getportpath $pkg; then
-			pushd "$PPATH"
+		if getportpath $pkg >/dev/null; then
+			pushd "$(getportpath $pkg)"
 				buildpkg ${OPTS[@]} || exit 1
 			popd
 		else
-			msgerr "Port ${color_red}$pkg${color_reset} not found."
+			msgerr "Port '$pkg$' not found."
 		fi
 	done
 }
@@ -572,52 +557,55 @@ help() {
 	
 	cat << EOF
 Usage:
-
   scratch [ <options> <arguments> ]
 
 Options:
-  -i,  --install              install package
-  -u,  --upgrade              upgrade package
-  -r,  --reinstall            reinstall package
-  -id, --ignore-dependency    skip dependency check
-  -ic, --ignore-conflict      skip file/package conflict check
-  -fr, --force-rebuild        rebuild package
-  -sd, --source-dir <path>    set directory path for sources
-  -pd, --package-dir <path>   set directory path for compiled package
-  -v,  --verbose              verbose process
-  -im, --ignore-mdsum         skip md5sum check for sources
-  -um, --update-mdsum         update md5sum file for port
-  -do, --download-only        download sources only
-  -eo, --extract-only         extract sources only
-  -kw, --keep-work            keep working directory
-  -rd, --redownload           re-download sources
-       --no-preinstall        don't run pre-install script
-       --no-postinstall       don't run post-install script
-       --no-backup            skip backup when upgrading package
-  -dup,--duplicate-ports      list duplicate ports
-  -l,  --list-installed       show list installed packages
-  -lp, --list-ports           show list ports for repository
-  -lo, --list-orphan          show list orphaned packages installed
-  -ci, --check-integrity      check integrity between package's index and files in system
-  -cu, --check-update         check for package update
-       --cache                show old package and source caches
-       --clear-cache          remove all old package and source caches
-  -up, --update-ports         update port's repository
-       --info                 show scratchpkg info (setting)
-  -c,  --cat-port             cat port's buildscript (spkgbuild)
-  -dp, --dependent            show package's dependent (check through package index)
-  -gdp,--global-dependent     show package's dependent (check through port's repository)
-  -d,  --depends              show package's depends
-  -pi, --package-info <pkg>   show package's info
-  -co, --check-owner          show file's owner
-  -p,  --package <pkgnames>   set package name to build/install
-  -st, --show-tree            show list files of installed package
-  -s,  --search               search for packages in port's repository
-  -t,  --create-template      create port's template for package
-       --listlocked           list locked package
-  -pp, --port-path            show ports directory path
-       --no-color             disable colour for output
-  -h,  --help                 show this help message
+  -i,  --install                      install package
+  -u,  --upgrade                      upgrade package
+  -r,  --reinstall                    reinstall package
+  -id, --ignore-dependency            skip dependency check
+  -ic, --ignore-conflict              skip file/package conflict check
+  -fr, --force-rebuild                rebuild package
+  -sd, --source-dir <path>            override directory path for sources
+  -pd, --package-dir <path>           override directory path for compiled package
+  -v,  --verbose                      verbose process
+  -im, --ignore-mdsum                 skip md5sum check for sources
+  -um, --update-mdsum                 update md5sum file for port
+  -do, --download-only                download sources only
+  -eo, --extract-only                 extract sources only
+  -kw, --keep-work                    keep working directory
+  -rd, --redownload                   re-download sources
+       --no-preinstall                skip preinstall script before build/install package
+       --no-postinstall               skip postinstall script after install package
+       --no-preupgrade                skip preupgrade script before upgrade package
+       --no-postupgrade               skip postupgrade script after upgrade package
+       --no-backup                    skip backup when upgrading package
+  -p,  --package <pkgnames>           set package name to build
+  -dup,--duplicate-ports              list duplicate ports
+  -l,  --list-installed               show list installed packages
+  -lp, --list-ports <repo>            show list ports for repository
+  -lo, --list-orphan                  show list orphaned packages installed
+  -ci, --check-integrity              check integrity between package's index and files in system
+  -cu, --check-update                 check for package updatehes
+  -up, --update-ports                 update port's repository
+  -c,  --cat-port <pkgname>           print port's buildscript (spkgbuild)
+  -dp, --dependent <pkgname>          show package's dependent (check through package index)
+  -gdp,--global-dependent <pkgname>   show package's dependent (check through port's repository)
+  -d,  --depends <pkgname>            show package's depends
+  -pi, --package-info <pkg>           show package's info
+  -co, --check-owner <file>           show file's owner
+  -st, --show-tree <pkgname>          show list files of installed package
+  -s,  --search <pattern>             search for packages in port's repository
+  -t,  --create-template <portname>   create port's template for package
+  -pp, --port-path                    show ports directory path
+       --lock <pkgname>               lock package from upgrade
+       --unlock <pkgname>             unlock package
+       --listlocked                   list locked package
+       --cache                        show old package and source caches
+       --clear-cache                  remove all old package and source cac
+       --no-color                     disable colour for output
+       --info                         show scratchpkg info (setting)
+  -h,  --help                         show this help message
   
 Example:
   scratch -p firefox sudo -id -kw -i     build, keep working dir, ignore missing dependency
@@ -642,6 +630,8 @@ parse_options() {
 			-ic |   --ignore-conflict) OPTS+=($1);           shift ;;
 			          --no-preinstall) OPTS+=($1);           shift ;;
 			         --no-postinstall) OPTS+=($1);           shift ;;
+			          --no-preupgrade) OPTS+=($1);           shift ;;
+			         --no-postupgrade) OPTS+=($1);           shift ;;
 			-fr |     --force-rebuild) OPTS+=($1);           shift ;;
 			-v  |           --verbose) OPTS+=($1);           shift ;;
 			-im |      --ignore-mdsum) OPTS+=($1);           shift ;;
