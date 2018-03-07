@@ -79,8 +79,33 @@ httpup
 scratchpkg
 )
 
+adjustingtoolchain() {
+	echo "Adjusting toolchain"
+	mv -v /tools/bin/{ld,ld-old}
+	mv -v /tools/$(uname -m)-pc-linux-gnu/bin/{ld,ld-old}
+	mv -v /tools/bin/{ld-new,ld}
+	ln -sv /tools/bin/ld /tools/$(uname -m)-pc-linux-gnu/bin/ld
+
+	gcc -dumpspecs | sed -e 's@/tools@@g'                   \
+		-e '/\*startfile_prefix_spec:/{n;s@.*@/usr/lib/ @}' \
+		-e '/\*cpp:/{n;s@$@ -isystem /usr/include@}' >      \
+		`dirname $(gcc --print-libgcc-file-name)`/specs
+		
+	echo 'int main(){}' > dummy.c
+	cc dummy.c -v -Wl,--verbose &> dummy.log
+	readelf -l a.out | grep ': /lib'
+
+	grep -o '/usr/lib.*/crt[1in].*succeeded' dummy.log
+	grep -B1 '^ /usr/include' dummy.log
+	grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
+	grep "/lib.*/libc.so.6 " dummy.log
+	grep found dummy.log
+	rm -v dummy.c a.out dummy.log
+	sleep 5
+}	
+
 for i in ${PKG[@]}; do
-	if [[ -d "/var/lib/scratchpkg/index/$i" ]]; then
+	if [[ -d "$INDEX_DIR/$i" ]]; then
 		echo "$i is installed"
 	else
 		echo
@@ -89,58 +114,41 @@ for i in ${PKG[@]}; do
 			glibc)
 				ln -sfv /tools/lib/gcc /usr/lib
 				ln -sfv /tools/bin/m4 /usr/bin
-				scratch -i -id -p $i
-				echo "Adjusting toolchain"
-				mv -v /tools/bin/{ld,ld-old}
-mv -v /tools/$(uname -m)-pc-linux-gnu/bin/{ld,ld-old}
-mv -v /tools/bin/{ld-new,ld}
-ln -sv /tools/bin/ld /tools/$(uname -m)-pc-linux-gnu/bin/ld
-
-gcc -dumpspecs | sed -e 's@/tools@@g'                   \
-    -e '/\*startfile_prefix_spec:/{n;s@.*@/usr/lib/ @}' \
-    -e '/\*cpp:/{n;s@$@ -isystem /usr/include@}' >      \
-    `dirname $(gcc --print-libgcc-file-name)`/specs
-    
-    echo 'int main(){}' > dummy.c
-cc dummy.c -v -Wl,--verbose &> dummy.log
-readelf -l a.out | grep ': /lib'
-
-grep -o '/usr/lib.*/crt[1in].*succeeded' dummy.log
-grep -B1 '^ /usr/include' dummy.log
-grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
-grep "/lib.*/libc.so.6 " dummy.log
-grep found dummy.log
-rm -v dummy.c a.out dummy.log
-sleep 5
-	rm /usr/lib/gcc
-	rm /usr/bin/m4
+				scratch -i -id -p $i || exit 1
+				adjustingtoolchain
+				rm /usr/lib/gcc
+				rm /usr/bin/m4
 				;;
 			bc)
 				ln -sv /tools/lib/libncursesw.so.6 /usr/lib/libncursesw.so.6
 				ln -sfv libncurses.so.6 /usr/lib/libncurses.so
-				scratch -i -id -p $i
+				scratch -i -id -p $i || exit 1
 				rm /usr/lib/{libncurses.so,libncursesw.so.6}
 				;;
-			gcc|coreutils|bash|filesystem|scratchpkg)
-				scratch -i -id -ic -p $i
+			gcc)
+				scratch -id -p $i || exit 1
+				rm -f /usr/lib/{libgcc_s.so{,.1},libstdc++.{a,so{,.6}}}
+				scratch -i -id -p $i || exit 1
+				;;
+			bash|coreutils|filesystem|scratchpkg)
+				# scratchpkg is hardly depends on bash and coreutils
+				# so, ignore conflict, mean just replacing the files
+				scratch -ic -i -id -p $i || exit 1
 				;;
 			perl)
 				echo "127.0.0.1 localhost $(hostname)" > /etc/hosts
-				scratch -i -id -ic -p $i
+				scratch -id -p $i || exit 1
 				rm /etc/hosts
+				rm /usr/bin/perl
+				scratch -i -id -p $i || exit 1
 				;;
 			base-meta)
-				scratch -i -p $i
+				scratch -i -p $i || exit 1
 				;;
 			*)
-				scratch -i -id -p $i
+				scratch -i -id -p $i || exit 1
 				;;
 		esac
-		if [ ! -d $INDEX_DIR/$i ]; then
-			echo "Failed installing $list."
-			echo "ENTER to skip and continue, CTRL + C to abort."
-			read
-		fi
 	fi
 done
 
