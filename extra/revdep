@@ -8,44 +8,54 @@ source "/usr/share/scratchpkg/message"
 onepkg() {
 	
 	pushd / >/dev/null
+		echo -ne "Checking $1...\033[0K\r"
 		while IFS=' ' read -r line; do
-			case "$(file -Lbi "${line}")" in
+			case "$(file -bi "${line}")" in
 			*application/x-sharedlib* | *application/x-executable*)
 				if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
 					LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 					LIB=$(echo $LIB_NAME | tr '\n' ' ')
-					echo -e "$line ${color_green}>>>${color_reset} $LIB"
-				fi
+					echo -e "(${color_green}$1${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
+					MISSING=1
+				fi ;;
+			*)
+				continue ;;
 			esac
-		done < <(grep -E "^(bin|lib|libexec|sbin|usr/bin|usr/lib|usr/libexec|usr/sbin)" $INDEX_DIR/$1/.files | grep -Ev "(/firmware/|/java/|/debug/)")
+		done < <(grep -E '*\.so\.*' $INDEX_DIR/$1/.files | grep -Ev "(opt/|firmware/)")
 	popd >/dev/null
+	
+	echo -ne "\033[0K"
+	
+	[ "$MISSING" != 1 ] && msg "Packages '$1' is doing fine."
 	
 }
 
 allpkg() {
 	
-	allpkgs=($(ls $INDEX_DIR))
+	allpkgs=($(ls ${INDEX_DIR}/*/.files | rev | cut -d '/' -f2 | rev))
 	totalpkgs=$(echo ${#allpkgs[@]})
 	
 	pushd / >/dev/null
 		for pkgs in $(seq 0 $(($totalpkgs -1))); do
 			echo -ne "[ $((pkgs + 1))/$totalpkgs ] Checking ${allpkgs[pkgs]}...\033[0K\r"
 			while IFS=' ' read -r line; do
-				case "$(file -Lbi "${line}")" in
+				case "$(file -bi "${line}")" in
 				*application/x-sharedlib* | *application/x-executable*)
 					if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
 						LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 						PKG_NAME=$(basename $(dirname $(grep -Rx $line $INDEX_DIR | cut -d ':' -f1)))
 						LIB=$(echo $LIB_NAME | tr '\n' ' ')
-						echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
+						[ "$VERBOSE" ] && echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
 						if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
 							continue
 						else
 							ALLPKG+=($PKG_NAME)
 						fi
-					fi
+					fi ;;
+				*)
+					continue ;;
 				esac
-			done < <(grep -E "^(bin|lib|libexec|sbin|usr/bin|usr/lib|usr/libexec|usr/sbin)" $INDEX_DIR/${allpkgs[pkgs]}/.files | grep -Ev "(/firmware/|/java/|/debug/)")
+			done < <(grep -E '*\.so\.*' $INDEX_DIR/${allpkgs[pkgs]}/.files | grep -Ev "(opt/|firmware/)")
 		done
 	popd >/dev/null
 	
@@ -63,13 +73,42 @@ allpkg() {
 	
 }
 
-if [ "$1" ]; then
-	if [ ! -d "$INDEX_DIR/$1" ]; then
-		msgerr "Package ${color_red}$1${color_reset} not installed."
-		exit 1
-	else
-		onepkg $1
-	fi
+help() {
+	
+	cat << EOF	
+Usage:
+	revdep [ option | pkgname ]
+	
+Options:
+	-v, --verbose     print out missing library
+	-h, --help        show this help page and exit
+EOF
+ 
+}
+
+parse_options() {
+	
+	while [ "$1" ]; do
+		case "$1" in
+			-v|--verbose) VERBOSE=yes ;;
+			-h|--help)    help; exit 0 ;;
+			*) PKG+=($1) ;;
+		esac
+		shift
+	done
+	
+}
+
+parse_options "$@"
+
+if [ "${#PKG[@]}" -gt 0 ]; then
+	for pkg in ${PKG[@]}; do
+		if [ ! -d "$INDEX_DIR/$pkg" ]; then
+			msgerr "Package '$pkg' not installed."
+		else
+			onepkg "$pkg"
+		fi
+	done
 else
 	allpkg
 fi
