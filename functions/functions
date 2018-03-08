@@ -148,6 +148,18 @@ installed_pkg_info() {
 	fi
 }
 
+vercomp() {
+	
+	if [ "$1" = "$2" ]; then
+		return 0 # same version
+	elif [ "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]; then
+		return 1 # $1 lower than $2
+	else
+		return 2 # $1 higher than $2
+	fi
+
+}
+
 createtemplate() {
 	
 	if [ -d $1 ]; then

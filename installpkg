@@ -315,9 +315,6 @@ checkoutdate() {
 	if [ $packagename = $ipackagename ]; then
 		msg "Package ${color_green}$packagename${color_reset} is up-to-date."
 		exit 0
-	elif [ -f "$INDEX_DIR/$name"/.lock ]; then
-		msgerr "Package '$name' is locked."
-		exit 0
 	fi
 	
 }
@@ -518,6 +515,10 @@ main() {
 		getoldname
 		# UPGRADE PACKAGE
 		if [ "$UPGRADE_PKG" ]; then
+			if [ -f "$INDEX_DIR/$name"/.lock ]; then
+				msgerr "Package '$name' is locked."
+				exit 0
+			fi
 			checkoutdate
 			msg "Upgrading package: ${color_yellow}$ipackagename${color_reset} -> ${color_green}$packagename${color_reset}"
 		# REINSTALL PACKAGE

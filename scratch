@@ -226,20 +226,31 @@ showdepends() {
 			msg "$mdep ${color_cyan}(make)${color_reset} ${color_red}[port not exist]${color_reset}"
 		fi
 	done
-}
+}	
 
-showupdate() {
+checkupdate() {
 	
 	for pkg in $(allinstalled); do
 		if getportpath $pkg >/dev/null; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
-			installedname=$(getinstalledname $name)
-			if [ "$name-$version-$release" != "$installedname" ]; then
-				[ -f "$INDEX_DIR/$package_name/.lock" ] && ITSLOCK="[locked]"
-				msg "$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_blue}$ITSLOCK${color_reset}"
-				OUTDATE=yes
-				unset ITSLOCK
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
+			outdatemsg="$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_blue}$ITSLOCK${color_reset}"
+			if [ "$version" !=  "$iversion" ]; then
+				vercomp $version $iversion
+				if [ $? = 2 ]; then
+					msg "$outdatemsg"
+					OUTDATE=yes
+				fi
+			elif [ "$release" !=  "$irelease" ]; then
+				vercomp $release $irelease
+				if [ $? = 2 ]; then
+					msg "$outdatemsg"
+					OUTDATE=yes
+				fi
 			fi
+			unset ITSLOCK
 		fi
 	done
 	
@@ -647,7 +658,7 @@ parse_options() {
 			-l  |    --list-installed) listinstalled; exit 0;        shift ;;
 			-lo |       --list-orphan) listorphan; exit 0;           shift ;;
 			-ci |   --check-integrity) checkintegrity; exit 0;       shift ;;
-			-cu |      --check-update) showupdate; exit 0;           shift ;;
+			-cu |      --check-update) checkupdate; exit 0;           shift ;;
 			                  --cache) pkgcache; exit 0;             shift ;;
 			            --clear-cache) clearpkgcache; exit 0;        shift ;;
 			-up |      --update-ports) updports; exit 0;             shift ;;

@@ -37,6 +37,9 @@ removepkg() {
 
 	msg2 "Removing files & dirs..."
 	pushd $ROOT_DIR
+		for backup in $ibackup; do
+			[ -f ${backup}.spkgnew ] && rm ${backup}.spkgnew
+		done
 		while IFS=' ' read -r line; do
 					if [ "$VERBOSE_REMOVE" = "yes" ]; then
 						rm_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
