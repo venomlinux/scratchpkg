@@ -148,6 +148,12 @@ installed_pkg_info() {
 	fi
 }
 
+getinfopkg() {
+	
+	echo $(tar xf $2 .pkginfo -O | grep ^$1 | cut -d " " -f3)
+	
+}
+
 vercomp() {
 	
 	if [ "$1" = "$2" ]; then

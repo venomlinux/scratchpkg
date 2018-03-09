@@ -15,7 +15,7 @@ spkglock() {
 
 installpkg() {
 	
-	msg "Installing ${color_green}$packagename${color_reset}..."
+	msg "Installing ${color_green}$name-$version-$release${color_reset}..."
 	
 	# noextract file into system
 	for noextr in ${NO_EXTRACT[@]}; do
@@ -79,7 +79,7 @@ installpkg() {
 	fi
 	
 	if [ $? != 0 ]; then
-		msgerr "Failed install ${color_red}$packagename${color_reset}."
+		msgerr "Failed install ${color_red}$name-$version-$release${color_reset}."
 			while IFS=' ' read -r line; do
 				pushd $ROOT_DIR
 						rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
@@ -176,7 +176,7 @@ registerpkg() {
 	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 	
-	msg "Successfully install ${color_green}$packagename${color_reset}."
+	msg "Successfully install ${color_green}$name-$version-$release${color_reset}."
 	
 }
 
@@ -256,30 +256,30 @@ upcheckconflict() {
 }
 
 # get information from compressed package
-getname() {
+#getname() {
 	
-	name=$(tar xf $PKGNAME .pkginfo -O | grep ^name | cut -d " " -f3)
-	version=$(tar xf $PKGNAME .pkginfo -O | grep ^version | cut -d " " -f3)
-	release=$(tar xf $PKGNAME .pkginfo -O | grep ^release | cut -d " " -f3)
-	depends=$(tar xf $PKGNAME .pkginfo -O | grep ^depends | cut -d " " -f3-)
-	makedepends=$(tar xf $PKGNAME .pkginfo -O | grep ^makedepends | cut -d " " -f3-)
-	conflict=$(tar xf $PKGNAME .pkginfo -O | grep ^conflict | cut -d " " -f3-)
+	#name=$(tar xf $PKGNAME .pkginfo -O | grep ^name | cut -d " " -f3)
+	#version=$(tar xf $PKGNAME .pkginfo -O | grep ^version | cut -d " " -f3)
+	#release=$(tar xf $PKGNAME .pkginfo -O | grep ^release | cut -d " " -f3)
+	#depends=$(tar xf $PKGNAME .pkginfo -O | grep ^depends | cut -d " " -f3-)
+	#makedepends=$(tar xf $PKGNAME .pkginfo -O | grep ^makedepends | cut -d " " -f3-)
+	#conflict=$(tar xf $PKGNAME .pkginfo -O | grep ^conflict | cut -d " " -f3-)
 	
-	packagename=$name-$version-$release
+	#packagename=$name-$version-$release
 	
-}
+#}
 
 # get information from package index
-getoldname() {
+#getoldname() {
 	
-	iname=$(cat $INDEX_DIR/$name/.pkginfo | grep ^name | cut -d " " -f3)
-	iversion=$(cat $INDEX_DIR/$name/.pkginfo | grep ^version | cut -d " " -f3)
-	irelease=$(cat $INDEX_DIR/$name/.pkginfo | grep ^release | cut -d " " -f3)
-	backup=$(cat $INDEX_DIR/$name/.pkginfo | grep ^backup | cut -d " " -f3-)
+	#iname=$(cat $INDEX_DIR/$name/.pkginfo | grep ^name | cut -d " " -f3)
+	#iversion=$(cat $INDEX_DIR/$name/.pkginfo | grep ^version | cut -d " " -f3)
+	#irelease=$(cat $INDEX_DIR/$name/.pkginfo | grep ^release | cut -d " " -f3)
+	#backup=$(cat $INDEX_DIR/$name/.pkginfo | grep ^backup | cut -d " " -f3-)
 	
-	ipackagename=$iname-$iversion-$irelease
+	#ipackagename=$iname-$iversion-$irelease
 	
-}
+#}
 
 backupconf() {
 	
@@ -312,8 +312,8 @@ restoreconf() {
 
 checkoutdate() {
 	
-	if [ $packagename = $ipackagename ]; then
-		msg "Package ${color_green}$packagename${color_reset} is up-to-date."
+	if [ "$version-$release" = "$iversion-$irelease" ]; then
+		msg "Package ${color_green}$name${color_reset} is up-to-date."
 		exit 0
 	fi
 	
@@ -497,12 +497,20 @@ main() {
 	fi
 	
 	### GET NAME, VERSION, RELEASE FROM PACKAGE ###
-	getname    # get info from package
+	name=$(getinfopkg name $PKGNAME)
+	version=$(getinfopkg version $PKGNAME)
+	release=$(getinfopkg release $PKGNAME)
+	depends=$(getinfopkg depends $PKGNAME)
+	makedepends=$(getinfopkg makedepends $PKGNAME)
+	backup=$(getinfopkg backup $PKGNAME)
+	conflict=$(getinfopkg conflict $PKGNAME)
 	
 	### IF INSTALLED & NO UPGRADE & NO REINSTALL ###
 	if [ -d $INDEX_DIR/$name ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then
-		getoldname # get info from package index
-		msg "Package ${color_green}$ipackagename${color_reset} already installed."
+		iname=$(installed_pkg_info name $name)
+		iversion=$(installed_pkg_info version $name)
+		irelease=$(installed_pkg_info release $name)
+		msg "Package ${color_green}$iname-$iversion-$irelease${color_reset} already installed."
 		exit 0
 	fi
 	
@@ -512,7 +520,9 @@ main() {
 			msg "Package ${color_red}$name${color_reset} is not installed."
 			exit 1
 		fi
-		getoldname
+		iname=$(installed_pkg_info name $name)
+		iversion=$(installed_pkg_info version $name)
+		irelease=$(installed_pkg_info release $name)
 		# UPGRADE PACKAGE
 		if [ "$UPGRADE_PKG" ]; then
 			if [ -f "$INDEX_DIR/$name"/.lock ]; then
@@ -520,10 +530,10 @@ main() {
 				exit 0
 			fi
 			checkoutdate
-			msg "Upgrading package: ${color_yellow}$ipackagename${color_reset} -> ${color_green}$packagename${color_reset}"
+			msg "Upgrading package: ${color_yellow}$iname-$iversion-$irelease${color_reset} -> ${color_green}$name-$version-$release${color_reset}"
 		# REINSTALL PACKAGE
 		elif [ "$REINSTALL_PKG" ]; then
-			msg "Reinstall package ${color_green}$packagename${color_reset}."
+			msg "Reinstall package ${color_green}$name${color_reset}."
 		fi
 	fi
 	
