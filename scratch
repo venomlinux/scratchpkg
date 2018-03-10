@@ -566,36 +566,29 @@ unlockpkg() {
 missingdep() {
 	
 	for pkg in $(allinstalled); do
-		missing=()
+		msd=()
+		msmd=()
 		dep=$(installed_pkg_info depends $pkg)
+		mdep=$(installed_pkg_info makedepends $pkg)
 		if [ ${#dep[@]} -gt 0 ]; then
-			for i in ${dep[@]}; do
-				if [ ! -f "$INDEX_DIR"/$i/.pkginfo ]; then
-					missing+=($i)
+			for d in ${dep[@]}; do
+				if [ ! -f "$INDEX_DIR"/$d/.pkginfo ]; then
+					msd+=($d)
 				fi
 			done
 		fi
-		if [ ${#missing[@]} -gt 0 ]; then
-			echo "$pkg => ${missing[@]}"
-		fi
-	done
-
-}
-
-missingmdep() {
-	
-	for pkg in $(allinstalled); do
-		missing=()
-		dep=$(installed_pkg_info makedepends $pkg)
-		if [ ${#dep[@]} -gt 0 ]; then
-			for i in ${dep[@]}; do
-				if [ ! -f "$INDEX_DIR"/$i/.pkginfo ]; then
-					missing+=($i)
+		if [ ${#mdep[@]} -gt 0 ]; then
+			for md in ${mdep[@]}; do
+				if [ ! -f "$INDEX_DIR"/$md/.pkginfo ]; then
+					msmd+=($md)
 				fi
 			done
 		fi
-		if [ ${#missing[@]} -gt 0 ]; then
-			echo "$pkg => ${missing[@]}"
+		if [ ${#msd[@]} -gt 0 ]; then
+			echo -e "${color_green}$pkg${color_reset} missing ${color_red}${msd[@]}${color_reset}"
+		fi
+		if [ ${#msmd[@]} -gt 0 ]; then
+			echo -e "${color_green}$pkg${color_reset} missing ${color_red}${msmd[@]}${color_reset} ${color_blue}(make)${color_reset}"
 		fi
 	done
 
@@ -745,7 +738,6 @@ parse_options() {
 			                  --cache) PKGCACHE=yes            ;;
 			            --clear-cache) CLEARPKGCACHE=yes       ;;
 			            --missing-dep) MISSINGDEP=yes          ;;
-			        --missing-makedep) MISSINGMDEP=yes         ;;
 			           --missing-port) MISSINGPORT=yes         ;;
 			           --foreign-port) FOREIGNPORT=yes         ;;
 			-up |      --update-ports) UPDATEPORTS=yes         ;;
