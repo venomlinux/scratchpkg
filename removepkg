@@ -20,7 +20,7 @@ removepkg() {
 	### CHECK DEPENDENCY ###
 	if [ ! "$IGNORE_DEP" ]; then
 		msg2 "Checking dependencies..."
-		checkdeps $RMNAME
+		checkdeps $1
 	fi
 	
 	# create lock file prevent simultaneous install/remove process running
@@ -113,12 +113,12 @@ run_postremove() {
 
 getoldname() {
 	
-	iname=$(cat $INDEX_DIR/$1/.pkginfo | grep ^name | cut -d " " -f3)
-	iversion=$(cat $INDEX_DIR/$1/.pkginfo | grep ^version | cut -d " " -f3)
-	irelease=$(cat $INDEX_DIR/$1/.pkginfo | grep ^release | cut -d " " -f3)
-	ibackup=$(cat $INDEX_DIR/$1/.pkginfo | grep ^backup | cut -d " " -f3-)
-	idepends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^depends | cut -d " " -f3-)
-	imakedepends=$(cat $INDEX_DIR/$1/.pkginfo | grep ^makedepends | cut -d " " -f3-)
+	iname=$(installed_pkg_info name $1)
+	iversion=$(installed_pkg_info version $1)
+	irelease=$(installed_pkg_info release $1)
+	ibackup=$(installed_pkg_info backup $1)
+	idepends=$(installed_pkg_info depends $1)
+	imakedepends=$(installed_pkg_info makedepends $1)
 	
 	ipackagename=$iname-$iversion-$irelease
 	
@@ -126,17 +126,17 @@ getoldname() {
 
 checkdeps() {
 	
-	for installed in $(ls $INDEX_DIR); do
-		name=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^name | cut -d " " -f3)
-		version=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^version | cut -d " " -f3)
-		release=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^release | cut -d " " -f3)
+	for pkg in $(allinstalled); do
+		name=$(installed_pkg_info name $pkg)
+		version=$(installed_pkg_info version $pkg)
+		release=$(installed_pkg_info release $pkg)
 		pkgname="$name-$version-$release"
-		depends=$(cat $INDEX_DIR/$installed/.pkginfo | grep ^depends | cut -d " " -f3-)
-			for dep in ${depends[@]}; do
-				if [ "$dep" = "$1" ]; then
-					ERRDEP+=($pkgname)
-				fi
-			done
+		depends=$(installed_pkg_info depends $pkg)
+		for dep in ${depends[@]}; do
+			if [ "$dep" = "$1" ]; then
+				ERRDEP+=($pkgname)
+			fi
+		done
 	done
 	
 	if [ "${#ERRDEP[@]}" -gt 0 ]; then
@@ -250,18 +250,23 @@ arg() {
 
 parse_options() {
 	
-	while [ "$1" ]; do
-		case $1 in
-		-id | --ignore-dependency) IGNORE_DEP=yes;      shift ;;
-		-v  |           --verbose) VERBOSE_REMOVE=yes;  shift ;;
-		-h  |              --help) help; exit 0;        shift ;;
-		           --no-preremove) NO_PREREMOVE=yes;    shift ;;
-		          --no-postremove) NO_POSTREMOVE=yes;   shift ;;
-		               --no-color) nocolor;             shift ;;
-		        --no-orphan-check) NO_ORPHAN_CHECK=yes; shift ;;
-		                        *) arg "$1" && RMNAME+=($1) || { msgerr "Invalid option!"; exit 1; }; shift ;;
-		esac
-	done
+	if [ -z "$1" ]; then
+		help
+	else
+		while [ "$1" ]; do
+			case $1 in
+			-id | --ignore-dependency) IGNORE_DEP=yes       ;;
+			-v  |           --verbose) VERBOSE_REMOVE=yes   ;;
+			-h  |              --help) SHOWHELP=yes         ;;
+					   --no-preremove) NO_PREREMOVE=yes     ;;
+					  --no-postremove) NO_POSTREMOVE=yes    ;;
+						   --no-color) NOCOLOR=yes          ;;
+					--no-orphan-check) NO_ORPHAN_CHECK=yes  ;;
+									*) arg "$1" && RMNAME+=($1) || { msgerr "Invalid option!"; exit 1; }  ;;
+			esac
+			shift
+		done
+	fi
 	
 }
 
@@ -276,6 +281,17 @@ main() {
 	checkdirexist "$INDEX_DIR"
 	checkdirwrite "$INDEX_DIR"
 	checkdirread  "$INDEX_DIR"
+	
+	# disable colour
+	if [ "$NOCOLOR" ]; then
+		nocolor
+	fi
+	
+	# show help page
+	if [ "$SHOWHELP" ]; then
+		help
+		exit 0
+	fi
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then
