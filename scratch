@@ -516,7 +516,7 @@ portinstall() {
 				buildpkg ${OPTS[@]} || exit 1
 			popd
 		else
-			msgerr "Port '$pkg$' not found."
+			msgerr "Port '$pkg' not found."
 		fi
 	done
 }
