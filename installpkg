@@ -443,36 +443,46 @@ EOF
 
 parse_options() {
 	
-	while [ "$1" ]; do
-		case $1 in
-		-u  |           --upgrade) UPGRADE_PKG=yes;      shift ;;
-		-r  |         --reinstall) REINSTALL_PKG=yes;    shift ;;
-		-id | --ignore-dependency) IGNORE_DEP=yes;       shift ;;
-		-ic |   --ignore-conflict) IGNORE_CONFLICT=yes;  shift ;;
-		-v  |           --verbose) VERBOSE_INSTALL=yes;  shift ;;
-		          --no-preinstall) NO_PREINSTALL=yes;    shift ;;
-		         --no-postinstall) NO_POSTINSTALL=yes;   shift ;;
-		          --no-preupgrade) NO_PREUPGRADE=yes;    shift ;;
-		         --no-postupgrade) NO_POSTUPGRADE=yes;   shift ;;
-		              --no-backup) NO_BACKUP=yes;        shift ;;
-		               --no-color) nocolor;              shift ;;
-		        --no-orphan-check) NO_ORPHAN_CHECK=yes;  shift ;;
-		               *.spkg.txz) PKGNAME="$1";         shift ;;
-		-h  |              --help) help; exit 0;         shift ;;
-		                        *) msg "Invalid option!"; exit 1 ;;
-		esac
-	done
+	if [ -z "$1" ]; then
+		SHOWHELP=yes
+	else
+		while [ "$1" ]; do
+			case $1 in
+			-u  |           --upgrade) UPGRADE_PKG=yes       ;;
+			-r  |         --reinstall) REINSTALL_PKG=yes     ;;
+			-id | --ignore-dependency) IGNORE_DEP=yes        ;;
+			-ic |   --ignore-conflict) IGNORE_CONFLICT=yes   ;;
+			-v  |           --verbose) VERBOSE_INSTALL=yes   ;;
+					  --no-preinstall) NO_PREINSTALL=yes     ;;
+					 --no-postinstall) NO_POSTINSTALL=yes    ;;
+					  --no-preupgrade) NO_PREUPGRADE=yes     ;;
+					 --no-postupgrade) NO_POSTUPGRADE=yes    ;;
+						  --no-backup) NO_BACKUP=yes         ;;
+						   --no-color) NOCOLOR=yes           ;;
+					--no-orphan-check) NO_ORPHAN_CHECK=yes   ;;
+						   *.spkg.txz) PKGNAME="$1"          ;;
+			-h  |              --help) SHOWHELP=yes          ;;
+									*) msg "Invalid option!"; exit 1 ;;
+			esac
+			shift
+		done
+	fi
 	
 }
 
 main() {
 	
 	parse_options "$@"
+		
+	# disable colour
+	if [ "$NOCOLOR" ]; then
+		nocolor
+	fi
 	
-	### NOT STATED PACKAGE ###
-	if [ -z $PKGNAME ]; then
-		msgerr "Please state the package to install."
-		exit 1
+	# show help page
+	if [ "$SHOWHELP" ]; then
+		help
+		exit 0
 	fi
 	
 	### CHECK EXISTANT OF PACKAGE FILE ###

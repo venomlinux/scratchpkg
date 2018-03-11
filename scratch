@@ -594,7 +594,7 @@ missingdep() {
 
 }
 
-foreignport() {
+foreignpkg() {
 	
 	for pkg in $(allinstalled); do
 		if ! getportpath $pkg >/dev/null; then
@@ -691,6 +691,9 @@ Options:
        --listlocked                   list locked package
        --cache                        show old package and source caches
        --clear-cache                  remove all old package and source cac
+       --missing-port                 list package that depends on non-exist port
+       --missing-dep                  list package installed that missing it's dep in system
+       --list-foreign                 list package installed but port not exist in repo
        --no-color                     disable colour for output
        --info                         show scratchpkg info (setting)
   -h,  --help                         show this help message
@@ -739,7 +742,7 @@ parse_options() {
 			            --clear-cache) CLEARPKGCACHE=yes       ;;
 			            --missing-dep) MISSINGDEP=yes          ;;
 			           --missing-port) MISSINGPORT=yes         ;;
-			           --foreign-port) FOREIGNPORT=yes         ;;
+			           --list-foreign) FOREIGNPKG=yes          ;;
 			-up |      --update-ports) UPDATEPORTS=yes         ;;
 			                   --info) SCRATCHINFO=yes         ;;
 			             --listlocked) LISTLOCKED=yes          ;;
@@ -789,8 +792,6 @@ parse_options() {
 main() {
 	
 	parse_options "$@"
-
-	checkdirexist "$INDEX_DIR"
 	
 	# disable colour
 	if [ "$NOCOLOR" ]; then
@@ -802,6 +803,8 @@ main() {
 		help
 		exit 0
 	fi
+
+	checkdirexist "$INDEX_DIR"
 	
 	# print duplicate ports
 	if [ "$DUPLICATEPORT" ]; then
@@ -852,12 +855,6 @@ main() {
 		exit 0
 	fi
 	
-	# search for missing dependency for installed package (makedepends)
-	if [ "$MISSINGMDEP" ]; then
-		missingmdep
-		exit 0
-	fi
-	
 	# search for missing port (package depends on non-exist port)
 	if [ "$MISSINGPORT" ]; then
 		missingport
@@ -865,8 +862,8 @@ main() {
 	fi
 	
 	# search for foreign port (installed package with no port in repos)
-	if [ "$FOREIGNPORT" ]; then
-		foreignport
+	if [ "$FOREIGNPKG" ]; then
+		foreignpkg
 		exit 0
 	fi
 	

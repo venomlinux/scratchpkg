@@ -251,7 +251,7 @@ arg() {
 parse_options() {
 	
 	if [ -z "$1" ]; then
-		help
+		SHOWHELP=yes
 	else
 		while [ "$1" ]; do
 			case $1 in
@@ -274,14 +274,6 @@ main() {
 	
 	parse_options "$@"
 	
-	### CHECK FOR ROOT ACCESS ###
-	needroot "Removing package"
-	
-	### CHECK DIRECTORY ###
-	checkdirexist "$INDEX_DIR"
-	checkdirwrite "$INDEX_DIR"
-	checkdirread  "$INDEX_DIR"
-	
 	# disable colour
 	if [ "$NOCOLOR" ]; then
 		nocolor
@@ -292,6 +284,14 @@ main() {
 		help
 		exit 0
 	fi
+	
+	### CHECK FOR ROOT ACCESS ###
+	needroot "Removing package"
+	
+	### CHECK DIRECTORY ###
+	checkdirexist "$INDEX_DIR"
+	checkdirwrite "$INDEX_DIR"
+	checkdirread  "$INDEX_DIR"
 	
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then

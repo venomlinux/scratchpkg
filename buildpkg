@@ -470,7 +470,7 @@ Options:
   -r,  --reinstall           reinstall package
   -id, --ignore-dependency   skip dependency check
   -ic, --ignore-conflict     ignore conflict when installing package
-       --verbose             verbose install process
+  -v,  --verbose             verbose install process
        --no-preinstall       skip preinstall script before build/install package
        --no-postinstall      skip postinstall script after install package
        --no-preupgrade       skip preupgrade script before upgrade package
@@ -513,7 +513,7 @@ parse_options() {
 		          --no-preupgrade) OPTS+=($1)                      ;;
 		         --no-postupgrade) OPTS+=($1)                      ;;
 		-v  |           --verbose) OPTS+=($1)                      ;;
-		               --no-color) nocolor; OPTS+=($1)             ;;
+		               --no-color) NOCOLOR=yes; OPTS+=($1)         ;;
 		              --no-backup) OPTS+=($1)                      ;;
 		        --no-orphan-check) NO_ORPHAN_CHECK=yes; OPTS+=($1) ;;
 		-fr |     --force-rebuild) FORCE_REBUILD=yes               ;;
@@ -523,7 +523,7 @@ parse_options() {
 		-eo |      --extract-only) EXTRACT_ONLY=yes                ;;
 		-kw |         --keep-work) KEEP_WORK=yes                   ;;
 		-rd |        --redownload) REDOWNLOAD_SOURCE=yes           ;;
-		-h  |              --help) help; exit 0                    ;;
+		-h  |              --help) SHOWHELP=yes                    ;;
 		-sd |        --source-dir) testinput "$2" && SOURCE_DIR="$2"  || exit 1; shift ;;
 		-pd |       --package-dir) testinput "$2" && PACKAGE_DIR="$2" || exit 1; shift ;;
 		                        *) msg "Invalid option!"; exit 1   ;;
@@ -536,6 +536,17 @@ parse_options() {
 main() {
 	
 	parse_options "$@"
+		
+	# disable colour
+	if [ "$NOCOLOR" ]; then
+		nocolor
+	fi
+	
+	# show help page
+	if [ "$SHOWHELP" ]; then
+		help
+		exit 0
+	fi
 	
 	#check_directory
 	checkdirexist "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
