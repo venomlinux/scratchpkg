@@ -97,58 +97,65 @@ Scratchpkg tools is separate into 4 main tools and several extra scripts (may ad
 `scratch` is like multi tools. Its have many functions like search packages, check dependency, dependent, orphan package, duplicate ports, list installed package and etc. `scratch` also can build package without `cd` into port directory to build package. Run `scratch --help` to see available functions.
 
     Usage:
-
       scratch [ <options> <arguments> ]
-    
+
     Options:
-      -i,  --install              install package
-      -u,  --upgrade              upgrade package
-      -r,  --reinstall            reinstall package
-      -id, --ignore-dependency    skip dependency check
-      -ic, --ignore-conflict      skip file/package conflict check
-      -fr, --force-rebuild        rebuild package
-      -sd, --source-dir <path>    set directory path for sources
-      -pd, --package-dir <path>   set directory path for compiled package
-      -v,  --verbose              verbose process
-      -im, --ignore-mdsum         skip md5sum check for sources
-      -um, --update-mdsum         update md5sum file for port
-      -do, --download-only        download sources only
-      -eo, --extract-only         extract sources only
-      -kw, --keep-work            keep working directory
-      -rd, --redownload           re-download sources
-           --no-preinstall        don't run pre-install script
-           --no-postinstall       don't run post-install script
-           --no-backup            skip backup when upgrading package
-      -dup,--duplicate-ports      list duplicate ports
-      -l,  --list-installed       show list installed packages
-      -lp, --list-ports           show list ports for repository
-      -lo, --list-orphan          show list orphaned packages installed
-      -ci, --check-integrity      check integrity between package's index and files in system
-      -cu, --check-update         check for package update
-           --cache                show old package and source caches
-           --clear-cache          remove all old package and source caches
-      -up, --update-ports         update port's repository
-           --info                 show scratchpkg info (setting)
-      -c,  --cat-port             cat port's buildscript (spkgbuild)
-      -dp, --dependent            show package's dependent (check through package index)
-      -gdp,--global-dependent     show package's dependent (check through port's repository)
-      -d,  --depends              show package's depends
-      -pi, --package-info <pkg>   show package's info
-      -co, --check-owner          show file's owner
-      -p,  --package              set package name to build/install
-      -st, --show-tree            show list files of installed package
-      -s,  --search               search for packages in port's repository
-      -t,  --create-template      create port's template for package
-      -pp, --port-path            show ports directory path
-           --no-color             disable colour for output
-      -h,  --help                 show this help message
+      -i,  --install                      install package
+      -u,  --upgrade                      upgrade package
+      -r,  --reinstall                    reinstall package
+      -id, --ignore-dependency            skip dependency check
+      -ic, --ignore-conflict              skip file/package conflict check
+      -fr, --force-rebuild                rebuild package
+      -sd, --source-dir <path>            override directory path for sources
+      -pd, --package-dir <path>           override directory path for compiled package
+      -v,  --verbose                      verbose process
+      -im, --ignore-mdsum                 skip md5sum check for sources
+      -um, --update-mdsum                 update md5sum file for port
+      -do, --download-only                download sources only
+      -eo, --extract-only                 extract sources only
+      -kw, --keep-work                    keep working directory
+      -rd, --redownload                   re-download sources
+           --no-preinstall                skip preinstall script before build/install package
+           --no-postinstall               skip postinstall script after install package
+           --no-preupgrade                skip preupgrade script before upgrade package
+           --no-postupgrade               skip postupgrade script after upgrade package
+           --no-backup                    skip backup when upgrading package
+      -p,  --package <pkgnames>           set package name to build
+      -dup,--duplicate-ports              list duplicate ports
+      -l,  --list-installed               show list installed packages
+      -lp, --list-ports <repo>            show list ports for repository
+      -lo, --list-orphan                  show list orphaned packages installed
+      -ci, --check-integrity              check integrity between package's index and files in system
+      -cu, --check-update                 check for package updatehes
+      -up, --update-ports                 update port's repository
+      -c,  --cat-port <pkgname>           print port's buildscript (spkgbuild)
+      -dp, --dependent <pkgname>          show package's dependent (check through package index)
+      -gdp,--global-dependent <pkgname>   show package's dependent (check through port's repository)
+      -d,  --depends <pkgname>            show package's depends
+      -pi, --package-info <pkg>           show package's info
+      -co, --check-owner <file>           show file's owner
+      -st, --show-tree <pkgname>          show list files of installed package
+      -s,  --search <pattern>             search for packages in port's repository
+      -t,  --create-template <portname>   create port's template for package
+      -pp, --port-path                    show ports directory path
+           --lock <pkgname>               lock package from upgrade
+           --unlock <pkgname>             unlock package
+           --listlocked                   list locked package
+           --cache                        show old package and source caches
+           --clear-cache                  remove all old package and source cac
+           --missing-port                 list package that depends on non-exist port
+           --missing-dep                  list package installed that missing it's dep in system
+           --list-foreign                 list package installed but port not exist in repo
+           --no-color                     disable colour for output
+           --info                         show scratchpkg info (setting)
+      -h,  --help                         show this help message
       
     Example:
-      scratch -p firefox -id -kw -i     build, keep working dir, ignore missing dependency
-                                        and then install firefox
+      scratch -p firefox sudo -id -kw -i     build, keep working dir, ignore missing dependency
+                                             and then install firefox and sudo
 
-      scratch -r -fr -im -p firefox     rebuild, skip md5sum check for sources and then
-                                        reinstall firefox
+      scratch -r -fr -im -p firefox sudo     rebuild, skip md5sum check for sources and then
+                                         reinstall firefox and sudo
                                         
 ### buildpkg
 `buildpkg` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.txz` format. To build package, you need `cd` into port directory before run `buildpkg` command.
@@ -162,10 +169,13 @@ Scratchpkg tools is separate into 4 main tools and several extra scripts (may ad
       -r,  --reinstall           reinstall package
       -id, --ignore-dependency   skip dependency check
       -ic, --ignore-conflict     ignore conflict when installing package
-           --verbose             verbose install process
-           --no-preinstall       skip preinstall script when build/install package
+      -v,  --verbose             verbose install process
+           --no-preinstall       skip preinstall script before build/install package
            --no-postinstall      skip postinstall script after install package
+           --no-preupgrade       skip preupgrade script before upgrade package
+           --no-postupgrade      skip postupgrade script after upgrade package
            --no-color            disable color
+           --no-backup           skip backup when upgrading package
       -fr, --force-rebuild       rebuild package
       -im, --ignore-mdsum        skip md5sum checking
       -um, --update-mdsum        update md5sum
@@ -173,10 +183,9 @@ Scratchpkg tools is separate into 4 main tools and several extra scripts (may ad
       -do, --download-only       download only source file
       -eo, --extract-only        extract only source file
       -kw, --keep-work           keep working directory
-      -ns, --no-strip            skip strip package library and binary
       -rd, --redownload          re-download source file
-      -sd, --source-dir <path>   override source dir
-      -pd, --package-dir <path>  set directory path for compiled package
+      -sd, --source-dir <path>   override directory path for sources
+      -pd, --package-dir <path>  override directory path for compiled package
       -h,  --help                show this help message
 
     Example:
@@ -265,7 +274,7 @@ Extra tools is some scripts come with scratchpkg to help users do things more ea
 
 Install scripts is a bash script contains command need to run before/after install/upgrade/remove packages in system. The suffix of install script is `<portname>.install`. This install script need to placed in port directory and later will included in tar-ed package. The script contains the following functions which run at different times:
 
-* `pre-_install()`: The script is run right before package is built or files are extracted. One argument is passed: new package version.
+* `pre_install()`: The script is run right before package is built or files are extracted. One argument is passed: new package version.
 * `post_install()`: The script is run right after files are extracted. One argument is passed: new package version.
 * `pre_upgrade()`: The script is run right before files are extracted. Two arguments are passed in the following order: new package version, old package version.
 * `post_upgrade()`: The script is run right after files are extracted. Two arguments are passed in the following order: new package version, old package version.
