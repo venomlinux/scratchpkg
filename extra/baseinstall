@@ -127,7 +127,7 @@ for i in ${PKG[@]}; do
 				rm /usr/bin/m4
 				;;
 			bc)
-				ln -sv /tools/lib/libncursesw.so.6 /usr/lib/libncursesw.so.6
+				ln -sfv /tools/lib/libncursesw.so.6 /usr/lib/libncursesw.so.6
 				ln -sfv libncurses.so.6 /usr/lib/libncurses.so
 				scratch -i -id -p $i || exit 1
 				rm /usr/lib/{libncurses.so,libncursesw.so.6}
