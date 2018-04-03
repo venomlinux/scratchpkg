@@ -15,18 +15,18 @@ spkglock() {
 
 installpkg() {
 	
+	#ignore dependency check
+	if [ ! "$IGNORE_DEP" ]; then
+		#msg2 "Checking package dependencies..."
+		checkdeps
+	fi
+	
 	msg "Installing ${color_green}$name-$version-$release${color_reset}..."
 	
 	# noextract file into system
 	for noextr in ${NO_EXTRACT[@]}; do
 		excludefile+=(--exclude=$noextr)
 	done
-	
-	#ignore dependency check
-	if [ ! "$IGNORE_DEP" ]; then
-		msg2 "Checking package dependencies..."
-		checkdeps
-	fi
 	
 	#ignore conflict
 	if [ ! "$IGNORE_CONFLICT" ]; then
@@ -184,8 +184,11 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			scratch -i -p $dep --no-orphan-check || exit 1
-			#MSGDEP+=($dep)
+			if [ "$DEP_INSTALL" ]; then
+				scratch -i -p $dep --no-orphan-check || exit 1
+			else
+				MSGDEP+=($dep)
+			fi
 		fi
 	done
 	
@@ -433,6 +436,7 @@ Options:
        --no-backup            skip backup when upgrading package
        --no-orphan-check      skip orphaned package check after install package
        --no-color             disable colour for output
+       --dep                  install missing dependencies
   -h,  --help                 show this help message
 
 Example:
@@ -449,6 +453,7 @@ parse_options() {
 	else
 		while [ "$1" ]; do
 			case $1 in
+			                    --dep) DEP_INSTALL=yes       ;;
 			-u  |           --upgrade) UPGRADE_PKG=yes       ;;
 			-r  |         --reinstall) REINSTALL_PKG=yes     ;;
 			-id | --ignore-dependency) IGNORE_DEP=yes        ;;

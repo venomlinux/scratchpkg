@@ -341,15 +341,21 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			scratch -i -p $dep --no-orphan-check || exit 1
-			#MSDEP+=($dep)
+			if [ "$INSTALL_PKG" ]; then
+				scratch -i -p $dep --no-orphan-check || exit 1
+			else
+				MSDEP+=($dep)
+			fi
 		fi
 	done
 	
 	for makedep in ${makedepends[@]}; do
 		if [ ! -d $INDEX_DIR/$makedep ]; then
-			scratch -i -p $makedep --no-orphan-check || exit 1
-			#MSMKDEP+=($makedep)
+			if [ "$INSTALL_PKG" ]; then
+				scratch -i -p $makedep --no-orphan-check || exit 1
+			else
+				MSMKDEP+=($makedep)
+			fi
 		fi
 	done
 	
@@ -479,6 +485,7 @@ Options:
        --no-postupgrade      skip postupgrade script after upgrade package
        --no-color            disable color
        --no-backup           skip backup when upgrading package
+       --dep                 install missing dependencies
   -fr, --force-rebuild       rebuild package
   -im, --ignore-mdsum        skip md5sum checking
   -um, --update-mdsum        update md5sum
@@ -517,6 +524,7 @@ parse_options() {
 		-v  |           --verbose) OPTS+=($1)                      ;;
 		               --no-color) NOCOLOR=yes; OPTS+=($1)         ;;
 		              --no-backup) OPTS+=($1)                      ;;
+		                    --dep) OPTS+=($1)                      ;;
 		        --no-orphan-check) NO_ORPHAN_CHECK=yes; OPTS+=($1) ;;
 		-fr |     --force-rebuild) FORCE_REBUILD=yes               ;;
 		-im |      --ignore-mdsum) IGNORE_MDSUM=yes                ;;

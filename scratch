@@ -513,7 +513,7 @@ portinstall() {
 	for pkg in "${INSTALLPKG[@]}"; do
 		if getportpath $pkg >/dev/null; then
 			pushd "$(getportpath $pkg)"
-				buildpkg ${OPTS[@]} || exit 1
+				buildpkg --dep ${OPTS[@]} || exit 1
 			popd
 		else
 			msgerr "Port '$pkg' not found."
