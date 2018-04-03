@@ -732,6 +732,7 @@ parse_options() {
 			-kw |         --keep-work) OPTS+=($1) ;;
 			-rd |        --redownload) OPTS+=($1) ;;
 			              --no-backup) OPTS+=($1) ;;
+			        --no-orphan-check) OPTS+=($1) ;;
 			               --no-color) OPTS+=($1); NOCOLOR=yes ;;
 			-dup|   --duplicate-ports) DUPLICATEPORT=yes       ;;
 			-l  |    --list-installed) LISTINSTALLED=yes       ;;

@@ -184,7 +184,8 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			MSGDEP+=($dep)
+			scratch -i -p $dep --no-orphan-check || exit 1
+			#MSGDEP+=($dep)
 		fi
 	done
 	

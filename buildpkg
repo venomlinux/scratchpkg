@@ -341,13 +341,15 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			MSDEP+=($dep)
+			scratch -i -p $dep --no-orphan-check || exit 1
+			#MSDEP+=($dep)
 		fi
 	done
 	
 	for makedep in ${makedepends[@]}; do
 		if [ ! -d $INDEX_DIR/$makedep ]; then
-			MSMKDEP+=($makedep)
+			scratch -i -p $makedep --no-orphan-check || exit 1
+			#MSMKDEP+=($makedep)
 		fi
 	done
 	
