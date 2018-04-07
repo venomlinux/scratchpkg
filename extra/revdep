@@ -15,7 +15,18 @@ onepkg() {
 				if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
 					LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 					LIB=$(echo $LIB_NAME | tr '\n' ' ')
-					echo -e "(${color_green}$1${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
+					REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
+					MISSING_LIB=""
+					for i in $LIB_NAME; do
+						if echo $REQ_LIB | grep -q $i; then
+							MISSING_LIB="$MISSING_LIB $i"
+						fi
+					done
+					if [ "$MISSING_LIB" != "" ]; then
+						echo "$MISSING_LIB"
+					fi
+					#echo -e "(${color_green}$1${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
+					#echo "$REQ_LIB"
 					MISSING=1
 				fi ;;
 			*)
@@ -44,13 +55,29 @@ allpkg() {
 					if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
 						LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 						PKG_NAME=$(basename $(dirname $(grep -Rx $line $INDEX_DIR | cut -d ':' -f1)))
+						REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
 						LIB=$(echo $LIB_NAME | tr '\n' ' ')
-						[ "$VERBOSE" ] && echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
-						if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
-							continue
-						else
-							ALLPKG+=($PKG_NAME)
-						fi
+						MISSING_LIB=""
+						for i in $LIB_NAME; do
+							if echo $REQ_LIB | grep -q $i; then
+								[ "$VERBOSE" ] && echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $i"
+								if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
+									continue
+								else
+									ALLPKG+=($PKG_NAME)
+								fi
+								MISSING_LIB="$MISSING_LIB $i"
+							fi
+						done
+						#if [ "$MISSING_LIB" != "" ]; then
+						#	echo "$MISSING_LIB"
+						#fi
+						#[ "$VERBOSE" ] && echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
+						#if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
+							#continue
+						#else
+							#ALLPKG+=($PKG_NAME)
+						#fi
 					fi ;;
 				*)
 					continue ;;
