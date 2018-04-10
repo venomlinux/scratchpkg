@@ -25,8 +25,6 @@ onepkg() {
 					if [ "$MISSING_LIB" != "" ]; then
 						echo "$MISSING_LIB"
 					fi
-					#echo -e "(${color_green}$1${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
-					#echo "$REQ_LIB"
 					MISSING=1
 				fi ;;
 			*)
@@ -69,15 +67,6 @@ allpkg() {
 								MISSING_LIB="$MISSING_LIB $i"
 							fi
 						done
-						#if [ "$MISSING_LIB" != "" ]; then
-						#	echo "$MISSING_LIB"
-						#fi
-						#[ "$VERBOSE" ] && echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $LIB"
-						#if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
-							#continue
-						#else
-							#ALLPKG+=($PKG_NAME)
-						#fi
 					fi ;;
 				*)
 					continue ;;
