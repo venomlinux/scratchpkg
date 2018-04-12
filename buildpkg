@@ -294,6 +294,9 @@ packaging() {
 
 buildpkg() {
 	
+	# lock build process prevent simultaneous build
+	lockbuild
+	
 	getsource
 	
 	if [ ! "$IGNORE_MDSUM" ]; then
@@ -460,8 +463,8 @@ clearworkdir() {
 }
 
 interrupted() {
-	echo ""
-	msg "${color_yellow}Interrupted!${color_reset}"
+	#echo ""
+	#msg "${color_yellow}Interrupted!${color_reset}"
 	clearworkdir
 	exitscript1
 }
@@ -617,7 +620,7 @@ main() {
 	fi
 	
 	### CREATE LOCK FILE ###
-	lockbuild
+	#lockbuild
 	
 	### BUILD ###
 	if [ -f $PACKAGE_DIR/$PKGNAME ] && [ ! "$FORCE_REBUILD" ]; then # if package txz exist and not force rebuild

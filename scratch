@@ -7,31 +7,50 @@ export LC_ALL=C
 showinfo() {
 	
 	echo
-	echo "      SCRATCHPKG CONFIG"
-	echo "  -------------------------"
+	echo -e "  --+-------------------+--"
+	echo -e "    | SCRATCHPKG CONFIG |"
+	echo -e "  --+-------------------+--"
 	echo
-	echo "CFLAGS=$CFLAGS"
-	echo "CXXFLAGS=$CXXFLAGS"
-	echo "MAKEFLAGS=$MAKEFLAGS"
-	echo	
-	echo "CONF_FILE=$CONF_FILE"
-	echo "BUILD_SCRIPT=$BUILD_SCRIPT"
+	echo -e "${color_purple}CFLAGS${color_reset} $CFLAGS"
+	echo -e "${color_purple}CXXFLAGS${color_reset} $CXXFLAGS"
+	echo -e "${color_purple}MAKEFLAGS${color_reset} $MAKEFLAGS"
 	echo
-	echo "ROOT_DIR=$ROOT_DIR"
-	echo "INDEX_DIR=$INDEX_DIR"
+	echo -e "${color_purple}PORT_REPO${color_reset}"
+	for repo in ${PORT_REPO[@]}; do
+		echo $repo
+	done
 	echo
-	echo "PACKAGE_DIR=$PACKAGE_DIR"
-	echo "SOURCE_DIR=$SOURCE_DIR"
-	echo "WORK_DIR=$WORK_DIR"
-	echo "LOG_DIR=$LOG_DIR"
-	echo "HOOK_DIR=$HOOK_DIR"
+	echo -e "${color_purple}ROOT_DIR${color_reset} $ROOT_DIR"
+	echo -e "${color_purple}INDEX_DIR${color_reset} $INDEX_DIR"
 	echo
-	echo "NO_EXTRACT=$NO_EXTRACT"
+	echo -e "${color_purple}PACKAGE_DIR${color_reset} $PACKAGE_DIR"
+	echo -e "${color_purple}SOURCE_DIR${color_reset} $SOURCE_DIR"
+	echo -e "${color_purple}WORK_DIR${color_reset} $WORK_DIR"
+	echo -e "${color_purple}LOG_DIR${color_reset} $LOG_DIR"
+	echo -e "${color_purple}HOOK_DIR${color_reset} $HOOK_DIR"
 	echo
-	echo "OPTIONS=${OPTIONS[@]}"
-	echo "PURGE_FILES=${PURGE_FILES[@]}"
-	echo "DOC_DIRS=${DOC_DIRS[@]}"
-	echo "MAN_DIRS=${MAN_DIRS[@]}"
+	echo -e "${color_purple}NO_EXTRACT${color_reset} $NO_EXTRACT"
+	echo
+	echo -e "${color_purple}OPTIONS${color_reset}"
+	for opt in ${OPTIONS[@]}; do
+		echo $opt
+	done
+	echo
+	echo -e "${color_purple}PURGE_FILES${color_reset}"
+	for pg in ${PURGE_FILES[@]}; do
+		echo $pg
+	done
+	echo
+	echo -e "${color_purple}DOC_DIRS${color_reset}"
+	for dc in ${DOC_DIRS[@]}; do
+		echo $dc
+	done
+	echo
+	echo -e "${color_purple}MAN_DIRS${color_reset}"
+	for md in ${MAN_DIRS[@]}; do
+		echo $md
+	done
+	echo
 	
 }
 
@@ -237,16 +256,23 @@ checkupdate() {
 			irelease=$(installed_pkg_info release $pkg)
 			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
 			outdatemsg="$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_blue}$ITSLOCK${color_reset}"
+			newerinstmsg="$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_yellow}[newer installed]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
 			if [ "$version" !=  "$iversion" ]; then
 				vercomp $version $iversion
 				if [ $? = 2 ]; then
 					msg "$outdatemsg"
+					OUTDATE=yes
+				elif [ $? = 1 ]; then
+					msg "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			elif [ "$release" !=  "$irelease" ]; then
 				vercomp $release $irelease
 				if [ $? = 2 ]; then
 					msg "$outdatemsg"
+					OUTDATE=yes
+				elif [ $? = 1 ]; then
+					msg "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			fi
