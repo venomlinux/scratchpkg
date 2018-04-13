@@ -497,6 +497,12 @@ main() {
 		exit 1
 	fi
 	
+	### INTEGRITY OF PACKAGE ###
+	if ! tar -tf $PKGNAME &>/dev/null; then
+		msgerr "Package ${color_red}$1${color_reset} is corrupted!"
+		exit 1
+	fi
+	
 	### CHECK FOR ROOT ACCESS ###
 	needroot "Installing package"
 	
@@ -512,14 +518,27 @@ main() {
 		exit 1
 	fi
 	
-	### GET NAME, VERSION, RELEASE FROM PACKAGE ###
-	name=$(getinfopkg name $PKGNAME)
-	version=$(getinfopkg version $PKGNAME)
-	release=$(getinfopkg release $PKGNAME)
-	depends=$(getinfopkg depends $PKGNAME)
-	makedepends=$(getinfopkg makedepends $PKGNAME)
-	backup=$(getinfopkg backup $PKGNAME)
-	conflict=$(getinfopkg conflict $PKGNAME)
+	### EXTRACT .pkginfo file into /tmp ###
+	BASEPKGNAME=$(basename $PKGNAME)
+	if [ -f /tmp/spkg.$BASEPKGNAME.pkginfo ]; then
+		msgerr "Cant install package '$BASEPKGNAME'."
+		msgerr "remove ${color_yellow}/tmp/spkg.$BASEPKGNAME.pkginfo${color_reset} if no install '$BASEPKGNAME' process running."
+		exit 1
+	else
+		tar -xf $PKGNAME .pkginfo -O > /tmp/spkg.$BASEPKGNAME.pkginfo
+	fi
+	
+	### GET NAME, VERSION, RELEASE FROM TMP .pkginfo FILE ###
+	name=$(getinfopkg name $BASEPKGNAME)
+	version=$(getinfopkg version $BASEPKGNAME)
+	release=$(getinfopkg release $BASEPKGNAME)
+	depends=$(getinfopkg depends $BASEPKGNAME)
+	makedepends=$(getinfopkg makedepends $BASEPKGNAME)
+	backup=$(getinfopkg backup $BASEPKGNAME)
+	conflict=$(getinfopkg conflict $BASEPKGNAME)
+	
+	### REMOVE .pkginfo file from /tmp ###
+	rm -f /tmp/spkg.$BASEPKGNAME.pkginfo
 	
 	### IF INSTALLED & NO UPGRADE & NO REINSTALL ###
 	if [ -d $INDEX_DIR/$name ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then

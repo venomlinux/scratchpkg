@@ -150,7 +150,8 @@ installed_pkg_info() {
 
 getinfopkg() {
 	
-	echo $(tar xf $2 .pkginfo -O | grep ^$1 | cut -d " " -f3)
+	#echo $(tar xf $2 .pkginfo -O | grep ^$1 | cut -d " " -f3)
+	cat /tmp/spkg.$2.pkginfo | grep ^$1 | cut -d " " -f3
 	
 }
 
