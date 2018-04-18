@@ -77,6 +77,7 @@ wget
 curl
 httpup
 scratchpkg
+rc-init
 )
 
 adjustingtoolchain() {
@@ -103,13 +104,6 @@ adjustingtoolchain() {
 	rm -v dummy.c a.out dummy.log
 	sleep 5
 }	
-
-if [ -n "$1" -a -n "$2" ]; then
-	case $1 in
-		--init) init=$2 ;;
-		*) ;;
-	esac
-fi
 
 for i in ${PKG[@]}; do
 	if [[ -d "$INDEX_DIR/$i" ]]; then
@@ -158,9 +152,5 @@ for i in ${PKG[@]}; do
 		esac
 	fi
 done
-
-if [ "$init" ]; then
-	scratch -i -p "$init"
-fi
 
 exit 0
