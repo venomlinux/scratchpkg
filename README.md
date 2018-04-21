@@ -6,7 +6,7 @@ A package manager for Linux From Scratch.
 
 Scratchpkg is a package manager built in order to manage packages for the Linux From Scratch system/distro. This package manager is fully written in bash. The package building script uses the port system like in Arch's makepkg, CRUX's pkgmk and NuTyX's cards. Packages are built and installed into a temporary location using DESTDIR method and are afterwards compressed in a file  directory using tar.
 
-Installing the packaged tar means it is extracted into real system. After that all files are extracted into an index directory. So scratchpkg will track all installed files. Scratchpkg doesn't calculate dependency order but it does install missing dependency automatically. Let say you wanna install package foobar, when scratchpkg trying to install package foobar it will check for missing dependency, if the dependency is not installed, it will install foobar's dependency first before installing foobar.
+Installing the packaged tar means it is extracted into real system. After that all files are extracted into an index directory. So scratchpkg will track all installed files. Scratchpkg can automatically resolve dependency order.
 
 Scratchpkg reads the build script (spkgbuild) in the ports directory in order to get all necessary variables and functions before building them. Full package information  like version, description, depends etc ... will be written into the package. So the built package isn't needing its port anymore for getting the necessary information. This is really an advantage supposing you would like to check for package dependencies or install a package that was built for another machine.
 
