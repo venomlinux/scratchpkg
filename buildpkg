@@ -344,7 +344,7 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			if [ "$INSTALL_PKG" ]; then
+			if [ "$INSTALL_PKG" -o "$DEP_INSTALL" ]; then
 				scratch -i -p $dep --no-orphan-check || exit 1
 			else
 				MSDEP+=($dep)
@@ -354,7 +354,7 @@ checkdeps() {
 	
 	for makedep in ${makedepends[@]}; do
 		if [ ! -d $INDEX_DIR/$makedep ]; then
-			if [ "$INSTALL_PKG" ]; then
+			if [ "$INSTALL_PKG" -o "$DEP_INSTALL" ]; then
 				scratch -i -p $makedep --no-orphan-check || exit 1
 			else
 				MSMKDEP+=($makedep)
@@ -527,7 +527,7 @@ parse_options() {
 		-v  |           --verbose) OPTS+=($1)                      ;;
 		               --no-color) NOCOLOR=yes; OPTS+=($1)         ;;
 		              --no-backup) OPTS+=($1)                      ;;
-		                    --dep) OPTS+=($1)                      ;;
+		                    --dep) DEP_INSTALL=yes; OPTS+=($1)     ;;
 		        --no-orphan-check) NO_ORPHAN_CHECK=yes; OPTS+=($1) ;;
 		-fr |     --force-rebuild) FORCE_REBUILD=yes               ;;
 		-im |      --ignore-mdsum) IGNORE_MDSUM=yes                ;;
@@ -618,9 +618,6 @@ main() {
 		preparesource
 		exit 0
 	fi
-	
-	### CREATE LOCK FILE ###
-	#lockbuild
 	
 	### BUILD ###
 	if [ -f $PACKAGE_DIR/$PKGNAME ] && [ ! "$FORCE_REBUILD" ]; then # if package txz exist and not force rebuild

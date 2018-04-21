@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 INDEX_DIR="/var/lib/scratchpkg/index"
 CONF_FILE="/etc/scratchpkg.conf"
@@ -8,73 +8,52 @@ source "/usr/share/scratchpkg/color"
 source "/usr/share/scratchpkg/message"
 
 if [ ! "$1" ]; then
-	msgerr "Please specify package name to list its dependencies."
+	msgerr "Please specify package name to list its dependencies order."
 	exit 1
 fi
 
-calcdep() {
+calc_dep() {
 	
-	dep=$(scratch -d $1 | grep -v "port not exist" | awk '{print $3}')
-	for i in $dep; do
-		deps="$deps $i"
-	done
-	
-}
-
-loop() {
-	
-	for depends in ${dep[@]}; do
-		if [ "$(echo "$checked" | tr ' ' '\n' | grep -x "$depends")" ]; then
-			continue
-		else
-			checked="$checked $depends"
+	# check currently process package for loop
+	if [ ${#CHECK[@]} -gt 0 ]; then
+		if [[ "$(echo ${CHECK[@]} | tr " " "\n" | grep -x $1)" == "$1" ]]; then
+			msgerr "loop dependency found: $1"
+			exit 1
 		fi
-		#echo $checked
-		calcdep $depends
-		loop
-	done
-}
-
-checkpkg() {
-	
-	for repo in ${PORT_REPO[@]}; do
-		if [ -f $repo/$pkgname/spkgbuild ]; then
-			PORT_EXIST=yes
-			break
-		fi
-	done
-	if [ ! "$PORT_EXIST" ]; then
-		msgerr "Port ${color_red}$pkgname${color_reset} not exist."
-		exit 1
 	fi
-}
-
-start() {
-	pkgname=$1
-
-	checkpkg			# check for existence port
-	calcdep $pkgname	# calculate dependencies
-	loop				# loop through all dependencies
-
-	# filter all same dependencies and sort backwards
-	for i in $(echo $deps | tr ' ' '\n'); do
-		[ $(echo $filterdep | tr ' ' '\n' | grep -x $i) ] || filterdep="$filterdep $i"
+	
+	# add package to currently process
+	CHECK+=($1)
+	
+	# check dependencies
+	for i in $(scratch -d "$1" --no-color | awk '{print $2}'); do
+		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -w $i) = "" ]]; then
+			calc_dep $i
+		fi
 	done
-
-	filterdep="$filterdep $pkgname" # add package to install to final dependency list
-
+	
+	# add dependency to list checked dep
+	DEP+=($1)
+	
+	# delete process package array
+	for i in "${!CHECK[@]}"; do
+		if [[ ${CHECK[i]} = "$1" ]]; then
+			unset 'CHECK[i]'
+		fi
+	done
+	
 }
 
-while [ $1 ]; do
-	start $1
-	shift
-done
+CHECK=()
+DEP=()
 
-for alldep in $(echo $filterdep | tr ' ' '\n'); do
-	if [ -d $INDEX_DIR/$alldep ]; then
-		echo -e "$alldep ${color_green}[installed]${color_reset}"
+calc_dep $1
+
+for deps in ${DEP[@]}; do
+	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
+		echo -e "$deps ${color_green}[installed]${color_reset}"
 	else
-		echo "$alldep"
+		echo $deps
 	fi
 done
 

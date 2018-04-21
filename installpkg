@@ -520,13 +520,7 @@ main() {
 	
 	### EXTRACT .pkginfo file into /tmp ###
 	BASEPKGNAME=$(basename $PKGNAME)
-	if [ -f /tmp/spkg.$BASEPKGNAME.pkginfo ]; then
-		msgerr "Cant install package '$BASEPKGNAME'."
-		msgerr "remove ${color_yellow}/tmp/spkg.$BASEPKGNAME.pkginfo${color_reset} if no install '$BASEPKGNAME' process running."
-		exit 1
-	else
-		tar -xf $PKGNAME .pkginfo -O > /tmp/spkg.$BASEPKGNAME.pkginfo
-	fi
+	tar -xf $PKGNAME .pkginfo -O > /tmp/spkg.$BASEPKGNAME.pkginfo
 	
 	### GET NAME, VERSION, RELEASE FROM TMP .pkginfo FILE ###
 	name=$(getinfopkg name $BASEPKGNAME)
