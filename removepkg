@@ -15,7 +15,7 @@ spkglock() {
 
 removepkg() {
 	
-	msg "Removing ${color_green}$ipackagename${color_reset}..."
+	msg "Removing ${GREEN}$ipackagename${CRESET}..."
 	
 	### CHECK DEPENDENCY ###
 	if [ ! "$IGNORE_DEP" ]; then
@@ -70,21 +70,21 @@ removepkg() {
 	rm -R $INDEX_DIR/$1
 
 	if [ -d $INDEX_DIR/$1 ]; then
-		msgerr "Error occured while removing ${color_red}$ipackagename${color_reset}."
+		msgerr "Error occured while removing ${RED}$ipackagename${CRESET}."
 		spkglock
 		exit 1
 	else
-		msg "Successfully remove ${color_green}$ipackagename${color_reset}."
+		msg "Successfully remove ${GREEN}$ipackagename${CRESET}."
 	fi
 	
 	case $PREREMOVE_STATUS in
-		OK) msg "preremove	: ${color_green}OK${color_reset}" ;;
-		KO) msg "preremove	: ${color_red}FAIL${color_reset}" ;;
+		OK) msg "preremove	: ${GREEN}OK${CRESET}" ;;
+		KO) msg "preremove	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $POSTREMOVE_STATUS in
-		OK) msg "postremove	: ${color_green}OK${color_reset}" ;;
-		KO) msg "postremove	: ${color_red}FAIL${color_reset}" ;;
+		OK) msg "postremove	: ${GREEN}OK${CRESET}" ;;
+		KO) msg "postremove	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	runremovehooks
@@ -140,7 +140,7 @@ checkdeps() {
 	done
 	
 	if [ "${#ERRDEP[@]}" -gt 0 ]; then
-		msgwarn "Package ${color_yellow}$iname-$iversion-$irelease${color_reset} is needed for:"
+		msgwarn "Package ${YELLOW}$iname-$iversion-$irelease${CRESET} is needed for:"
 			for pkg in ${ERRDEP[@]}; do
 				msg2 "$pkg"
 			done
@@ -296,13 +296,13 @@ main() {
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then
 		msgerr "Cant install/remove package simultaneously."
-		msgerr "remove ${color_yellow}/tmp/spkg.lock${color_reset} if no install/remove package process running."
+		msgerr "remove ${YELLOW}/tmp/spkg.lock${CRESET} if no install/remove package process running."
 		exit 1
 	fi
 	
 	for pkg in ${RMNAME[@]}; do
 		if [ ! -d $INDEX_DIR/$pkg ]; then
-			msg "Package ${color_red}$pkg${color_reset} not installed."
+			msg "Package ${RED}$pkg${CRESET} not installed."
 		else
 			getoldname $pkg ### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
 			removepkg $pkg  ### REMOVE PACKAGE ###

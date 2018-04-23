@@ -11,42 +11,42 @@ showinfo() {
 	echo -e "    | SCRATCHPKG CONFIG |"
 	echo -e "  --+-------------------+--"
 	echo
-	echo -e "${color_purple}CFLAGS${color_reset} $CFLAGS"
-	echo -e "${color_purple}CXXFLAGS${color_reset} $CXXFLAGS"
-	echo -e "${color_purple}MAKEFLAGS${color_reset} $MAKEFLAGS"
+	echo -e "${PURPLE}CFLAGS${CRESET} $CFLAGS"
+	echo -e "${PURPLE}CXXFLAGS${CRESET} $CXXFLAGS"
+	echo -e "${PURPLE}MAKEFLAGS${CRESET} $MAKEFLAGS"
 	echo
-	echo -e "${color_purple}PORT_REPO${color_reset}"
+	echo -e "${PURPLE}PORT_REPO${CRESET}"
 	for repo in ${PORT_REPO[@]}; do
 		echo $repo
 	done
 	echo
-	echo -e "${color_purple}ROOT_DIR${color_reset} $ROOT_DIR"
-	echo -e "${color_purple}INDEX_DIR${color_reset} $INDEX_DIR"
+	echo -e "${PURPLE}ROOT_DIR${CRESET} $ROOT_DIR"
+	echo -e "${PURPLE}INDEX_DIR${CRESET} $INDEX_DIR"
 	echo
-	echo -e "${color_purple}PACKAGE_DIR${color_reset} $PACKAGE_DIR"
-	echo -e "${color_purple}SOURCE_DIR${color_reset} $SOURCE_DIR"
-	echo -e "${color_purple}WORK_DIR${color_reset} $WORK_DIR"
-	echo -e "${color_purple}LOG_DIR${color_reset} $LOG_DIR"
-	echo -e "${color_purple}HOOK_DIR${color_reset} $HOOK_DIR"
+	echo -e "${PURPLE}PACKAGE_DIR${CRESET} $PACKAGE_DIR"
+	echo -e "${PURPLE}SOURCE_DIR${CRESET} $SOURCE_DIR"
+	echo -e "${PURPLE}WORK_DIR${CRESET} $WORK_DIR"
+	echo -e "${PURPLE}LOG_DIR${CRESET} $LOG_DIR"
+	echo -e "${PURPLE}HOOK_DIR${CRESET} $HOOK_DIR"
 	echo
-	echo -e "${color_purple}NO_EXTRACT${color_reset} $NO_EXTRACT"
+	echo -e "${PURPLE}NO_EXTRACT${CRESET} $NO_EXTRACT"
 	echo
-	echo -e "${color_purple}OPTIONS${color_reset}"
+	echo -e "${PURPLE}OPTIONS${CRESET}"
 	for opt in ${OPTIONS[@]}; do
 		echo $opt
 	done
 	echo
-	echo -e "${color_purple}PURGE_FILES${color_reset}"
+	echo -e "${PURPLE}PURGE_FILES${CRESET}"
 	for pg in ${PURGE_FILES[@]}; do
 		echo $pg
 	done
 	echo
-	echo -e "${color_purple}DOC_DIRS${color_reset}"
+	echo -e "${PURPLE}DOC_DIRS${CRESET}"
 	for dc in ${DOC_DIRS[@]}; do
 		echo $dc
 	done
 	echo
-	echo -e "${color_purple}MAN_DIRS${color_reset}"
+	echo -e "${PURPLE}MAN_DIRS${CRESET}"
 	for md in ${MAN_DIRS[@]}; do
 		echo $md
 	done
@@ -60,7 +60,7 @@ listinstalled() {
 		iname=$(installed_pkg_info name $pkg)
 		iversion=$(installed_pkg_info version $pkg)
 		irelease=$(installed_pkg_info release $pkg)
-		echo -e "$iname ${color_green}$iversion${color_reset}-${color_blue}$irelease${color_reset}"
+		echo -e "$iname ${GREEN}$iversion${CRESET}-${BLUE}$irelease${CRESET}"
 	done
 	
 }
@@ -88,7 +88,7 @@ listorphan() {
 			iname=$(installed_pkg_info name $all)
 			iversion=$(installed_pkg_info version $all)
 			irelease=$(installed_pkg_info release $all)
-			echo -e "$iname ${color_green}$iversion${color_reset}-${color_blue}$irelease${color_reset}"
+			echo -e "$iname ${GREEN}$iversion${CRESET}-${BLUE}$irelease${CRESET}"
 		fi
 	done
 	
@@ -99,9 +99,9 @@ searchpkg() {
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
 			pushd $port
-				OUTPUT=$(grep -R "# description" | grep -i "$1" | grep "$BUILD_SCRIPT" | cut -d '/' -f1)
+				OUTPUT=$(grep -R description | grep "$BUILD_SCRIPT:# description[[:blank:]]*:" | sed "s/$BUILD_SCRIPT:# description[[:blank:]]*://" | grep -i "$1" | cut -d '/' -f1)
 			popd
-			if [ "$OUTPUT" ]; then
+			if [ -n "$OUTPUT" ]; then
 				found=yes
 				for out in ${OUTPUT[@]}; do
 					if [ -f $port/$out/$BUILD_SCRIPT ]; then
@@ -110,16 +110,16 @@ searchpkg() {
 						popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
-							search_result="${color_blue}($portname)${color_reset} ${color_purple}$name${color_reset} ${color_cyan}$version-$release${color_reset}"
+							search_result="${BLUE}($portname)${CRESET} ${PURPLE}$name${CRESET} ${CYAN}$version-$release${CRESET}"
 							if [ -d $INDEX_DIR/$name ]; then
 								iversion=$(installed_pkg_info version $name)
 								irelease=$(installed_pkg_info release $name)
 								[ -f $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
 								if [ "$version-$release" = "$iversion-$irelease" ]; then
-									msg3 "$search_result ${color_green}[installed]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
+									msg3 "$search_result ${GREEN}[installed]${CRESET} ${BLUE}$ITSLOCK${CRESET}"
 									msg4 "$description"
 								else
-									msg3 "$search_result ${color_yellow}[installed $iversion-$irelease]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
+									msg3 "$search_result ${YELLOW}[installed $iversion-$irelease]${CRESET} ${BLUE}$ITSLOCK${CRESET}"
 									msg4 "$description"
 								fi
 							else
@@ -133,7 +133,7 @@ searchpkg() {
 			fi
 		fi
 	done
-	if [ "$found" != "yes" ]; then
+	if [ ! "$found" ]; then
 		msg "No matching package found."
 	fi
 }
@@ -142,7 +142,7 @@ checkowner() {
 
 	for pkg in $(allinstalled); do
 		for output in $(cat $INDEX_DIR/$pkg/.files | grep $1); do
-			echo -e "${color_cyan}$pkg${color_reset} => ${color_purple}$output${color_reset}"
+			echo -e "${CYAN}$pkg${CRESET} => ${PURPLE}$output${CRESET}"
 		done
 	done
 	
@@ -151,7 +151,7 @@ checkowner() {
 showtree() {
 	
 	if [ ! -f $INDEX_DIR/$1/.pkginfo ]; then
-		msg "Package ${color_red}$1${color_reset} not installed."
+		msg "Package ${RED}$1${CRESET} not installed."
 	else
 		while IFS=' ' read -r line; do
 			echo "$line"
@@ -166,14 +166,14 @@ checkintegrity() {
 		for pkg in $(allinstalled); do
 			while IFS=' ' read -r line; do
 					if [ ! -e "$line" ]; then
-						msg "${color_blue}$pkg${color_reset} is missing: ${color_purple}/$line${color_reset}"
+						msg "${BLUE}$pkg${CRESET} is missing: ${PURPLE}/$line${CRESET}"
 						MISSING_FILE=yes
 					fi
 			done < <(cat $INDEX_DIR/$pkg/.files)
 		done
 	popd
 	
-	[ "$UID" != "0" ] && msg "${color_yellow}(check integrity is recommended run as root or using sudo)${color_reset}"
+	[ "$UID" != "0" ] && msg "${YELLOW}(check integrity is recommended run as root or using sudo)${CRESET}"
 	[ ! "$MISSING_FILE" ] && msg "Your system file is consistent with package tree."
 	
 }
@@ -181,12 +181,12 @@ checkintegrity() {
 showpackageinfo() {
 	
 	if [ ! -f $1 ]; then
-		msg "${color_red}$1${color_reset} not exist."
+		msg "${RED}$1${CRESET} not exist."
 		exit 1
 	else
 		if [ $(tar -tf "$1" | grep -x ".pkginfo") ]; then
 			getpkginfofrompkg $1
-			echo -e "${color_green}info:${color_reset}"
+			echo -e "${GREEN}info:${CRESET}"
 				[ "$name" ] && echo "name = $name"
 				[ "$version" ] && echo "version = $version"
 				[ "$release" ] && echo "release = $release"
@@ -197,18 +197,18 @@ showpackageinfo() {
 				[ "$makedepends" ] && for md in ${makedepends[@]}; do echo "makedepends = $md"; done
 				echo ""
 			if [ $(tar -tf "$1" | grep -x ".pkgreadme") ]; then
-				echo -e "${color_green}readme:${color_reset}"
+				echo -e "${GREEN}readme:${CRESET}"
 				tar -xf $1 .pkgreadme -O
 				echo ""
 				echo ""
 			fi
 			if [ $(tar -tf "$1" | grep -x ".pkginstall") ]; then
-				echo -e "${color_green}pkginstall files:${color_reset}"
+				echo -e "${GREEN}pkginstall files:${CRESET}"
 				tar -xf $1 .pkginstall -O
 				echo ""
 			fi
 		else
-			msg "${color_yellow}$1${color_reset} is not package created by scratchpkg."
+			msg "${YELLOW}$1${CRESET} is not package created by scratchpkg."
 			exit 1
 		fi
 	fi
@@ -222,27 +222,27 @@ showdepends() {
 			getpkginfo
 		popd
 	else
-		msgerr "Port ${color_red}$1${color_reset} not exist."
+		msgerr "Port ${RED}$1${CRESET} not exist."
 		exit 1
 	fi
 			
 	for dep in ${depends[@]}; do
 		if [ -d $INDEX_DIR/$dep ]; then
-			msg2 "$dep ${color_green}[installed]${color_reset}"
+			msg2 "$dep ${GREEN}[installed]${CRESET}"
 		elif getportpath $dep >/dev/null; then
 			msg2 "$dep"
 		else
-			msg2 "$dep ${color_red}[port not exist]${color_reset}"
+			msg2 "$dep ${RED}[port not exist]${CRESET}"
 		fi
 	done
 			
 	for mdep in ${makedepends[@]}; do
 		if [ -d $INDEX_DIR/$mdep ]; then
-			msg2 "$mdep ${color_cyan}(make)${color_reset} ${color_green}[installed]${color_reset}"
+			msg2 "$mdep ${CYAN}(make)${CRESET} ${GREEN}[installed]${CRESET}"
 		elif getportpath $mdep >/dev/null; then
-			msg2 "$mdep ${color_cyan}(make)${color_reset}"
+			msg2 "$mdep ${CYAN}(make)${CRESET}"
 		else
-			msg "$mdep ${color_cyan}(make)${color_reset} ${color_red}[port not exist]${color_reset}"
+			msg "$mdep ${CYAN}(make)${CRESET} ${RED}[port not exist]${CRESET}"
 		fi
 	done
 }	
@@ -255,8 +255,8 @@ checkupdate() {
 			iversion=$(installed_pkg_info version $pkg)
 			irelease=$(installed_pkg_info release $pkg)
 			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
-			outdatemsg="$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_blue}$ITSLOCK${color_reset}"
-			newerinstmsg="$name ${color_red}$iversion-$irelease${color_reset} => ${color_green}$version-$release${color_reset} ${color_yellow}[newer installed]${color_reset} ${color_blue}$ITSLOCK${color_reset}"
+			outdatemsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${BLUE}$ITSLOCK${CRESET}"
+			newerinstmsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${YELLOW}[newer installed]${CRESET} ${BLUE}$ITSLOCK${CRESET}"
 			if [ "$version" !=  "$iversion" ]; then
 				vercomp $version $iversion
 				if [ $? = 2 ]; then
@@ -286,7 +286,7 @@ checkupdate() {
 showdependent() {
 	
 	if [ ! -d $INDEX_DIR/$1 ]; then
-		msg "Package ${color_red}$1${color_reset} not installed."
+		msg "Package ${RED}$1${CRESET} not installed."
 		exit 1
 	else
 		for all_installed in $(ls $INDEX_DIR); do
@@ -301,7 +301,7 @@ showdependent() {
 				for mdep in ${makedepend[@]}; do
 					if [ $mdep = $1 ]; then
 						DP=yes
-						msg2 "$all_installed ${color_cyan}(make)${color_reset}"
+						msg2 "$all_installed ${CYAN}(make)${CRESET}"
 					fi
 				done
 		done
@@ -321,7 +321,7 @@ showglobaldependent() {
 						if [ $dep = $1 ]; then
 							GDP=yes
 							if [ -d $INDEX_DIR/$all ]; then
-								msg2 "$all ${color_green}[installed]${color_reset}"
+								msg2 "$all ${GREEN}[installed]${CRESET}"
 							else
 								msg2 "$all"
 							fi
@@ -332,9 +332,9 @@ showglobaldependent() {
 						if [ $mdep = $1 ]; then
 							GDP=yes
 							if [ -d $INDEX_DIR/$all ]; then
-								msg2 "$all ${color_cyan}(make)${color_reset} ${color_green}[installed]${color_reset}"
+								msg2 "$all ${CYAN}(make)${CRESET} ${GREEN}[installed]${CRESET}"
 							else
-								msg2 "$all ${color_cyan}(make)${color_reset}"
+								msg2 "$all ${CYAN}(make)${CRESET}"
 							fi
 						fi
 					done
@@ -447,11 +447,11 @@ pkgcache() {
 		ALL_SOURCES_SIZE=0M
 	fi
 	
-	msg "${color_cyan}Package cache ($ALL_PACKAGES_SIZE):${color_reset}"
+	msg "${CYAN}Package cache ($ALL_PACKAGES_SIZE):${CRESET}"
 	[ ${#ALL_PACKAGES[@]} -gt 0 ] && (echo ${ALL_PACKAGES[@]} | tr ' ' '\n') || echo "(none)"
 	
 	echo ""
-	msg "${color_cyan}Source cache ($ALL_SOURCES_SIZE):${color_reset}"
+	msg "${CYAN}Source cache ($ALL_SOURCES_SIZE):${CRESET}"
 	[ ${#ALL_SOURCES[@]} -gt 0 ] && (echo ${ALL_SOURCES[@]} | tr ' ' '\n') || echo "(none)"
 	
 }
@@ -518,15 +518,15 @@ listports() {
 			for ports in $(ls $repo/*/$BUILD_SCRIPT | rev | cut -d '/' -f2 | rev 2>/dev/null); do
 				. "$repo/$ports/$BUILD_SCRIPT"
 				if [ -f "$PACKAGE_DIR/$name-$version-$release.spkg.txz" ]; then
-					echo -e "$name ${color_green}$version${color_reset}-${color_blue}$release${color_reset} ${color_purple}[*]${color_reset}"
+					echo -e "$name ${GREEN}$version${CRESET}-${BLUE}$release${CRESET} ${PURPLE}[*]${CRESET}"
 				else
-					echo -e "$name ${color_green}$version${color_reset}-${color_blue}$release${color_reset}"
+					echo -e "$name ${GREEN}$version${CRESET}-${BLUE}$release${CRESET}"
 				fi
 			done
 		fi
 	done
 	
-	[ "$REPO_EXIST" ] || msgerr "Repository ${color_red}$1${color_reset} not exist."
+	[ "$REPO_EXIST" ] || msgerr "Repository ${RED}$1${CRESET} not exist."
 	
 }
 
@@ -611,10 +611,10 @@ missingdep() {
 			done
 		fi
 		if [ ${#msd[@]} -gt 0 ]; then
-			echo -e "${color_green}$pkg${color_reset} missing ${color_red}${msd[@]}${color_reset}"
+			echo -e "${GREEN}$pkg${CRESET} missing ${RED}${msd[@]}${CRESET}"
 		fi
 		if [ ${#msmd[@]} -gt 0 ]; then
-			echo -e "${color_green}$pkg${color_reset} missing ${color_red}${msmd[@]}${color_reset} ${color_blue}(make)${color_reset}"
+			echo -e "${GREEN}$pkg${CRESET} missing ${RED}${msmd[@]}${CRESET} ${BLUE}(make)${CRESET}"
 		fi
 	done
 
@@ -644,7 +644,7 @@ missingport() {
 				for dep in $depends; do
 					if ! getportpath $dep >/dev/null; then
 						ms+=($dep)
-						#echo -e "${color_green}$portname${color_reset} requires ${color_red}$dep${color_reset}"
+						#echo -e "${GREEN}$portname${CRESET} requires ${RED}$dep${CRESET}"
 					fi
 				done
 			fi
@@ -652,15 +652,15 @@ missingport() {
 				for mdep in $makedepends; do
 					if ! getportpath $mdep >/dev/null; then
 						mms+=($mdep)
-						#echo -e "${color_green}$portname${color_reset} requires ${color_red}$mdep${color_reset} ${color_blue}(make)${color_reset}"
+						#echo -e "${GREEN}$portname${CRESET} requires ${RED}$mdep${CRESET} ${BLUE}(make)${CRESET}"
 					fi
 				done
 			fi
 			if [ ${#ms[@]} -gt 0 ]; then
-				echo -e "${color_green}$portname${color_reset} requires ${color_red}${ms[@]}${color_reset}"
+				echo -e "${GREEN}$portname${CRESET} requires ${RED}${ms[@]}${CRESET}"
 			fi
 			if [ ${#mms[@]} -gt 0 ]; then
-				echo -e "${color_green}$portname${color_reset} requires ${color_red}${mms[@]}${color_reset} ${color_blue}(make)${color_reset}"
+				echo -e "${GREEN}$portname${CRESET} requires ${RED}${mms[@]}${CRESET} ${BLUE}(make)${CRESET}"
 			fi
 		done
 	done
@@ -684,7 +684,6 @@ Options:
   -pd, --package-dir <path>           override directory path for compiled package
   -v,  --verbose                      verbose process
   -im, --ignore-mdsum                 skip md5sum check for sources
-  -um, --update-mdsum                 update md5sum file for port
   -do, --download-only                download sources only
   -eo, --extract-only                 extract sources only
   -kw, --keep-work                    keep working directory
@@ -752,7 +751,6 @@ parse_options() {
 			-fr |     --force-rebuild) OPTS+=($1) ;;
 			-v  |           --verbose) OPTS+=($1) ;;
 			-im |      --ignore-mdsum) OPTS+=($1) ;;
-			-um |      --update-mdsum) OPTS+=($1) ;;
 			-do |     --download-only) OPTS+=($1) ;;
 			-eo |      --extract-only) OPTS+=($1) ;;
 			-kw |         --keep-work) OPTS+=($1) ;;

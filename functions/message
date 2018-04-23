@@ -1,23 +1,23 @@
 #!/bin/bash
 
 msg() {
-	echo -e "${color_green}==>${color_reset} $1"
+	echo -e "${GREEN}==>${CRESET} $1"
 }
 
 msginfo() {
-	echo -e "${color_cyan}==> INFO:${color_reset} $1"
+	echo -e "${CYAN}==> INFO:${CRESET} $1"
 }
 
 msgerr() {
-	echo -e "${color_red}==> ERROR:${color_reset} $1"
+	echo -e "${RED}==> ERROR:${CRESET} $1"
 }
 
 msgwarn() {
-	echo -e "${color_yellow}==> WARNING:${color_reset} $1"
+	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
 }
 
 msg2() {
-	echo -e "${color_blue}  ->${color_reset} $1"
+	echo -e "${BLUE}  ->${CRESET} $1"
 }
 
 msg3() {

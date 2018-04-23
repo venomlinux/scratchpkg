@@ -6,7 +6,7 @@ source "$FUNCTIONS/options"
 source "$FUNCTIONS/color"
 source "$FUNCTIONS/message"
 
-### SET SOME VALUE ###
+# defaults value
 CONF_FILE="/etc/scratchpkg.conf"
 BUILD_SCRIPT="spkgbuild"
 
@@ -32,15 +32,18 @@ else
 	exit 1
 fi
 	
-### SET BSDTAR FOR EXTRACT PROGRAM IF LIBARCHIVE IS INSTALLED ###
-if [ "$(type -pa bsdtar)" ]; then
-	EXTPROG=bsdtar
+# check for extract tool
+if [ "$(type -p bsdtar)" ]; then
+	EXTPROG=$(type -p bsdtar)
+elif [ "$(type -p tar)" ]; then
+	EXTPROG=$(type -p tar)
 else
-	EXTPROG=tar
+	msgerr "libarchive or tar is needed. Aborted"
+	exit 1
 fi
 
 
-### FUNCTIONS LOAD BY SCRATCHPKG ###
+# functions load by scratchpkg
 pushd() {
     command pushd "$@" >/dev/null
 }
@@ -83,13 +86,14 @@ needroot() {
 
 checktool() {
 	
-	if ! type -pa $1 &>/dev/null; then
+	if ! type -p $1 &>/dev/null; then
 		msgerr "$1 not exist in your system!"
 		exit 1
 	fi
 	
 }
 
+# function to print all installed packages
 allinstalled() {
 	
 	ls ${INDEX_DIR}/*/.pkginfo | rev | cut -d '/' -f2 | rev 2>/dev/null
@@ -98,13 +102,13 @@ allinstalled() {
 
 getpkginfo() {
 	
-	description=$(cat $BUILD_SCRIPT | grep ^'# description' | sed 's/\://' | cut -d ' ' -f 3-)
-	backup=$(cat $BUILD_SCRIPT | grep ^'# backup' | sed 's/\://' | cut -d ' ' -f 3-)
-	conflict=$(cat $BUILD_SCRIPT | grep ^'# conflict' | sed 's/\://' | cut -d ' ' -f 3-)
-	depends=$(cat $BUILD_SCRIPT | grep ^'# depends' | sed 's/\://' | cut -d ' ' -f 3-)
-	makedepends=$(cat $BUILD_SCRIPT | grep ^'# makedepends' | sed 's/\://' | cut -d ' ' -f 3-)
-	noextract=$(cat $BUILD_SCRIPT | grep ^'# noextract' | sed 's/\://' | cut -d ' ' -f 3-)
-	options=$(cat $BUILD_SCRIPT | grep ^'# options' | sed 's/\://' | cut -d ' ' -f 3-)
+	description=$(grep "^# description[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+	backup=$(grep "^# backup[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
+	conflict=$(grep "^# conflict[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# conflict[[:blank:]]*:[[:blank:]]*//')
+	depends=$(grep "^# depends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+	makedepends=$(grep "^# makedepends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# makedepends[[:blank:]]*:[[:blank:]]*//')
+	noextract=$(grep "^# noextract[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
+	options=$(grep "^# options[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# options[[:blank:]]*:[[:blank:]]*//')
 	
 	. $BUILD_SCRIPT
 		
@@ -150,7 +154,6 @@ installed_pkg_info() {
 
 getinfopkg() {
 	
-	#echo $(tar xf $2 .pkginfo -O | grep ^$1 | cut -d " " -f3)
 	cat /tmp/spkg.$2.pkginfo | grep ^$1 | cut -d " " -f3
 	
 }
@@ -170,7 +173,7 @@ vercomp() {
 createtemplate() {
 	
 	if [ -d $1 ]; then
-		msg "Error directory ${color_red}$1${color_reset} already exist"
+		msg "Error directory ${RED}$1${CRESET} already exist"
 		exit 1
 	else
 		mkdir $1
@@ -186,6 +189,7 @@ version=
 release=1
 options=()
 source=()
+md5sum=()
 
 build() {
 	cd \$name-\$version
@@ -193,7 +197,7 @@ build() {
 	make
 	make DESTDIR=\$PKG install
 }" > $1/$BUILD_SCRIPT
-	msg "Template port have created for ${color_green}$1${color_reset}."
+	msg "Template port have created for ${GREEN}$1${CRESET}."
 	fi
 	
 }
@@ -202,7 +206,7 @@ checkdirexist() {
 	
 	for dir in "$@"; do
 		if [ ! -d $dir ]; then
-			msgwarn "Directory ${color_yellow}$dir${color_reset} not exist."
+			msgwarn "Directory ${YELLOW}$dir${CRESET} not exist."
 			DIR_ERROR=yes
 		fi
 	done
@@ -215,7 +219,7 @@ checkdirwrite() {
 	
 	for dir in "$@"; do
 		if [ ! -w $dir ]; then
-			msgwarn "Directory ${color_yellow}$dir${color_reset} not writable."
+			msgwarn "Directory ${YELLOW}$dir${CRESET} not writable."
 			DIR_ERROR=yes
 		fi
 	done
@@ -228,7 +232,7 @@ checkdirread() {
 	
 	for dir in "$@"; do
 		if [ ! -x $dir ] || [ ! -r $1 ]; then
-			msgwarn "Directory ${color_yellow}$dir${color_reset} not readable."
+			msgwarn "Directory ${YELLOW}$dir${CRESET} not readable."
 			DIR_ERROR=yes
 		fi
 	done

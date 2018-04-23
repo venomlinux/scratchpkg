@@ -21,7 +21,7 @@ installpkg() {
 		checkdeps
 	fi
 	
-	msg "Installing ${color_green}$name-$version-$release${color_reset}..."
+	msg "Installing ${GREEN}$name-$version-$release${CRESET}..."
 	
 	# noextract file into system
 	for noextr in ${NO_EXTRACT[@]}; do
@@ -65,21 +65,15 @@ installpkg() {
 	fi
 	
 	#installing package into system
-	if [[ $(tar -tf "$PKGNAME") ]]; then
-		msg2 "Extracting package..."
-		if [ "$VERBOSE_INSTALL" ]; then
-			tar --keep-directory-symlink --no-overwrite-dir -p -x -v -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
-		else
-			tar --keep-directory-symlink --no-overwrite-dir -p -x -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
-		fi
+	msg2 "Extracting package..."
+	if [ "$VERBOSE_INSTALL" ]; then
+		tar --keep-directory-symlink --no-overwrite-dir -p -x -v -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
 	else
-		msgerr "Package is corrupted. Aborted!"
-		spkglock
-		exit 1
+		tar --keep-directory-symlink --no-overwrite-dir -p -x -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
 	fi
 	
 	if [ $? != 0 ]; then
-		msgerr "Failed install ${color_red}$name-$version-$release${color_reset}."
+		msgerr "Failed install ${RED}$name-$version-$release${CRESET}."
 			while IFS=' ' read -r line; do
 				pushd $ROOT_DIR
 						rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
@@ -106,29 +100,29 @@ installpkg() {
 	restoreconf
 	
 	case $PREINSTALL_STATUS in
-		OK) msg "preinstall	: ${color_green}OK${color_reset}" ;;
-		KO) msg "preinstall	: ${color_red}FAIL${color_reset}" ;;
+		OK) msg "preinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) msg "preinstall	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $PREUPGRADE_STATUS in
-		OK) msg "preupgrade	: ${color_green}OK${color_reset}" ;;
-		KO) msg "preupgrade	: ${color_red}FAIL${color_reset}" ;;
+		OK) msg "preupgrade	: ${GREEN}OK${CRESET}" ;;
+		KO) msg "preupgrade	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $POSTINSTALL_STATUS in
-		OK) msg "postinstall	: ${color_green}OK${color_reset}" ;;
-		KO) msg "postinstall	: ${color_red}FAIL${color_reset}" ;;
+		OK) msg "postinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) msg "postinstall	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $POSTUPGRADE_STATUS in
-		OK) msg "postupgrade	: ${color_green}OK${color_reset}" ;;
-		KO) msg "postupgrade	: ${color_red}FAIL${color_reset}" ;;
+		OK) msg "postupgrade	: ${GREEN}OK${CRESET}" ;;
+		KO) msg "postupgrade	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	runhooks
 	
 	if [ -f $INDEX_DIR/$name/.pkgreadme ]; then
-		msg "This package has ${color_green}readme${color_reset}"
+		msg "This package has ${GREEN}readme${CRESET}"
 	fi
 	
 	# remove lock file
@@ -176,7 +170,7 @@ registerpkg() {
 	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 	
-	msg "Successfully install ${color_green}$name-$version-$release${color_reset}."
+	msg "Successfully install ${GREEN}$name-$version-$release${CRESET}."
 	
 }
 
@@ -206,7 +200,7 @@ checkpkgconflict() {
 	
 	for pkg in ${conflict[@]}; do
 		if [ -d $INDEX_DIR/$pkg ]; then
-			msg "Conflict package!: ${color_yellow}$pkg${color_reset}"
+			msg "Conflict package!: ${YELLOW}$pkg${CRESET}"
 			PKG_CONFLICT=yes
 		fi
 	done
@@ -259,38 +253,12 @@ upcheckconflict() {
 	
 }
 
-# get information from compressed package
-#getname() {
-	
-	#name=$(tar xf $PKGNAME .pkginfo -O | grep ^name | cut -d " " -f3)
-	#version=$(tar xf $PKGNAME .pkginfo -O | grep ^version | cut -d " " -f3)
-	#release=$(tar xf $PKGNAME .pkginfo -O | grep ^release | cut -d " " -f3)
-	#depends=$(tar xf $PKGNAME .pkginfo -O | grep ^depends | cut -d " " -f3-)
-	#makedepends=$(tar xf $PKGNAME .pkginfo -O | grep ^makedepends | cut -d " " -f3-)
-	#conflict=$(tar xf $PKGNAME .pkginfo -O | grep ^conflict | cut -d " " -f3-)
-	
-	#packagename=$name-$version-$release
-	
-#}
-
-# get information from package index
-#getoldname() {
-	
-	#iname=$(cat $INDEX_DIR/$name/.pkginfo | grep ^name | cut -d " " -f3)
-	#iversion=$(cat $INDEX_DIR/$name/.pkginfo | grep ^version | cut -d " " -f3)
-	#irelease=$(cat $INDEX_DIR/$name/.pkginfo | grep ^release | cut -d " " -f3)
-	#backup=$(cat $INDEX_DIR/$name/.pkginfo | grep ^backup | cut -d " " -f3-)
-	
-	#ipackagename=$iname-$iversion-$irelease
-	
-#}
-
 backupconf() {
 	
 	pushd $ROOT_DIR	
 		for bkp in ${backup[@]}; do
 			if [ -e $bkp ]; then
-				msg2 "Backup ${color_purple}$bkp${color_reset}"
+				msg2 "Backup ${PURPLE}$bkp${CRESET}"
 				rm -f $bkp.spkgtmp
 				cp $bkp $bkp.spkgtmp
 				FILEBACKUP+=($bkp)
@@ -317,7 +285,7 @@ restoreconf() {
 checkoutdate() {
 	
 	if [ "$version-$release" = "$iversion-$irelease" ]; then
-		msg "Package ${color_green}$name${color_reset} is up-to-date."
+		msg "Package ${GREEN}$name${CRESET} is up-to-date."
 		exit 0
 	fi
 	
@@ -493,13 +461,13 @@ main() {
 	
 	### CHECK EXISTANT OF PACKAGE FILE ###
 	if [ ! -f $PKGNAME ]; then
-		msgerr "Package ${color_red}$1${color_reset} not exist!"
+		msgerr "Package ${RED}$1${CRESET} not exist!"
 		exit 1
 	fi
 	
 	### INTEGRITY OF PACKAGE ###
 	if ! tar -tf $PKGNAME &>/dev/null; then
-		msgerr "Package ${color_red}$1${color_reset} is corrupted!"
+		msgerr "Package ${RED}$1${CRESET} is corrupted!"
 		exit 1
 	fi
 	
@@ -514,7 +482,7 @@ main() {
 	### CHECK FOR LOCK FILE ###
 	if [ -f /tmp/spkg.lock ]; then
 		msgerr "Cant install/remove package simultaneously."
-		msgerr "remove ${color_yellow}/tmp/spkg.lock${color_reset} if no install/remove package process running."
+		msgerr "remove ${YELLOW}/tmp/spkg.lock${CRESET} if no install/remove package process running."
 		exit 1
 	fi
 	
@@ -539,14 +507,14 @@ main() {
 		iname=$(installed_pkg_info name $name)
 		iversion=$(installed_pkg_info version $name)
 		irelease=$(installed_pkg_info release $name)
-		msg "Package ${color_green}$iname-$iversion-$irelease${color_reset} already installed."
+		msg "Package ${GREEN}$iname-$iversion-$irelease${CRESET} already installed."
 		exit 0
 	fi
 	
 	### IF UPGRADE OR REINSTALL PACKAGE ###
 	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then	
 		if [ ! -d $INDEX_DIR/$name ]; then
-			msg "Package ${color_red}$name${color_reset} is not installed."
+			msg "Package ${RED}$name${CRESET} is not installed."
 			exit 1
 		fi
 		iname=$(installed_pkg_info name $name)
@@ -559,10 +527,10 @@ main() {
 				exit 0
 			fi
 			checkoutdate
-			msg "Upgrading package: ${color_yellow}$iname-$iversion-$irelease${color_reset} -> ${color_green}$name-$version-$release${color_reset}"
+			msg "Upgrading package: ${YELLOW}$iname-$iversion-$irelease${CRESET} -> ${GREEN}$name-$version-$release${CRESET}"
 		# REINSTALL PACKAGE
 		elif [ "$REINSTALL_PKG" ]; then
-			msg "Reinstall package ${color_green}$name${color_reset}."
+			msg "Reinstall package ${GREEN}$name${CRESET}."
 		fi
 	fi
 	

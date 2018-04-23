@@ -4,52 +4,80 @@ export LC_ALL=C
 	
 . /usr/share/scratchpkg/functions || exit 1
 
+source_check() {
+	
+	url_stat=0
+	
+	for sources in ${source[@]}; do
+		if [ $(echo $sources | grep -E "(ftp|http|https)://") ]; then
+			if [ $(echo $sources | grep -E "::(ftp|http|https)://") ]; then
+				uri=$(echo "$sources" | awk -F '::' '{print $2}')
+			else
+				uri="$sources"
+			fi
+		fi
+		echo -ne "Checking $uri ... "
+		wget --spider -q "$uri"
+		if [ $? = 0 ]; then
+			echo -e ${GREEN}OK${CRESET}
+		else
+			url_stat=$?
+			echo -e ${RED}FAILED${CRESET}
+		fi
+	done
+	
+	return ${url_stat}
+	
+}
+
 updatemdsum() {
 	
-	if [ ! -z $source ]; then
-		for um in $(seq 0 $((${#source[@]} - 1))); do
-			if [ $(echo ${source[$um]} | grep -E "(ftp|http|https)://") ]; then
-				if [ $(echo ${source[$um]} | grep -E "::(ftp|http|https)://") ]; then
-					sourcename="$SOURCE_DIR/$(echo ${source[$um]} | awk -F '::' '{print $1}')"
-				else
-					sourcename="$SOURCE_DIR/$(echo ${source[$um]} | rev | cut -d / -f 1 | rev)"
-				fi
-			else
-				sourcename="${source[$um]}"
-			fi
-			needupdatechecksum="$needupdatechecksum $sourcename"
-		done
-		
-		for file in ${needupdatechecksum[@]}; do
-			if [ ! -f $file ]; then
-				missingsource+=($file)
-			fi
-		done
-		
-		if [ "${#missingsource[@]}" -gt 0 ]; then
-			msg "Missing source:"
-			for ms in ${missingsource[@]}; do
-				msg2 "$ms"
-			done
-			exitscript1
-		fi
-		
-		md5sum $needupdatechecksum | awk '{ print $1 }' > .md5sum
-		[ -f .md5sum ] && msg "md5sum updated."
-	else
-		echo "" > .md5sum
+	if [ -z $source ]; then
+		msgwarn "source=() is empty, no need md5sum."
+		return 0
 	fi
+		
+	for um in $(seq 0 $((${#source[@]} - 1))); do
+		if [ $(echo ${source[$um]} | grep -E "(ftp|http|https)://") ]; then
+			if [ $(echo ${source[$um]} | grep -E "::(ftp|http|https)://") ]; then
+				sourcename="$SOURCE_DIR/$(echo ${source[$um]} | awk -F '::' '{print $1}')"
+			else
+				sourcename="$SOURCE_DIR/$(echo ${source[$um]} | rev | cut -d / -f 1 | rev)"
+			fi
+		else
+			sourcename="${source[$um]}"
+		fi
+		needupdatechecksum="$needupdatechecksum $sourcename"
+	done
+	
+	for file in ${needupdatechecksum[@]}; do
+		if [ ! -f $file ]; then
+			missingsource+=($file)
+		fi
+	done
+	
+	if [ "${#missingsource[@]}" -gt 0 ]; then
+		msg "Missing source:"
+		for ms in ${missingsource[@]}; do
+			msg2 "$ms"
+		done
+		return 1
+	fi
+	
+	echo -e "md5sum=($(md5sum $needupdatechecksum | awk '{ print $1 }'))"
+		
 }
 
 checkmdsum() {
 	
-	for i in $(cat .md5sum); do
-		mdsums+=($i)
-	done
+	if [ -z $md5sum ]; then
+		msgwarn "md5sum is empty, please provide it."
+		return 0
+	fi
 	
-	if [ "${#source[@]}" != "${#mdsums[@]}" ]; then
+	if [ "${#source[@]}" != "${#md5sum[@]}" ]; then
 		msgerr "Total source and md5sums different."
-		exitscript1
+		return 1
 	fi
 	
 	for s in $(seq 0 $((${#source[@]} - 1))); do
@@ -63,7 +91,7 @@ checkmdsum() {
 			sourcename="${source[$s]}"
 		fi
 		sum=$(md5sum "$sourcename" | awk '{ print $1 }')
-		if [ "$sum" != "${mdsums[$s]}" ] && [ "SKIP" != "${mdsums[$s]}" ]; then
+		if [ "$sum" != "${md5sum[$s]}" ] && [ "SKIP" != "${md5sum[$s]}" ]; then
 			errormdsum+=($sourcename)
 		fi
 	done
@@ -73,7 +101,7 @@ checkmdsum() {
 		for mismatch in ${errormdsum[@]}; do
 			msg2 "$mismatch"
 		done
-		exitscript1
+		return 1
 	fi
 	
 }
@@ -107,14 +135,14 @@ downloadsource(){
 			fi
 		fi
 		if [ -f $SOURCE_DIR/$tarballname ]; then
-			msg "Source file ${color_green}$tarballname${color_reset} found."
+			msg "Source file ${GREEN}$tarballname${CRESET} found."
 		else
 			checktool wget
 			if [ -f $SOURCE_DIR/$tarballname.partial ]; then
-				msg "Resuming ${color_green}$1${color_reset}."
+				msg "Resuming ${GREEN}$1${CRESET}."
 				$WGETRESUME $tarballurl && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			else
-				msg "Downloading ${color_green}$1${color_reset}."
+				msg "Downloading ${GREEN}$1${CRESET}."
 				$WGETCMD $tarballurl && mv $SOURCE_DIR/$tarballname.partial $SOURCE_DIR/$tarballname || exitscript1
 			fi
 		fi
@@ -143,7 +171,7 @@ preparesource() {
 					for i in ${noextract[@]}; do
 						if [ "$i" = "$tarballname" ]; then
 							NO_EXTRACT=yes
-							msg "Preparing ${color_green}$tarballname${color_reset}..." && cp $SOURCE_DIR/$tarballname $SRC || ERROR_PREPARE_SOURCE+=($tarballname)
+							msg "Preparing ${GREEN}$tarballname${CRESET}..." && cp $SOURCE_DIR/$tarballname $SRC || ERROR_PREPARE_SOURCE+=($tarballname)
 							break
 						fi
 					done
@@ -157,17 +185,17 @@ preparesource() {
 									MODE="Preparing" ;;				
 							esac
 							
-							msg2 "$MODE ${color_green}$tarballname${color_reset}..."
+							msg2 "$MODE ${GREEN}$tarballname${CRESET}..."
 							$COMMAND
 							
 							if [ $? != 0 ]; then
-								msgerr "$MODE ${color_red}$tarballname${color_reset} failed."
+								msgerr "$MODE ${RED}$tarballname${CRESET} failed."
 								clearworkdir
 								exitscript1
 							fi						
 						fi
 			else
-				msg2 "Preparing ${color_green}$sources${color_reset}..." && cp $sources $SRC || ERROR_PREPARE_SOURCE+=($sources)
+				msg2 "Preparing ${GREEN}$sources${CRESET}..." && cp $sources $SRC || ERROR_PREPARE_SOURCE+=($sources)
 			fi
 		done
 	fi
@@ -195,18 +223,18 @@ loadspkgbuild() {
 
 buildpackage() {
 	
-	msg "Start build ${color_green}$name-$version-$release${color_reset}."
+	msg "Start build ${GREEN}$name-$version-$release${CRESET}."
 	
 	pushd $SRC
 	
 	(exec &> >(tee -i $LOG_DIR/$name.log); echo "$name-$version"; echo $(date); set -e -x; build)
 		
 		if [ $? != 0 ]; then
-			msgerr "Build ${color_red}$PKGNAME${color_reset} failed."	
+			msgerr "Build ${RED}$PKGNAME${CRESET} failed."	
 			clearworkdir
 			exitscript1
 		else
-			msg "Successfully build ${color_green}$name-$version-$release${color_reset}."
+			msg "Successfully build ${GREEN}$name-$version-$release${CRESET}."
 		fi
 	
 	popd
@@ -262,7 +290,7 @@ packaging() {
 	[ -n "$makedepends" ] && for md in ${makedepends[@]}; do echo "makedepends = $md" >> .pkginfo; done
 	[ -n "$noextract" ] && echo "noextract = $noextract" >> .pkginfo
 	
-	msg "Packaging ${color_green}$name-$version-$release${color_reset}..."
+	msg "Packaging ${GREEN}$name-$version-$release${CRESET}..."
 	
 	for file in .pkginstall .pkgreadme; do
 		if [ -f $file ]; then
@@ -272,7 +300,7 @@ packaging() {
 	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo "${addtotar[@]}"
 	
 	if [ $? != 0 ]; then
-		msgerr "Packaging ${color_red}$PKGNAME${color_reset} failed."
+		msgerr "Packaging ${RED}$PKGNAME${CRESET} failed."
 		if [ -f $PACKAGE_DIR/$PKGNAME ]; then
 			rm $PACKAGE_DIR/$PKGNAME
 		fi
@@ -280,12 +308,12 @@ packaging() {
 	else
 		pkgsize="$(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}')"
 		$EXTPROG -t -v -f $PACKAGE_DIR/$PKGNAME
-		msg "Successfully create package ${color_green}$PKGNAME${color_reset}. (${pkgsize})"
+		msg "Successfully create package ${GREEN}$PKGNAME${CRESET}. (${pkgsize})"
 	fi
 	
 	case $PREINSTALL_STATUS in
-		OK) msg "preinstall	: ${color_green}OK${color_reset}" ;;
-		KO) msg "preinstall	: ${color_red}FAIL${color_reset}" ;;
+		OK) msg "preinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) msg "preinstall	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	popd
@@ -300,11 +328,7 @@ buildpkg() {
 	getsource
 	
 	if [ ! "$IGNORE_MDSUM" ]; then
-		if [ -f .md5sum ]; then
-			checkmdsum
-		else
-			updatemdsum
-		fi
+		checkmdsum || exitscript1
 	fi
 	preparesource
 	
@@ -368,7 +392,7 @@ checkdeps() {
 			msg2 "$msd"
 		done
 		for msmkd in ${MSMKDEP[@]}; do
-			msg2 "$msmkd ${color_cyan}(make)${color_reset}"
+			msg2 "$msmkd ${CYAN}(make)${CRESET}"
 		done
 		exitscript1
 	fi
@@ -464,7 +488,7 @@ clearworkdir() {
 
 interrupted() {
 	#echo ""
-	#msg "${color_yellow}Interrupted!${color_reset}"
+	#msg "${YELLOW}Interrupted!${CRESET}"
 	clearworkdir
 	exitscript1
 }
@@ -492,11 +516,12 @@ Options:
   -fr, --force-rebuild       rebuild package
   -im, --ignore-mdsum        skip md5sum checking
   -um, --update-mdsum        update md5sum
-  -cm, --check-mdsum         check md5sum for source file
+  -cm, --check-mdsum         calculate and print md5sum for source file
   -do, --download-only       download only source file
   -eo, --extract-only        extract only source file
   -kw, --keep-work           keep working directory
   -rd, --redownload          re-download source file
+  -cs, --check-source        check dead url for sources
   -sd, --source-dir <path>   override directory path for sources
   -pd, --package-dir <path>  override directory path for compiled package
   -h,  --help                show this help message
@@ -536,6 +561,7 @@ parse_options() {
 		-eo |      --extract-only) EXTRACT_ONLY=yes                ;;
 		-kw |         --keep-work) KEEP_WORK=yes                   ;;
 		-rd |        --redownload) REDOWNLOAD_SOURCE=yes           ;;
+		-cs |      --check-source) SOURCE_CHECK=yes                ;;
 		-h  |              --help) SHOWHELP=yes                    ;;
 		-sd |        --source-dir) testinput "$2" && SOURCE_DIR="$2"  || exit 1; shift ;;
 		-pd |       --package-dir) testinput "$2" && PACKAGE_DIR="$2" || exit 1; shift ;;
@@ -561,18 +587,25 @@ main() {
 		exit 0
 	fi
 	
-	#check_directory
+	# source spkgbuild
+	loadspkgbuild
+	
+	# show help page
+	if [ "$SOURCE_CHECK" ]; then
+		source_check || exit $?
+		exit 0
+	fi
+	
+	# check required directory
 	checkdirexist "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
 	checkdirwrite "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
-	checkdirread "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
-	
-	loadspkgbuild
+	checkdirread  "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
 	
 	if [ "$INSTALL_PKG" ] || [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		NO_ORPHAN_CHECK=yes
 	fi
 	
-	### CHECK SPKGBUILD ###
+	# check the required field in spkgbuild
 	if [ -z "$name" ]; then
 		msgerr "'name' is empty!"
 		exit 1
@@ -592,37 +625,36 @@ main() {
 	
 	PKGNAME="$name-$version-$release.spkg.txz"
 	
-	### UPDATE CHECKSUM ###
+	# calculate & print md5sum
 	if [ "$UPDATE_MDSUM" ]; then
-		getsource
 		updatemdsum
 		exit 0
 	fi
 	
-	### CHECK FOR LOCK FILE ###
+	# check for lock file
 	if [ -f /tmp/spkg.$name.lock ]; then
 		msgerr "Cant build same package simultaneously."
-		msgerr "remove ${color_yellow}/tmp/spkg.$name.lock${color_reset} if no build process for ${color_yellow}$name.${color_reset}"
+		msgerr "remove ${YELLOW}/tmp/spkg.$name.lock${CRESET} if no build process for ${YELLOW}$name.${CRESET}"
 		exit 1
 	fi
 	
-	### DOWNLOAD ONLY ###
+	# download source only
 	if [ "$DOWNLOAD_ONLY" ]; then
 		getsource
 		exit 0
 	fi
 	
-	### EXTRACT ONLY ###
+	# extract source only
 	if [ "$EXTRACT_ONLY" ]; then
 		getsource
 		preparesource
 		exit 0
 	fi
 	
-	### BUILD ###
+	# build package
 	if [ -f $PACKAGE_DIR/$PKGNAME ] && [ ! "$FORCE_REBUILD" ]; then # if package txz exist and not force rebuild
 		if [ ! "$INSTALL_PKG" ] && [ ! "$REINSTALL_PKG" ] && [ ! "$UPGRADE_PKG" ]; then
-			msg "${color_green}$PKGNAME${color_reset} is up-to-date."
+			msg "${GREEN}$PKGNAME${CRESET} is up-to-date."
 			exitscript0
 		fi
 	else
@@ -640,7 +672,7 @@ main() {
 		fi
 	fi
 	
-	### INSTALL PACKAGE ###
+	# install package
 	if [ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ]; then
 		installpkg $PACKAGE_DIR/$PKGNAME ${OPTS[@]} || exitscript1
 	fi
