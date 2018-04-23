@@ -71,7 +71,7 @@ updatemdsum() {
 checkmdsum() {
 	
 	if [ -z $md5sum ]; then
-		msgwarn "md5sum is empty, please provide it."
+		msgwarn "md5sum=() is empty, please provide it."
 		return 0
 	fi
 	
