@@ -51,7 +51,7 @@ calc_dep $1
 
 for deps in ${DEP[@]}; do
 	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
-		echo -e "$deps ${color_green}[installed]${color_reset}"
+		echo -e "$deps ${GREEN}[installed]${CRESET}"
 	else
 		echo $deps
 	fi

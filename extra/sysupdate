@@ -49,7 +49,7 @@ fi
 if [ "${#successuppkg[@]}" -gt 0 ]; then
 	echo "Successfully update this package(s):"
 	for ok in ${successuppkg[@]}; do
-		echo -e "${color_green}>>>${color_reset} $ok"
+		echo -e "${GREEN}>>>${CRESET} $ok"
 	done
 fi
 
@@ -57,7 +57,7 @@ if [ "${#faileduppkg[@]}" -gt 0 ]; then
 	[ "${#successuppkg[@]}" -gt 0 ] && echo # make space between success and failed
 	echo "Failed update this package(s):"
 	for ko in ${faileduppkg[@]}; do
-		echo -e "${color_red}>>>${color_reset} $ko"
+		echo -e "${RED}>>>${CRESET} $ko"
 	done
 fi
 

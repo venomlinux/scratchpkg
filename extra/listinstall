@@ -91,7 +91,7 @@ done
 
 #for i in $list; do
 	#if [ -d $INDEX_DIR/$i ]; then
-		#msg "$i ${color_green}[installed]${color_reset}"
+		#msg "$i ${GREEN}[installed]${CRESET}"
 	#else
 		#echo
 		#msg "installing $i..."

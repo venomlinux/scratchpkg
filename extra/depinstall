@@ -15,7 +15,7 @@ fi
 checkinstalled() {
 
 	if [ -d $INDEX_DIR/$1 ]; then
-		msg "Package ${color_green}$1${color_reset} already installed"
+		msg "Package ${GREEN}$1${CRESET} already installed"
 	else
 		depinst $1
 	fi
@@ -33,7 +33,7 @@ checkpkg() {
 			fi
 		done
 		if [ ! "$PORT_EXIST" ]; then
-			msgerr "Port ${color_red}$arg${color_reset} not exist"
+			msgerr "Port ${RED}$arg${CRESET} not exist"
 			exit 1
 		fi
 		unset PORT_EXIST

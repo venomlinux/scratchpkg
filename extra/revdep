@@ -58,7 +58,7 @@ allpkg() {
 						MISSING_LIB=""
 						for i in $LIB_NAME; do
 							if echo $REQ_LIB | grep -q $i; then
-								[ "$VERBOSE" ] && echo -e "(${color_green}$PKG_NAME${color_reset}) $line ${color_green}>>>${color_reset} $i"
+								[ "$VERBOSE" ] && echo -e "(${GREEN}$PKG_NAME${CRESET}) $line ${GREEN}>>>${CRESET} $i"
 								if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
 									continue
 								else
@@ -81,7 +81,7 @@ allpkg() {
 		[ -z "$VERBOSE" ] || echo
 		echo "This package(s) need rebuild:"
 		for rebuild in ${ALLPKG[@]}; do
-			echo -e "${color_green}>>>${color_reset} $rebuild"
+			echo -e "${GREEN}>>>${CRESET} $rebuild"
 		done
 	else
 		msg "All packages is doing fine."
