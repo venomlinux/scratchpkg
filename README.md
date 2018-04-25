@@ -245,7 +245,7 @@ Extra tools is some scripts come with scratchpkg to help users do things more ea
 * `baseinstall`: A script to build base system.
 * `chroot-scratch`: Chroot script.
 * `depinstall`: Install package listed by `deplist`.
-* `deplist`: Script for calculate all needed dependencies (dependencies order is not right).
+* `deplist`: Script for calculate all needed dependencies.
 * `libdepends`: Script to list package depends by shared libraries.
 * `listinstall`: Install listed packages in a file.
 * `revdep`: A reverse dependency script (like in Gentoo and CRUX, but my version), need to run after upgrade and remove package to check broken package(s). Specify package name if want to check single package only.
