@@ -70,9 +70,9 @@ updatemdsum() {
 
 checkmdsum() {
 	
-	if [ -z $md5sum ]; then
-		msgwarn "md5sum=() is empty, please provide it."
-		return 0
+	if [ ! -z "$source" -a -z "$md5sum" ]; then
+		msgerr "md5sum=() is empty, please provide it."
+		return 1
 	fi
 	
 	if [ "${#source[@]}" != "${#md5sum[@]}" ]; then
@@ -369,7 +369,7 @@ checkdeps() {
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
 			if [ "$INSTALL_PKG" -o "$DEP_INSTALL" ]; then
-				scratch -i -p $dep --no-orphan-check || exit 1
+				scratch -i -p $dep --no-orphan-check ${OPTS2[@]} || exit 1
 			else
 				MSDEP+=($dep)
 			fi
@@ -379,7 +379,7 @@ checkdeps() {
 	for makedep in ${makedepends[@]}; do
 		if [ ! -d $INDEX_DIR/$makedep ]; then
 			if [ "$INSTALL_PKG" -o "$DEP_INSTALL" ]; then
-				scratch -i -p $makedep --no-orphan-check || exit 1
+				scratch -i -p $makedep --no-orphan-check ${OPTS2[@]} || exit 1
 			else
 				MSMKDEP+=($makedep)
 			fi
@@ -555,7 +555,7 @@ parse_options() {
 		                    --dep) DEP_INSTALL=yes; OPTS+=($1)     ;;
 		        --no-orphan-check) NO_ORPHAN_CHECK=yes; OPTS+=($1) ;;
 		-fr |     --force-rebuild) FORCE_REBUILD=yes               ;;
-		-im |      --ignore-mdsum) IGNORE_MDSUM=yes                ;;
+		-im |      --ignore-mdsum) IGNORE_MDSUM=yes; OPTS2+=($1)   ;;
 		-um |      --update-mdsum) UPDATE_MDSUM=yes                ;;
 		-do |     --download-only) DOWNLOAD_ONLY=yes               ;;
 		-eo |      --extract-only) EXTRACT_ONLY=yes                ;;
@@ -563,8 +563,8 @@ parse_options() {
 		-rd |        --redownload) REDOWNLOAD_SOURCE=yes           ;;
 		-cs |      --check-source) SOURCE_CHECK=yes                ;;
 		-h  |              --help) SHOWHELP=yes                    ;;
-		-sd |        --source-dir) testinput "$2" && SOURCE_DIR="$2"  || exit 1; shift ;;
-		-pd |       --package-dir) testinput "$2" && PACKAGE_DIR="$2" || exit 1; shift ;;
+		-sd |        --source-dir) testinput "$2" && { SOURCE_DIR="$2"; OPTS2+=($1 $2); } || exit 1; shift ;;
+		-pd |       --package-dir) testinput "$2" && { PACKAGE_DIR="$2"; OPTS2+=($1 $2); } || exit 1; shift ;;
 		                        *) msg "Invalid option!"; exit 1   ;;
 		esac
 		shift
