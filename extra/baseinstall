@@ -114,40 +114,40 @@ for i in ${PKG[@]}; do
 		case $i in
 			glibc)
 				ln -sfv /tools/lib/gcc /usr/lib
-				ln -sfv /tools/bin/m4 /usr/bin
-				scratch -i -id -p $i || exit 1
+				#ln -sfv /tools/bin/m4 /usr/bin
+				scratch install -d $i || exit 1
 				adjustingtoolchain
 				rm /usr/lib/gcc
-				rm /usr/bin/m4
+				#rm /usr/bin/m4
 				;;
 			bc)
 				ln -sfv /tools/lib/libncursesw.so.6 /usr/lib/libncursesw.so.6
 				ln -sfv libncurses.so.6 /usr/lib/libncurses.so
-				scratch -i -id -p $i || exit 1
+				scratch install -d $i || exit 1
 				rm /usr/lib/{libncurses.so,libncursesw.so.6}
 				;;
 			gcc)
 				scratch -id -p $i || exit 1
 				rm -f /usr/lib/{libgcc_s.so{,.1},libstdc++.{a,so{,.6}}}
-				scratch -i -id -p $i || exit 1
+				scratch install -d $i || exit 1
 				;;
 			bash|coreutils|filesystem|scratchpkg)
 				# scratchpkg is hardly depends on bash and coreutils
 				# so, ignore conflict, mean just replacing the files
-				scratch -ic -i -id -p $i || exit 1
+				scratch install -dc $i || exit 1
 				;;
 			perl)
 				echo "127.0.0.1 localhost $(hostname)" > /etc/hosts
-				scratch -id -p $i || exit 1
+				scratch install -d $i || exit 1
 				rm /etc/hosts
 				rm /usr/bin/perl
-				scratch -i -id -p $i || exit 1
+				scratch install -d $i || exit 1
 				;;
 			base-meta)
-				scratch -i -p $i || exit 1
+				scratch install $i || exit 1
 				;;
 			*)
-				scratch -i -id -p $i || exit 1
+				scratch install -d $i || exit 1
 				;;
 		esac
 	fi

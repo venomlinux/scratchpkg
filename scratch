@@ -632,6 +632,10 @@ parse_build() {
 	
 	while [ "$2" ]; do
 		case $2 in
+		  --redownload) OPTS+=($2) ;;
+	   --no-preinstall) OPTS+=($2) ;;
+	        --srcdir=*) OPTS+=($2) ;;
+	        --pkgdir=*) OPTS+=($2) ;;
 			--no-color) OPTS+=($2); NOCOLOR=1 ;;
 			        -*) parse_build_opt "$2" ;;
 			         *) PKG=$2 ;;
@@ -650,6 +654,7 @@ parse_build_opt() {
 			d) OPTS+=(-${1:$i:1}) ;;
 			e) OPTS+=(-${1:$i:1}) ;;
 			w) OPTS+=(-${1:$i:1}) ;;
+			o) OPTS+=(-${1:$i:1}) ;;
 			b) set -x ;;
 			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
 		esac
@@ -679,7 +684,7 @@ parse_install_opt() {
 	
 	for (( i=1; i<${#1}; i++ )); do
 		case "${1:$i:1}" in
-			n) NO_DEP=1 ;; # skip installing dependencies
+			d) NO_DEP=1 ;; # skip installing dependencies
 			v) OPTS+=(-${1:$i:1}) ;;
 			b) set -x ;;   # debug
 			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
@@ -974,11 +979,15 @@ options:
 		-n                    skip installing dependencies (new dependencies)
 		
 	build
+		--redownload          re-download source files
+		--srcdir=<path>       override default SOURCE_DIR
+		--pkgdir=<path>       override default PACKAGE_DIR
 		-f                    force rebuild
 		-m                    skip md5sum check for sources
 		-d                    skip dependency check
 		-e                    extract only
 		-w                    keep woring directory
+		-o                    download source files only
 		
 	remove
 		--no-preremove        skip pre-remove script
@@ -1046,7 +1055,7 @@ if [ "$LISTINSTALLED" ]; then
 fi
 	
 # list orphan package (package which is no other
-# package depends on it
+# package depends on it)
 if [ "$LISTORPHAN" ]; then
 	listorphan
 	exit 0
@@ -1119,10 +1128,7 @@ if [ "$MODE" = "cat" ]; then
 fi
 	
 # list dependents for port (check through repo. input: port name)
-if [ "$MODE" = "dependent" ]; then
-	if [ -z "$PKG" ]; then
-		exit 1
-	fi
+if [ "$MODE" = "dependent" ] && [ "$PKG" ]; then
 	showdependent "$PKG"
 	exit 0
 fi
@@ -1145,21 +1151,42 @@ if [ "$MODE" = "path" ]; then
 	exit 0
 fi
 
+# update ports
+if [ "$MODE" = "portup" ]; then
+	updports
+	exit 0
+fi
+
+# search ports
+if [ "$MODE" = "search" ] && [ -n "$PKG" ]; then
+	searchpkg $PKG
+	exit 0
+fi
+
 # install mode
 if [ "$MODE" = "install" ]; then
-	for pkg in ${PKG[@]}; do
-		if getportpath "$pkg" >/dev/null; then
-			deplist "$pkg"
-		else
-			msgerr "Port '$pkg' not exist!"
-			exit 1
-		fi
-		for dep in ${DEP[@]}; do
-			if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
-				portinstall $dep -i ${OPTS[@]}
+	if [ "$NO_DEP" ]; then
+		portinstall "${PKG[@]}" -i ${OPTS[@]}
+	else
+		for pkg in ${PKG[@]}; do
+			if [ -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
+				msg "Package ${GREEN}$pkg${CRESET} already installed."
+			else
+				if getportpath "$pkg" >/dev/null; then
+					deplist "$pkg"
+				else
+					msgerr "Port '$pkg' not exist!"
+					exit 1
+				fi
+				for dep in ${DEP[@]}; do
+					if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+						portinstall $dep -i ${OPTS[@]}
+					fi
+				done
 			fi
 		done
-	done
+	fi
+	exit 0
 fi
 
 # build mode
@@ -1195,16 +1222,6 @@ if [ "$MODE" = "remove" ] && [ -n "$PKG" ]; then
 	exit $?
 fi
 
-if [ "$MODE" = "portup" ]; then
-	updports
-	exit 0
-fi
-
-if [ "$MODE" = "search" ] && [ -n "$PKG" ]; then
-	searchpkg $PKG
-	exit 0
-fi
-
 if [ "$MODE" = "depends" ] && [ -n "$PKG" ]; then
 	if getportpath "$PKG" >/dev/null; then
 		showdepends "$PKG"
@@ -1234,3 +1251,5 @@ if [ "$MODE" = "deplist" ] && [ -n "$PKG" ]; then
 	done
 	exit 0
 fi
+
+exit 0

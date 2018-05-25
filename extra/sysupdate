@@ -10,24 +10,24 @@ case "$1" in
 	-up|--update-ports)
 		msg "Updating ports..."
 		if [ $UID != 0 ]; then
-			if [ $(type -pa sudo) ]; then
-				sudo scratch -up
+			if [ $(type -p sudo) ]; then
+				sudo scratch portup
 			else
 				msgerr "Updating package need root access!"
 				exit 1
 			fi
 		else
-			scratch -up
+			scratch portup
 		fi ;;
 esac
 
 if [[ ! $(scratch -cu | grep "up to date") ]]; then
-	outdatepkg=($(scratch -cu | awk '{print $2}'))
+	outdatepkg=($(scratch query --outdate | awk '{print $2}'))
 	totalopkgs=$(echo ${#outdatepkg[@]})
 	count=1
 	for i in ${outdatepkg[@]}; do
 		if [ $UID != 0 ]; then
-			if [ $(type -pa sudo) ]; then
+			if [ $(type -p sudo) ]; then
 				echo -e "[ $count/$totalopkgs ] Updating $i..."
 				sudo scratch -u -p $i && successuppkg+=($i) || faileduppkg+=($i)
 			else
@@ -36,7 +36,7 @@ if [[ ! $(scratch -cu | grep "up to date") ]]; then
 			fi
 		else
 			echo -e "[ $count/$totalopkgs ] Updating $i..."
-			scratch -u -p $i && successuppkg+=($i) || faileduppkg+=($i)
+			scratch upgrade $i && successuppkg+=($i) || faileduppkg+=($i)
 		fi
 		echo
 		((count++))

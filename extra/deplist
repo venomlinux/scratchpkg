@@ -26,7 +26,7 @@ calc_dep() {
 	CHECK+=($1)
 	
 	# check dependencies
-	for i in $(scratch -d "$1" --no-color | awk '{print $2}'); do
+	for i in $(scratch depends "$1" --no-color | awk '{print $2}'); do
 		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -w $i) = "" ]]; then
 			calc_dep $i
 		fi
@@ -51,9 +51,9 @@ calc_dep $1
 
 for deps in ${DEP[@]}; do
 	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
-		echo -e "$deps ${GREEN}[installed]${CRESET}"
+		echo -e "[${GREEN}*${CRESET}] $deps"
 	else
-		echo $deps
+		echo "[ ] $deps"
 	fi
 done
 
