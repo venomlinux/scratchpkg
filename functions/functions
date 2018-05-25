@@ -240,3 +240,15 @@ checkdirread() {
 	[ "$DIR_ERROR" ] && exit 1
 	
 }
+
+msginst() {
+	echo -e "[${GREEN}*${CRESET}] $@"
+}
+
+msgnoinst() {
+	echo -e "[ ] $@"
+}
+
+msgmiss() {
+	echo -e "[${RED}m${CRESET}] $@"
+}

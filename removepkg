@@ -223,32 +223,55 @@ help() {
 	
 	cat << EOF	
 Usage:
-  removepkg package name [ <options> <arguments> ]
+  removepkg [ <options> <package name> ]
 
 Options:
-  -id, --ignore-dependency    skip dependency check
-  -v,  --verbose              verbose install process
-       --no-preremove         don't run pre-remove script
-       --no-postremove        don't run post-remove script
-       --no-orphan-check      skip orphaned package check after install package
-       --no-color             disable colour for output
-  -h,  --help                 show this help message
+  -d                     skip dependency check
+  -v                     print deleted files
+  --no-preremove         don't run pre-remove script
+  --no-postremove        don't run post-remove script
+  --no-orphan-check      skip orphaned package check removing package
+  --no-color             disable colour for output
+  -h,  --help            show this help message
 
 Example:
-  removepkg firefox -id -v        remove package firefox, skipping dependency check
-                                  and verbose deleted file
+  removepkg firefox -dv --no-preremove       remove package firefox, skipping dependency check,
+                                             print deleted files and skipp pre-remove script
 EOF
 }
 
-arg() {
-	if echo "" $1 | grep -vq "^ -"; then
-		return 0
-	else
-		return 1
-	fi
+get_opts() {
+	
+	for (( i=1; i<${#1}; i++ )); do
+		case "${1:$i:1}" in
+			d) IGNORE_DEP=yes ;;
+			v) VERBOSE_REMOVE=yes ;;
+			h) SHOWHELP=yes ;;
+			*) msg "Invalid option (-${1:$i:1})"; exit 1 ;;
+		esac
+	done
+	
 }
 
 parse_options() {
+	
+	while [ "$1" ]; do
+		case $1 in
+		         --help) SHOWHELP=yes ;;
+		 --no-preremove) NO_PREREMOVE=yes ;;
+		--no-postremove) NO_POSTREMOVE=yes ;;
+		     --no-color) NOCOLOR=yes ;;
+	  --no-orphan-check) NO_ORPHAN_CHECK=yes ;;
+		            --*) msg "Invalid option: ($1)"; exit 1 ;;
+		             -*) get_opts "$1" ;;
+		              *) RMNAME+=($1) ;;
+		esac
+		shift
+	done
+	
+}
+
+parse_options2() {
 	
 	if [ -z "$1" ]; then
 		SHOWHELP=yes
@@ -280,20 +303,20 @@ main() {
 	fi
 	
 	# show help page
-	if [ "$SHOWHELP" ]; then
+	if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
 		help
 		exit 0
-	fi
+	fi		
 	
-	### CHECK FOR ROOT ACCESS ###
+	# check for root access
 	needroot "Removing package"
 	
-	### CHECK DIRECTORY ###
+	# check directory
 	checkdirexist "$INDEX_DIR"
 	checkdirwrite "$INDEX_DIR"
 	checkdirread  "$INDEX_DIR"
 	
-	### CHECK FOR LOCK FILE ###
+	# check for lock file
 	if [ -f /tmp/spkg.lock ]; then
 		msgerr "Cant install/remove package simultaneously."
 		msgerr "remove ${YELLOW}/tmp/spkg.lock${CRESET} if no install/remove package process running."
@@ -309,12 +332,12 @@ main() {
 		fi
 	done
 	
-	### CHECK NEW ORPHANED PACKAGE ###
+	# check for orphan package
 	if [ ! "$NO_ORPHAN_CHECK" ]; then
 		checkneworphan
 	fi	
 	
-	# msg2 "Running ldconfig..."
+	# running ldconfig
 	if [ -x /sbin/ldconfig ]; then
 		/sbin/ldconfig
 	fi

@@ -16,10 +16,10 @@ spkglock() {
 installpkg() {
 	
 	#ignore dependency check
-	if [ ! "$IGNORE_DEP" ]; then
+	#if [ ! "$IGNORE_DEP" ]; then
 		#msg2 "Checking package dependencies..."
-		checkdeps
-	fi
+	#	checkdeps
+	#fi
 	
 	msg "Installing ${GREEN}$name-$version-$release${CRESET}..."
 	
@@ -30,13 +30,13 @@ installpkg() {
 	
 	#ignore conflict
 	if [ ! "$IGNORE_CONFLICT" ]; then
-		msg2 "Checking package/file conflict..."
+		msg2 "Checking file conflict..."
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 			upcheckconflict
 		else
 			checkconflict
 		fi
-		checkpkgconflict
+		#checkpkgconflict
 	fi
 	
 	# create lock file prevent simultaneous install package
@@ -178,11 +178,7 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			if [ "$DEP_INSTALL" ]; then
-				scratch -i -p $dep --no-orphan-check || exit 1
-			else
-				MSGDEP+=($dep)
-			fi
+			MSGDEP+=($dep)
 		fi
 	done
 	
@@ -389,32 +385,68 @@ help() {
 	
 	cat << EOF
 Usage:
-  installpkg package.spkg.txz [ <options> <arguments> ]
+  installpkg package.spkg.txz <options>
 
 Options:
-  -u,  --upgrade              update package
-  -r,  --reinstall            reinstall package
-  -id, --ignore-dependency    skip dependency check
-  -ic, --ignore-conflict      ignore conflict when installing package
-  -v,  --verbose              verbose install process
-       --no-preinstall        skip preinstall script before build/install package
-       --no-postinstall       skip postinstall script after install package
-       --no-preupgrade        skip preupgrade script before upgrade package
-       --no-postupgrade       skip postupgrade script after upgrade package
-       --no-backup            skip backup when upgrading package
-       --no-orphan-check      skip orphaned package check after install package
-       --no-color             disable colour for output
-       --dep                  install missing dependencies
-  -h,  --help                 show this help message
+  -u                     update package
+  -r                     reinstall package
+  -d                     skip dependency check
+  -c                     ignore conflict when installing package
+  -v                     print files installed
+  --no-preinstall        skip preinstall script before build/install package
+  --no-postinstall       skip postinstall script after install package
+  --no-preupgrade        skip preupgrade script before upgrade package
+  --no-postupgrade       skip postupgrade script after upgrade package
+  --no-backup            skip backup when upgrading package
+  --no-orphan-check      skip orphaned package check after install package
+  --no-color             disable colour for output
+  -h,  --help            show this help message
 
 Example:
-  installpkg foobar-1.0-1.spkg.txz -u --no-backup        upgrade package foobar-1.0-1 without backup
-                                                         its old configuration files
+  installpkg foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
+                                                         old configuration files and skip conflict check
 EOF
 	
 }
 
+get_opts() {
+	
+	for (( i=1; i<${#1}; i++ )); do
+		case "${1:$i:1}" in
+			u) UPGRADE_PKG=yes ;;
+			r) REINSTALL_PKG=yes ;;
+			d) IGNORE_DEP=yes ;;
+			c) IGNORE_CONFLICT=yes ;;
+			v) VERBOSE_INSTALL=yes ;;
+			h) SHOWHELP=yes ;;
+			*) msg "Invalid option (-${1:$i:1})"; exit 1 ;;
+		esac
+	done
+	
+}
+
 parse_options() {
+	
+	while [ "$1" ]; do
+		case $1 in
+		  --no-preinstall) NO_PREINSTALL=yes ;;
+		 --no-postinstall) NO_POSTINSTALL=yes ;;
+		  --no-preupgrade) NO_PREUPGRADE=yes ;;
+		 --no-postupgrade) NO_POSTUPGRADE=yes ;;
+			  --no-backup) NO_BACKUP=yes ;;
+	     	   --no-color) NOCOLOR=yes ;;
+		       *.spkg.txz) PKGNAME="$1" ;;
+		           --help) SHOWHELP=yes ;;
+		              --*) msg "Invalid option: ($1)"; exit 1 ;;
+		               -*) get_opts "$1" ;;
+		                *) msg "Invalid option: ($1)"; exit 1 ;;
+		esac
+		shift
+	done
+	
+}
+
+parse_options2() {
 	
 	if [ -z "$1" ]; then
 		SHOWHELP=yes
@@ -454,39 +486,39 @@ main() {
 	fi
 	
 	# show help page
-	if [ "$SHOWHELP" ]; then
+	if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
 		help
 		exit 0
 	fi
 	
-	### CHECK EXISTANT OF PACKAGE FILE ###
+	# check existence of package file
 	if [ ! -f $PKGNAME ]; then
 		msgerr "Package ${RED}$1${CRESET} not exist!"
 		exit 1
 	fi
 	
-	### INTEGRITY OF PACKAGE ###
+	# check integrity of package
 	if ! tar -tf $PKGNAME &>/dev/null; then
 		msgerr "Package ${RED}$1${CRESET} is corrupted!"
 		exit 1
 	fi
 	
-	### CHECK FOR ROOT ACCESS ###
+	# check for root access
 	needroot "Installing package"
 	
-	### CHECK DIRECTORY ###
+	# check directory
 	checkdirexist "$INDEX_DIR"
 	checkdirwrite "$INDEX_DIR"
-	checkdirread "$INDEX_DIR"
+	checkdirread  "$INDEX_DIR"
 	
-	### CHECK FOR LOCK FILE ###
+	# check for lock file
 	if [ -f /tmp/spkg.lock ]; then
 		msgerr "Cant install/remove package simultaneously."
 		msgerr "remove ${YELLOW}/tmp/spkg.lock${CRESET} if no install/remove package process running."
 		exit 1
 	fi
 	
-	### EXTRACT .pkginfo file into /tmp ###
+	# extract .pkginfo file into /tmp ###
 	BASEPKGNAME=$(basename $PKGNAME)
 	tar -xf $PKGNAME .pkginfo -O > /tmp/spkg.$BASEPKGNAME.pkginfo
 	
@@ -537,12 +569,7 @@ main() {
 	### INSTALL PACKAGE INTO SYSTEM ###
 	installpkg
 	
-	# check orphan package (usually makedepends package)
-	if [ ! "$NO_ORPHAN_CHECK" ]; then
-		checkneworphan
-	fi
-	
-	# msg2 "Running ldconfig..."
+	# running ldconfig
 	if [ -x /sbin/ldconfig ]; then
 		/sbin/ldconfig
 	fi

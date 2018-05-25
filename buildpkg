@@ -223,6 +223,11 @@ loadspkgbuild() {
 
 buildpackage() {
 	
+	if [ "$UID" != 0 ]; then
+		msgerr "You must build package as root, or use fakeroot."
+		exitscript1
+	fi
+	
 	msg "Start build ${GREEN}$name-$version-$release${CRESET}."
 	
 	pushd $SRC
@@ -368,21 +373,13 @@ checkdeps() {
 	
 	for dep in ${depends[@]}; do
 		if [ ! -d $INDEX_DIR/$dep ]; then
-			if [ "$INSTALL_PKG" -o "$DEP_INSTALL" ]; then
-				scratch -i -p $dep --no-orphan-check ${OPTS2[@]} || exit 1
-			else
-				MSDEP+=($dep)
-			fi
+			MSDEP+=($dep)
 		fi
 	done
 	
 	for makedep in ${makedepends[@]}; do
 		if [ ! -d $INDEX_DIR/$makedep ]; then
-			if [ "$INSTALL_PKG" -o "$DEP_INSTALL" ]; then
-				scratch -i -p $makedep --no-orphan-check ${OPTS2[@]} || exit 1
-			else
-				MSMKDEP+=($makedep)
-			fi
+			MSMKDEP+=($makedep)
 		fi
 	done
 	
@@ -536,7 +533,54 @@ EOF
 	
 }
 
+get_opts() {
+	
+	for (( i=1; i<${#1}; i++ )); do
+		case "${1:$i:1}" in
+			i) INSTALL_PKG=yes ;;
+			u) UPGRADE_PKG=yes; OPTS+=(-${1:$i:1}) ;;
+			r) REINSTALL_PKG=yes; OPTS+=(-${1:$i:1}) ;;
+			d) IGNORE_DEP=yes; OPTS+=(-${1:$i:1}) ;;
+			c) OPTS+=(-${1:$i:1}) ;;
+			v) OPTS+=(-${1:$i:1}) ;;
+			f) FORCE_REBUILD=yes ;;
+			m) IGNORE_MDSUM=yes ;;
+			g) UPDATE_MDSUM=yes ;;
+			o) DOWNLOAD_ONLY=yes ;;
+			e) EXTRACT_ONLY=yes ;;
+			w) KEEP_WORK=yes ;;
+			h) SHOWHELP=yes ;;
+			*) msg "Invalid option (-${1:$i:1})"; exit 1 ;;
+		esac
+	done
+	
+}
+
 parse_options() {
+	
+	while [ "$1" ]; do
+		case "$1" in
+		      --srcdir=*) SOURCE_DIR="${1#*=}" ;;
+		      --pkgdir=*) PACKAGE_DIR="${1#*=}" ;;
+		 --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
+		--no-postinstall) OPTS+=($1) ;;
+		 --no-preupgrade) OPTS+=($1) ;;
+		--no-postupgrade) OPTS+=($1) ;;
+		      --no-color) NOCOLOR=yes; OPTS+=($1) ;;
+		     --no-backup) OPTS+=($1) ;;
+			--redownload) REDOWNLOAD_SOURCE=yes ;;
+	      --check-source) SOURCE_CHECK=yes ;;
+		          --help) SHOWHELP=yes ;;
+		             --*) msg "Invalid option: ($1)"; exit 1 ;;
+		              -*) get_opts "$1" ;;
+		               *) msg "Invalid option: ($1)"; exit 1 ;;
+		esac
+		shift
+	done
+	
+}
+
+parse_options2() {
 	
 	while [ "$1" ]; do
 		case $1 in
@@ -585,6 +629,14 @@ main() {
 	if [ "$SHOWHELP" ]; then
 		help
 		exit 0
+	fi
+	
+	if [ -z "$SOURCE_DIR" ]; then
+		msgerr "Option '--srcdir=' need argument (path)"
+		exit 1
+	elif [ -z "$PACKAGE_DIR" ]; then
+		msgerr "Option '--pkgdir=' need argument (path)"
+		exit 1
 	fi
 	
 	# source spkgbuild
@@ -666,7 +718,6 @@ main() {
 		fi
 		[ -f $name.install ] && . $name.install
 		buildpkg
-		IGNORE_DEP=yes
 		if [ ! "$NO_ORPHAN_CHECK" ]; then
 			checkneworphan
 		fi
