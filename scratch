@@ -8,6 +8,15 @@ export LC_ALL=C
 # helper func
 #
 
+needarg() {
+	if [ -z "$1" ]; then
+		msgerr "Argument needed!"
+		return 1
+	else
+		return 0
+	fi
+}
+
 getpkgcache() {
 	
 	for list in $(ls "$PACKAGE_DIR"); do
@@ -1117,36 +1126,42 @@ fi
 	
 # list ports for repo (input: repo name)
 if [ "$MODE" = "listport" ]; then
+	needarg "$PKG" || exit 1
 	listports "$PKG"
 	exit 0
 fi
 	
 # print out port's spkgbuild (input: port name)
 if [ "$MODE" = "cat" ]; then
+	needarg "$PKG" || exit 1
 	catport "$PKG"
 	exit 0
 fi
 	
 # list dependents for port (check through repo. input: port name)
-if [ "$MODE" = "dependent" ] && [ "$PKG" ]; then
+if [ "$MODE" = "dependent" ]; then
+	needarg "$PKG" || exit 1
 	showdependent "$PKG"
 	exit 0
 fi
 	
 # show package owner of files (input: filename)
 if [ "$MODE" = "own" ]; then
+	needarg "$FILE" || exit 1
 	checkowner "$FILE"
 	exit 0
 fi
 	
 # show files own by package (input: port name)
 if [ "$MODE" = "pkgtree" ]; then
+	needarg "$PKG" || exit 1
 	showtree "$PKG"
 	exit 0
 fi
 	
 # create port's template (input: port name)
 if [ "$MODE" = "path" ]; then
+	needarg "$PKG" || exit 1
 	showportpath "$PKG"
 	exit 0
 fi
@@ -1158,7 +1173,8 @@ if [ "$MODE" = "portup" ]; then
 fi
 
 # search ports
-if [ "$MODE" = "search" ] && [ -n "$PKG" ]; then
+if [ "$MODE" = "search" ]; then
+	needarg "$PKG" || exit 1
 	searchpkg $PKG
 	exit 0
 fi
@@ -1217,12 +1233,14 @@ if [ "$MODE" = "upgrade" ]; then
 fi
 
 # remove mode
-if [ "$MODE" = "remove" ] && [ -n "$PKG" ]; then
+if [ "$MODE" = "remove" ]; then
+	needarg "$PKG" || exit 1
 	removepkg ${PKG[@]} ${OPTS[@]}
 	exit $?
 fi
 
-if [ "$MODE" = "depends" ] && [ -n "$PKG" ]; then
+if [ "$MODE" = "depends" ]; then
+	needarg "$PKG" || exit 1
 	if getportpath "$PKG" >/dev/null; then
 		showdepends "$PKG"
 	else
@@ -1232,7 +1250,8 @@ if [ "$MODE" = "depends" ] && [ -n "$PKG" ]; then
 	exit 0
 fi
 
-if [ "$MODE" = "deplist" ] && [ -n "$PKG" ]; then
+if [ "$MODE" = "deplist" ]; then
+	needarg "$PKG" || exit 1
 	if getportpath "$PKG" >/dev/null; then
 		deplist "$PKG"
 	else
@@ -1246,7 +1265,7 @@ if [ "$MODE" = "deplist" ] && [ -n "$PKG" ]; then
 		elif ! getportpath "$i" >/dev/null; then
 			msgmiss "$i"
 		else
-			echo -e "[ ] $i"
+			msgnoinst "$i"
 		fi
 	done
 	exit 0

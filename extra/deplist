@@ -1,16 +1,46 @@
 #!/bin/bash
 
-INDEX_DIR="/var/lib/scratchpkg/index"
-CONF_FILE="/etc/scratchpkg.conf"
+#INDEX_DIR="/var/lib/scratchpkg/index"
+#CONF_FILE="/etc/scratchpkg.conf"
 
-source "$CONF_FILE"
-source "/usr/share/scratchpkg/color"
-source "/usr/share/scratchpkg/message"
+#source "$CONF_FILE"
+#source "/usr/share/scratchpkg/color"
+source "/usr/share/scratchpkg/functions"
 
 if [ ! "$1" ]; then
 	msgerr "Please specify package name to list its dependencies order."
 	exit 1
 fi
+
+checkdep() {
+	
+	if getportpath "$1" >/dev/null; then
+		pushd $(getportpath "$1")
+			getpkginfo
+		popd
+	fi
+	
+	for dep in ${depends[@]}; do
+		echo $dep
+	done
+	
+	for mdep in ${makedepends[@]}; do
+		echo $mdep
+	done
+	
+}
+
+getportpath() {
+	
+	for repo in ${PORT_REPO[@]}; do
+		if [[ -f $repo/$1/$BUILD_SCRIPT ]]; then
+			echo "$(dirname $repo/$1/$BUILD_SCRIPT)"
+			return 0
+		fi
+	done
+	return 1
+	
+}
 
 calc_dep() {
 	
@@ -26,7 +56,7 @@ calc_dep() {
 	CHECK+=($1)
 	
 	# check dependencies
-	for i in $(scratch depends "$1" --no-color | awk '{print $2}'); do
+	for i in $(checkdep "$1"); do
 		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -w $i) = "" ]]; then
 			calc_dep $i
 		fi
