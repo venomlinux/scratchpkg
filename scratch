@@ -1192,17 +1192,18 @@ if [ "$MODE" = "install" ]; then
 		portinstall "${PKG[@]}" -r ${OPTS[@]}
 	else
 		for pkg in ${PKG[@]}; do
+			if ! getportpath "$pkg" >/dev/null; then
+				msgerr "Package '$pkg' not exist."
+				exit 1
+			fi
+		done
+		for pkg in ${PKG[@]}; do
 			if [ -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
 				msg "Package ${GREEN}$pkg${CRESET} already installed."
 			else
-				if getportpath "$pkg" >/dev/null; then
-					deplist "$pkg"
-				else
-					msgerr "Port '$pkg' not exist!"
-					exit 1
-				fi
+				deplist "$pkg"
 				for dep in ${DEP[@]}; do
-					if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+					if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ] && getportpath "$pkg" >/dev/null; then
 						portinstall $dep -i ${OPTS[@]}
 					fi
 				done
