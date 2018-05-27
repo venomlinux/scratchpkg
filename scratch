@@ -693,8 +693,10 @@ parse_install_opt() {
 	
 	for (( i=1; i<${#1}; i++ )); do
 		case "${1:$i:1}" in
-			d) NO_DEP=1 ;; # skip installing dependencies
-			v) OPTS+=(-${1:$i:1}) ;;
+			d) NO_DEP=1 ;;           # skip installing dependencies
+			v) OPTS+=(-${1:$i:1}) ;; # verbose
+			r) OPTS+=(-${1:$i:1}); REINSTALL=1 ;; # reinstall
+			c) OPTS+=(-${1:$i:1}) ;; # ignore conflict
 			b) set -x ;;   # debug
 			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
 		esac
@@ -725,6 +727,9 @@ parse_upgrade_opt() {
 	for (( i=1; i<${#1}; i++ )); do
 		case "${1:$i:1}" in
 			n) NO_DEP=1 ;; # skip installing dependencies
+			v) OPTS+=(-${1:$i:1}) ;; # verbose
+			r) OPTS+=(-${1:$i:1}) ;; # reinstall
+			c) OPTS+=(-${1:$i:1}) ;; # ignore conflict
 			b) set -x ;;   # debug
 			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
 		esac
@@ -1183,6 +1188,8 @@ fi
 if [ "$MODE" = "install" ]; then
 	if [ "$NO_DEP" ]; then
 		portinstall "${PKG[@]}" -i ${OPTS[@]}
+	elif [ "$REINSTALL" ]; then
+		portinstall "${PKG[@]}" -r ${OPTS[@]}
 	else
 		for pkg in ${PKG[@]}; do
 			if [ -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
