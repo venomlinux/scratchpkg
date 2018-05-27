@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 BINDIR=/usr/bin
 FUNCDIR=/usr/share/scratchpkg
