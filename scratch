@@ -798,7 +798,7 @@ if [ "$mode" = "upgrade" ]; then
 	parseopt ${ARG[@]}
 	needarg "$PKG" || exit 1
 	for pkg in ${PKG[@]}; do # check for existence of package
-		if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+		if [ ! -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
 			msgerr "Package '$pkg' not installed."
 			exit 1
 		fi
