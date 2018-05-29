@@ -8,7 +8,7 @@ source "/usr/share/scratchpkg/message"
 onepkg() {
 	
 	pushd / >/dev/null
-		echo -ne "Checking $1...\033[0K\r"
+		echo -ne "Checking $1...\r"
 		while IFS=' ' read -r line; do
 			case "$(file -bi "${line}")" in
 			*application/x-sharedlib* | *application/x-executable*)

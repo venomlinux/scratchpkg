@@ -9,8 +9,8 @@ export LC_ALL=C
 #
 
 needarg() {
-	if [ -z "$1" ]; then
-		msgerr "Argument needed!"
+	if [ -z "$@" ]; then
+		msgerr "This operation require arguments!"
 		return 1
 	else
 		return 0
@@ -177,9 +177,9 @@ showdependent() {
 						if [ $dep = $1 ]; then
 							GDP=yes
 							if [ -d $INDEX_DIR/$all ]; then
-								msg2 "$all ${GREEN}[installed]${CRESET}"
+								msginst "$all"
 							else
-								msg2 "$all"
+								msgnoinst "$all"
 							fi
 						fi
 					done
@@ -188,9 +188,9 @@ showdependent() {
 						if [ $mdep = $1 ]; then
 							GDP=yes
 							if [ -d $INDEX_DIR/$all ]; then
-								msg2 "$all ${CYAN}(make)${CRESET} ${GREEN}[installed]${CRESET}"
+								msginst "$all"
 							else
-								msg2 "$all ${CYAN}(make)${CRESET}"
+								msgnoinst "$all"
 							fi
 						fi
 					done
@@ -604,356 +604,6 @@ updports() {
 	
 }
 
-# parse remove
-parse_remove() {
-	
-	MODE=remove
-	
-	while [ "$2" ]; do
-		case $2 in
-			 --no-preremove) OPTS+=($2) ;;
-			--no-postremove) OPTS+=($2) ;;
-			     --no-color) OPTS+=($2); NOCOLOR=1 ;;
-			             -*) parse_remove_opt "$2" ;;
-			              *) PKG+=($2) ;;
-		esac
-		shift
-	done
-	
-}
-
-parse_remove_opt() {
-	
-	for (( i=1; i<${#1}; i++ )); do
-		case "${1:$i:1}" in
-			d) OPTS+=(-${1:$i:1}) ;;
-			v) OPTS+=(-${1:$i:1}) ;;
-			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
-		esac
-	done
-	
-}
-
-# parse build
-parse_build() {
-	
-	MODE=build
-	
-	while [ "$2" ]; do
-		case $2 in
-		  --redownload) OPTS+=($2) ;;
-	   --no-preinstall) OPTS+=($2) ;;
-	        --srcdir=*) OPTS+=($2) ;;
-	        --pkgdir=*) OPTS+=($2) ;;
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			        -*) parse_build_opt "$2" ;;
-			         *) PKG=$2 ;;
-		esac
-		shift
-	done
-	
-}
-
-parse_build_opt() {
-	
-	for (( i=1; i<${#1}; i++ )); do
-		case "${1:$i:1}" in
-			f) OPTS+=(-${1:$i:1}) ;;
-			m) OPTS+=(-${1:$i:1}) ;;
-			d) OPTS+=(-${1:$i:1}) ;;
-			e) OPTS+=(-${1:$i:1}) ;;
-			w) OPTS+=(-${1:$i:1}) ;;
-			o) OPTS+=(-${1:$i:1}) ;;
-			b) set -x ;;
-			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
-		esac
-	done
-	
-}
-
-# parse install
-parse_install() {
-	
-	MODE=install
-	
-	while [ "$2" ]; do
-		case $2 in
-			 --no-preinstall) OPTS+=($2) ;;
-			--no-postinstall) OPTS+=($2) ;;
-			      --no-color) OPTS+=($2); NOCOLOR=1 ;;
-			              -*) parse_install_opt "$2" ;;
-			               *) PKG+=($2) ;;
-		esac
-		shift
-	done
-	
-}
-
-parse_install_opt() {
-	
-	for (( i=1; i<${#1}; i++ )); do
-		case "${1:$i:1}" in
-			d) NO_DEP=1 ;;           # skip installing dependencies
-			v) OPTS+=(-${1:$i:1}) ;; # verbose
-			r) OPTS+=(-${1:$i:1}); REINSTALL=1 ;; # reinstall
-			c) OPTS+=(-${1:$i:1}) ;; # ignore conflict
-			b) set -x ;;   # debug
-			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
-		esac
-	done
-	
-}
-
-# parse upgrade
-parse_upgrade() {
-	
-	MODE=upgrade
-	
-	while [ "$2" ]; do
-		case $2 in
-			 --no-preupgrade) OPTS+=($2) ;;
-			--no-postupgrade) OPTS+=($2) ;;
-			      --no-color) OPTS+=($2); NOCOLOR=1 ;;
-			              -*) parse_upgrade_opt "$2" ;;
-			               *) PKG+=($2) ;;
-		esac
-		shift
-	done
-	
-}
-
-parse_upgrade_opt() {
-	
-	for (( i=1; i<${#1}; i++ )); do
-		case "${1:$i:1}" in
-			n) NO_DEP=1 ;; # skip installing dependencies
-			v) OPTS+=(-${1:$i:1}) ;; # verbose
-			r) OPTS+=(-${1:$i:1}) ;; # reinstall
-			c) OPTS+=(-${1:$i:1}) ;; # ignore conflict
-			b) set -x ;;   # debug
-			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
-		esac
-	done
-	
-}
-
-# parse query
-parse_query() {
-	
-	MODE=query
-	
-	while [ "$2" ]; do
-		case $2 in
-		    --no-color) OPTS+=($2); NOCOLOR=1 ;;
-		         --dup) DUPLICATEPORT=1 ;;
-		    --listinst) LISTINSTALLED=1 ;;
-		  --listorphan) LISTORPHAN=1 ;;
-		   --integrity) CHECKINTEGRITY=1 ;;
-		     --outdate) CHECKUPDATE=1 ;;
-		       --cache) PKGCACHE=1 ;;
-		     --rmcache) CLEARPKGCACHE=1 ;;
-		  --missingdep) MISSINGDEP=1 ;;
-		  --foreignpkg) FOREIGNPKG=1 ;;
-		  --listlocked) LISTLOCKED=1 ;;
-				   --*) msgerr "Invalid options ($2)"; exit 1 ;;
-			        -*) parse_upgrade_opt "$2" ;;
-				     *) msgerr "Invalid options ($2)"; exit 1 ;;
-		esac
-		shift
-	done
-	
-}
-
-parse_query_opt() {
-	
-	for (( i=1; i<${#1}; i++ )); do
-		case "${1:$i:1}" in
-			b) set -x ;;   # debug
-			*) msgerr "Invalid options (${1:$i:1})"; exit 1 ;;
-		esac
-	done
-	
-}
-
-# parse portup
-parse_portup() {
-	
-	MODE=portup
-	
-	while [ "$2" ]; do
-		case $2 in
-			 --no-color) NOCOLOR=1 ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse deplist
-parse_deplist() {
-	
-	MODE=deplist	
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG="$2" ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse depends
-parse_depends() {
-	
-	MODE=depends	
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG="$2" ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse search
-parse_search() {
-	
-	MODE=search
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG="$2" ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse lock
-parse_lock() {
-	
-	MODE=lock
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG+=($2) ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse unlock
-parse_unlock() {
-	
-	MODE=unlock
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG+=($2) ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse listport
-parse_listport() {
-	
-	MODE=listport
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG=$2 ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse cat
-parse_cat() {
-	
-	MODE=cat
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG=$2 ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse dependent
-parse_dpndent() {
-	
-	MODE=dependent
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG=$2 ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse own
-parse_own() {
-	
-	MODE=own
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) FILE=$2 ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse pkgtree
-parse_pkgtree() {
-	
-	MODE=pkgtree
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG=$2 ;;
-		esac
-		shift
-	done
-	
-}
-
-# parse path (port)
-parse_path() {
-	
-	MODE=path
-	
-	while [ "$2" ]; do
-		case $2 in
-			--no-color) OPTS+=($2); NOCOLOR=1 ;;
-			         *) PKG=$2 ;;
-		esac
-		shift
-	done
-	
-}
-
 help() {
 	
 	cat << EOF
@@ -961,312 +611,275 @@ Usage:
     $(basename $0) [ mode ] [ <pkgname> <options> ]	
 
 mode:
-	install   <packages>      install packages and its dependencies
-	upgrade   <packages>      upgrade packages and install new dependencies (if any)
-	build     <package>       build only packages
-	remove    <packages>      remove packages in system
-	depends   <package>       show depends of a package
-	deplist   <package>       show list dependencies of a package
-	search    <pattern>       search packages in port's repos
-	query     <options>       view some information (based on its options)
-	lock      <packages>      lock packages from upgrade
-	unlock    <packages>      unlock packages from upgrade
-	listport  <repo>          list ports of a repo
-	cat       <package>       view a package build scripts
-	dependent <package>       show package's dependent
-	own       <file>          show package's owner of file
-	pkgtree   <package>       show list files of installed package
-	path      <package>       show package's buildscripts path
-	portup                    update port's repo
-	help                      print this help message
+    install   <packages>      install packages and its dependencies
+    upgrade   <packages>      upgrade packages and install new dependencies (if any)
+    build     <package>       build only packages
+    remove    <packages>      remove packages in system
+    depends   <package>       show depends of a package
+    deplist   <packages>      show list dependencies of a package
+    search    <pattern>       search packages in port's repos
+    lock      <packages>      lock packages from upgrade
+    unlock    <packages>      unlock packages from upgrade
+    listport  <repo>          list ports of a repo
+    cat       <package>       view a package build scripts
+    dependent <package>       show package's dependent
+    own       <file>          show package's owner of file
+    pkgtree   <package>       show list files of installed package
+    path      <package>       show package's buildscripts path
+    portup                    update port's repo
+    dup                       print duplicate ports in repo
+    listinst                  list installed package in system
+    listorphan                list orphan package
+    integrity                 check integrity of package's files
+    outdate                   check for outdate packages
+    cache                     print leftover cache
+    rmcache                   remove leftover cache
+    missingdep                check for mising dependency of installed package
+    foreignpkg                print package installed without port in repo
+    listlocked                print locked packages
+    help                      print this help message
 	
-options:
-	install
-		--no-preinstall       skip pre-install script
-		--no-postinstall      skip post-install script
-		-n                    skip installing dependencies
-		-v                    print install process
+options for:		
+    build
+        -f, --force-rebuild    force rebuild
+        -m, --skip-mdsum       skip md5sum check for sources
+        -d, --no-dep           skip dependency check
+        -e, --extract          extract only
+        -w, --keep-work        keep woring directory
+        -o, --download         download source files only
+        --redownload           re-download source files
+        --srcdir=<path>        override default SOURCE_DIR
+        --pkgdir=<path>        override default PACKAGE_DIR
+        --no-preinstall        skip pre-install script
+        
+    install
+        -d, --no-dep           skip installing dependencies
+        -c, --ignore-conflict  skip file conflict check
+        -r, --reinstall        reinstall installed package
+        -v, --verbose          print install process
+        --no-preinstall        skip pre-install script
+        --no-postinstall       skip post-install script
 		
-	upgrade
-		--no-preupgrade       skip pre-upgrade script
-		--no-postupgrade      skip post-upgrade script
-		-n                    skip installing dependencies (new dependencies)
+    upgrade
+        -d, --no-dep           skip installing dependencies (new dependencies)
+        -c, --ignore-conflict  skip file conflict check
+        -v, --verbose          print install process
+        --no-backup            skip backup configuration file
+        --no-preupgrade        skip pre-upgrade script
+        --no-postupgrade       skip post-upgrade script
 		
-	build
-		--redownload          re-download source files
-		--srcdir=<path>       override default SOURCE_DIR
-		--pkgdir=<path>       override default PACKAGE_DIR
-		-f                    force rebuild
-		-m                    skip md5sum check for sources
-		-d                    skip dependency check
-		-e                    extract only
-		-w                    keep woring directory
-		-o                    download source files only
-		
-	remove
-		--no-preremove        skip pre-remove script
-		--no-postremove       skip post-remove script
-		-d                    skip dependency check
-		-v                    print removed files
-		
-	query
-		--dup                 print duplicate ports in repo
-		--listinst            list installed package in system
-		--listorphan          list orphan package
-		--integrity           check integrity of package's files
-		--outdate             check for outdate packages
-		--cache               print leftover cache
-		--rmcache             remove leftover cache
-		--missingdep          check for mising dependency of installed package
-		--foreignpkg          print package installed without port in repo
-		--listlocked          print locked packages
+    remove
+        -d, --no-dep           skip dependency check
+        -v, --verbose          print removed files
+        --no-preremove         skip pre-remove script
+        --no-postremove        skip post-remove script
 		
 global options:
-		--no-color            disable colour for output
-		-b                    enable debug
+        --no-color             disable colour for output
+        --debug                debug $(basename $0) script
 
 EOF
 	
 }
 
-# get mode
-case $1 in
-	install) parse_install  "$@" ;;
-	upgrade) parse_upgrade  "$@" ;;
-	  build) parse_build    "$@" ;;
-	 remove) parse_remove   "$@" ;;
-	depends) parse_depends  "$@" ;;
-	deplist) parse_deplist  "$@" ;;
-	 search) parse_search   "$@" ;;
-	 portup) parse_portup   "$@" ;;
-	  query) parse_query    "$@" ;;
-	   lock) parse_lock     "$@" ;;
-	 unlock) parse_unlock   "$@" ;;
-   listport) parse_listport "$@" ;;
-        cat) parse_cat      "$@" ;;
-  dependent) parse_dpndent  "$@" ;;
-        own) parse_own      "$@" ;;
-    pkgtree) parse_pkgtree  "$@" ;;
-       path) parse_path     "$@" ;;
-       help) help; exit 0        ;;
-	      *) msgerr "Invalid mode ($1)"; exit 1 ;;
-esac
+extract_opt() {
+	for opt in $@; do
+		case $opt in
+			--*=*) OPTS+=($opt) ;;
+			  --*) OPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
+			    *) OPTS+=($opt) ;;
+		esac
+	done
+	echo "${OPTS[@]}"
+}
+
+# set mode
+mode=$1
+shift
+
+# strip global options
+for i in $(extract_opt $@); do
+	case $i in
+		--no-color) nocolor ;;
+		--debug) set -x ;;
+		*) ARG+=($i)
+	esac
+done
 
 checkdirexist "$INDEX_DIR"
 
-[ "$NOCOLOR" ] && nocolor
-	
-# print duplicate ports
-if [ "$DUPLICATEPORT" ]; then
-	duplicateports
-	exit 0
-fi
-
-# list installed package in system
-if [ "$LISTINSTALLED" ]; then
-	listinstalled
-	exit 0
-fi
-	
-# list orphan package (package which is no other
-# package depends on it)
-if [ "$LISTORPHAN" ]; then
-	listorphan
-	exit 0
-fi
-	
-# check integrity (check between package index and files in system)
-if [ "$CHECKINTEGRITY" ]; then
-	checkintegrity
-	exit 0
-fi
-	
-# check package for update
-if [ "$CHECKUPDATE" ]; then
-	checkupdate
-	exit 0
-fi
-	
-# search for old package and source cache
-if [ "$PKGCACHE" ]; then
-	pkgcache
-	exit 0
-fi
-	
-# delete old package and sources cache
-if [ "$CLEARPKGCACHE" ]; then
-	clearpkgcache
-	exit 0
-fi
-	
-# search for missing dependency for installed package
-if [ "$MISSINGDEP" ]; then
-	missingdep
-	exit 0
-fi
-	
-# search for foreign port (installed package with no port in repos)
-if [ "$FOREIGNPKG" ]; then
-	foreignpkg
-	exit 0
-fi
-	
-# list locked package
-if [ "$LISTLOCKED" ]; then
-	listlocked
-	exit 0
-fi
-	
-# lock package from upgrade
-if [ "$MODE" = "lock" ]; then
-	lockpkg "${PKG[@]}"
-	exit 0
-fi
-
-# unlock package from upgrade
-if [ "$MODE" = "unlock" ]; then
-	unlockpkg "${PKG[@]}"
-	exit 0
-fi
-	
-# list ports for repo (input: repo name)
-if [ "$MODE" = "listport" ]; then
+# build mode
+if [ "$mode" = "build" ]; then
+	parseopt() {
+		while [ "$1" ]; do
+			case $1 in
+				-f|-m|-d|-e|-w|-o|--srcdir=*|--pkgdir=*) OPTS+=($1) ;;
+				--skip-mdsum|--no-dep|--extract|--keep-work|--download) OPTS+=($1) ;;
+				--force-rebuild|--redownload|--no-preinstall) OPTS+=($1) ;;
+				-*) msgerr "Invalid option! ($1)"; exit 1 ;;
+				*) PKG=$1 ;;
+			esac
+			shift
+		done
+	}
+	parseopt ${ARG[@]}
 	needarg "$PKG" || exit 1
-	listports "$PKG"
-	exit 0
-fi
-	
-# print out port's spkgbuild (input: port name)
-if [ "$MODE" = "cat" ]; then
-	needarg "$PKG" || exit 1
-	catport "$PKG"
-	exit 0
-fi
-	
-# list dependents for port (check through repo. input: port name)
-if [ "$MODE" = "dependent" ]; then
-	needarg "$PKG" || exit 1
-	showdependent "$PKG"
-	exit 0
-fi
-	
-# show package owner of files (input: filename)
-if [ "$MODE" = "own" ]; then
-	needarg "$FILE" || exit 1
-	checkowner "$FILE"
-	exit 0
-fi
-	
-# show files own by package (input: port name)
-if [ "$MODE" = "pkgtree" ]; then
-	needarg "$PKG" || exit 1
-	showtree "$PKG"
-	exit 0
-fi
-	
-# create port's template (input: port name)
-if [ "$MODE" = "path" ]; then
-	needarg "$PKG" || exit 1
-	showportpath "$PKG"
-	exit 0
-fi
-
-# update ports
-if [ "$MODE" = "portup" ]; then
-	updports
-	exit 0
-fi
-
-# search ports
-if [ "$MODE" = "search" ]; then
-	needarg "$PKG" || exit 1
-	searchpkg $PKG
-	exit 0
+	if getportpath "$PKG" >/dev/null; then
+		portinstall "$PKG" "${OPTS[@]}"
+	else
+		msgerr "Package '$PKG' not exist."
+		exit 1
+	fi
+	exit $?
 fi
 
 # install mode
-if [ "$MODE" = "install" ]; then
+if [ "$mode" = "install" ]; then
+	parseopt() {
+		while [ "$1" ]; do
+			case $1 in
+				-v|-c|--verbose|--ignore-conflict) OPTS+=($1) ;;
+				--no-preinstall|--no-postinstall) OPTS+=($1) ;;
+				-r|--reinstall) OPTS+=($1); REINSTALL=1 ;;
+				-d|--no-dep) NO_DEP=1 ;;
+				-*) msgerr "Invalid option! ($1)"; exit 1 ;;
+				*) PKG+=($1) ;;
+			esac
+			shift
+		done
+	}
+	parseopt ${ARG[@]}
 	if [ "$NO_DEP" ]; then
 		portinstall "${PKG[@]}" -i ${OPTS[@]}
 	elif [ "$REINSTALL" ]; then
 		portinstall "${PKG[@]}" -r ${OPTS[@]}
 	else
-		for pkg in ${PKG[@]}; do
+		for pkg in ${PKG[@]}; do # check for existence of package
 			if ! getportpath "$pkg" >/dev/null; then
 				msgerr "Package '$pkg' not exist."
 				exit 1
 			fi
 		done
-		for pkg in ${PKG[@]}; do
+		for pkg in ${PKG[@]}; do # calculate dependencies for all target packages
 			if [ -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
 				msg "Package ${GREEN}$pkg${CRESET} already installed."
 			else
+				echo -ne "Calculating $pkg dependencies...\033[0K\r"
 				deplist "$pkg"
-				for dep in ${DEP[@]}; do
-					if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ] && getportpath "$pkg" >/dev/null; then
-						portinstall $dep -i ${OPTS[@]}
-					fi
-				done
+			fi
+		done
+		echo -ne "\033[0K"
+		for dep in ${DEP[@]}; do # install all required dependencies and target packages itself
+			if getportpath "$dep" >/dev/null; then
+				if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+					portinstall $dep -i ${OPTS[@]}
+				fi
 			fi
 		done
 	fi
 	exit 0
 fi
 
-# build mode
-if [ "$MODE" = "build" ]; then
-	if getportpath "$PKG" >/dev/null; then
-		portinstall "$PKG" "${OPTS[@]}"
-	fi
-	exit $?
-fi
-
 # upgrade mode
-if [ "$MODE" = "upgrade" ]; then
-	for pkg in ${PKG[@]}; do
-		if getportpath "$pkg" >/dev/null; then
-			deplist "$pkg"
-		else
-			msgerr "Port '$pkg' not exist!"
+if [ "$mode" = "upgrade" ]; then
+	parseopt() {
+		while [ "$1" ]; do
+			case $1 in
+				--no-backup|--no-preupgrade|--no-postupgrade) OPTS+=($1) ;;
+				-v|-c|--verbose|--ignore-conflict) OPTS+=($1) ;;
+				-d|--no-dep) NO_DEP=1 ;;
+				-*) msgerr "Invalid option! ($1)"; exit 1 ;;
+				*) PKG+=($1) ;;
+			esac
+			shift
+		done
+	}
+	parseopt ${ARG[@]}
+	needarg "$PKG" || exit 1
+	for pkg in ${PKG[@]}; do # check for existence of package
+		if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+			msgerr "Package '$pkg' not installed."
 			exit 1
 		fi
-		for dep in ${DEP[@]}; do
+		if ! getportpath "$pkg" >/dev/null; then
+			msgerr "Package '$pkg' not exist."
+			exit 1
+		fi
+	done
+	if [ ! "$NO_DEP" ]; then
+		for pkg in ${PKG[@]}; do # calculate dependencies for all target packages
+			echo -ne "Calculating $pkg dependencies...\033[0K\r"
+			deplist "$pkg"
+		done
+		echo -ne "\033[0K"
+		for dep in ${DEP[@]}; do # install new dep (if any)
 			if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
-				portinstall $dep -i
+				if getportpath "$dep" >/dev/null; then
+					portinstall $dep -i
+				fi
 			fi
 		done
-		portinstall $pkg -u ${OPTS[@]}
+	fi
+	for pkg in ${PKG[@]}; do # upgrade all target packages
+		portinstall $pkg -ud ${OPTS[@]}
 	done
 	exit $?
 fi
 
 # remove mode
-if [ "$MODE" = "remove" ]; then
+if [ "$mode" = "remove" ]; then
+	parseopt() {
+		while [ "$1" ]; do
+			case $1 in
+				--no-preremove|--no-postremove) OPTS+=($1) ;;
+				-d|-v|--no-dep|--verbose) OPTS+=($1) ;;
+				-*) msgerr "Invalid option! ($1)"; exit 1 ;;
+				*) PKG+=($1) ;;
+			esac
+			shift
+		done
+	}
+	parseopt ${ARG[@]}
 	needarg "$PKG" || exit 1
 	removepkg ${PKG[@]} ${OPTS[@]}
 	exit $?
 fi
 
-if [ "$MODE" = "depends" ]; then
-	needarg "$PKG" || exit 1
-	if getportpath "$PKG" >/dev/null; then
-		showdepends "$PKG"
+if [ "$mode" = "depends" ]; then
+	needarg "$ARG" || exit 1
+	if getportpath "$ARG" >/dev/null; then
+		showdepends "$ARG"
 	else
-		msgerr "Port '$PKG' not exist!"
+		msgerr "Port '$ARG' not exist!"
 		exit 1
 	fi
 	exit 0
 fi
 
-if [ "$MODE" = "deplist" ]; then
+if [ "$mode" = "deplist" ]; then
+	parseopt() {
+		while [ "$1" ]; do
+			case $1 in
+				-*) msgerr "Invalid option! ($1)"; exit 1 ;;
+				*) PKG+=($1) ;;
+			esac
+			shift
+		done
+	}
+	parseopt ${ARG[@]}
 	needarg "$PKG" || exit 1
-	if getportpath "$PKG" >/dev/null; then
-		deplist "$PKG"
-	else
-		msgerr "Port '$PKG' not exist!"
-		exit 1
-	fi
-	
+	for pkg in ${PKG[@]}; do
+		if ! getportpath "$pkg" >/dev/null; then
+			msgerr "Package '$pkg' not exist."
+			exit 1
+		fi
+	done
+		for pkg in ${PKG[@]}; do
+			echo -ne "Calculating $pkg dependencies...\033[0K\r"
+			deplist "$pkg"
+		done
+		echo -ne "\033[0K"
 	for i in ${DEP[@]}; do
 		if [ -e "$INDEX_DIR/$i/.pkginfo" ]; then
 			msginst "$i"
@@ -1278,5 +891,138 @@ if [ "$MODE" = "deplist" ]; then
 	done
 	exit 0
 fi
+	
+# list installed package in system
+if [ "$mode" = "listinst" ]; then
+	listinstalled
+	exit 0
+fi
+		
+# list orphan package (package which is no other
+# package depends on it)
+if [ "$mode" = "listorphan" ]; then
+	listorphan
+	exit 0
+fi
+		
+# check integrity (check between package index and files in system)
+if [ "$mode" = "integrity" ]; then
+	checkintegrity
+	exit 0
+fi
+		
+# check package for update
+if [ "$mode" = "outdate" ]; then
+	checkupdate
+	exit 0
+fi
+		
+# search for old package and source cache
+if [ "$mode" = "cache" ]; then
+	pkgcache
+	exit 0
+fi
+		
+# delete old package and sources cache
+if [ "$mode" = "rmcache" ]; then
+	clearpkgcache
+	exit 0
+fi
+		
+# search for missing dependency for installed package
+if [ "$mode" = "missingdep" ]; then
+	missingdep
+	exit 0
+fi
+	
+# search for foreign port (installed package with no port in repos)
+if [ "$mode" = "foreignpkg" ]; then
+	foreignpkg
+	exit 0
+fi
+		
+# list locked package
+if [ "$mode" = "listlocked" ]; then
+	listlocked
+	exit 0
+fi
+	
+# print duplicate ports
+if [ "$mode" = "dup" ]; then
+	duplicateports
+	exit 0
+fi
+
+# lock package from upgrade
+if [ "$mode" = "lock" ]; then
+	needarg "$ARG" || exit 1
+	lockpkg "${ARG[@]}"
+	exit 0
+fi
+
+# unlock package from upgrade
+if [ "$mode" = "unlock" ]; then
+	needarg "$ARG" || exit 1
+	unlockpkg "${ARG[@]}"
+	exit 0
+fi
+	
+# list ports for repo (input: repo name)
+if [ "$mode" = "listport" ]; then
+	needarg "$ARG" || exit 1
+	listports "$ARG"
+	exit 0
+fi
+	
+# print out port's spkgbuild (input: port name)
+if [ "$mode" = "cat" ]; then
+	needarg "$ARG" || exit 1
+	catport "$ARG"
+	exit 0
+fi
+	
+# list dependents for port (check through repo. input: port name)
+if [ "$mode" = "dependent" ]; then
+	needarg "$ARG" || exit 1
+	showdependent "$ARG"
+	exit 0
+fi
+	
+# show package owner of files (input: filename)
+if [ "$mode" = "own" ]; then
+	needarg "$ARG" || exit 1
+	checkowner "$ARG"
+	exit 0
+fi
+	
+# show files own by package (input: port name)
+if [ "$mode" = "pkgtree" ]; then
+	needarg "$ARG" || exit 1
+	showtree "$ARG"
+	exit 0
+fi
+	
+# create port's template (input: port name)
+if [ "$mode" = "path" ]; then
+	needarg "$ARG" || exit 1
+	showportpath "$ARG"
+	exit 0
+fi
+
+# update ports
+if [ "$mode" = "portup" ]; then
+	updports
+	exit 0
+fi
+
+# search ports
+if [ "$mode" = "search" ]; then
+	needarg "$ARG" || exit 1
+	searchpkg $ARG
+	exit 0
+fi
+
+# print help message if require mode not met or empty
+help
 
 exit 0

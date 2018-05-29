@@ -1,10 +1,5 @@
 #!/bin/bash
 
-#INDEX_DIR="/var/lib/scratchpkg/index"
-#CONF_FILE="/etc/scratchpkg.conf"
-
-#source "$CONF_FILE"
-#source "/usr/share/scratchpkg/color"
 source "/usr/share/scratchpkg/functions"
 
 if [ ! "$1" ]; then
@@ -81,9 +76,11 @@ calc_dep $1
 
 for deps in ${DEP[@]}; do
 	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
-		echo -e "[${GREEN}*${CRESET}] $deps"
+		msginst "$deps"
+	elif ! getportpath "$deps" >/dev/null; then
+		msgmiss "$deps"
 	else
-		echo "[ ] $deps"
+		msgnoinst "$deps"
 	fi
 done
 

@@ -322,20 +322,6 @@ run_postupgrade() {
 	
 }
 
-checkneworphan() {
-	
-	for md in ${makedepends[@]}; do
-		removemakedepends $md
-	done
-	if [ "${#saferemove[@]}" -gt 0 ]; then
-		msg "Package safe for remove:"
-		for saferem in ${saferemove[@]}; do
-			msg2 "$saferem"
-		done
-	fi
-	
-}
-
 runhooks() {
 	
 	if [ "$UPGRADE_PKG" ]; then
@@ -366,21 +352,6 @@ runhooks() {
 	
 }
 
-removemakedepends() {
-	
-	ORPHAN="yes"
-	for all_installed in $(ls $INDEX_DIR); do
-		depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
-			for dep in ${depend[@]}; do
-				if [ $dep = $1 ]; then
-					ORPHAN="no"
-				fi
-			done
-	done
-	
-	[ "$ORPHAN" = "yes" ] && [ -d $INDEX_DIR/$1 ] && saferemove+=($1)
-}
-
 help() {
 	
 	cat << EOF
@@ -388,19 +359,19 @@ Usage:
   installpkg package.spkg.txz <options>
 
 Options:
-  -u                     update package
-  -r                     reinstall package
-  -d                     skip dependency check
-  -c                     ignore conflict when installing package
-  -v                     print files installed
-  --no-preinstall        skip preinstall script before build/install package
-  --no-postinstall       skip postinstall script after install package
-  --no-preupgrade        skip preupgrade script before upgrade package
-  --no-postupgrade       skip postupgrade script after upgrade package
-  --no-backup            skip backup when upgrading package
-  --no-orphan-check      skip orphaned package check after install package
-  --no-color             disable colour for output
-  -h,  --help            show this help message
+  -u, --upgrade              upgrade package
+  -r, --reinstall            reinstall package
+  -d, --no-dep               skip dependency check
+  -c, --ignore-conflict      ignore conflict when installing package
+  -v, --verbose              print files installed
+  -h, --help                 show this help message
+      --no-preinstall        skip preinstall script before build/install package
+      --no-postinstall       skip postinstall script after install package
+      --no-preupgrade        skip preupgrade script before upgrade package
+      --no-postupgrade       skip postupgrade script after upgrade package
+      --no-backup            skip backup when upgrading package
+      --no-orphan-check      skip orphaned package check after install package
+      --no-color             disable colour for output
 
 Example:
   installpkg foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
@@ -409,66 +380,39 @@ EOF
 	
 }
 
-get_opts() {
-	
-	for (( i=1; i<${#1}; i++ )); do
-		case "${1:$i:1}" in
-			u) UPGRADE_PKG=yes ;;
-			r) REINSTALL_PKG=yes ;;
-			d) IGNORE_DEP=yes ;;
-			c) IGNORE_CONFLICT=yes ;;
-			v) VERBOSE_INSTALL=yes ;;
-			h) SHOWHELP=yes ;;
-			*) msg "Invalid option (-${1:$i:1})"; exit 1 ;;
+extract_opt() {
+	for opt in $@; do
+		case $opt in
+			--*=*) OPTS+=($opt) ;;
+			  --*) OPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
+			    *) OPTS+=($opt) ;;
 		esac
 	done
-	
+	echo "${OPTS[@]}"
 }
 
-parse_options() {
-	
-	while [ "$1" ]; do
-		case $1 in
-		  --no-preinstall) NO_PREINSTALL=yes ;;
-		 --no-postinstall) NO_POSTINSTALL=yes ;;
-		  --no-preupgrade) NO_PREUPGRADE=yes ;;
-		 --no-postupgrade) NO_POSTUPGRADE=yes ;;
-			  --no-backup) NO_BACKUP=yes ;;
-	     	   --no-color) NOCOLOR=yes ;;
-		       *.spkg.txz) PKGNAME="$1" ;;
-		           --help) SHOWHELP=yes ;;
-		              --*) msg "Invalid option: ($1)"; exit 1 ;;
-		               -*) get_opts "$1" ;;
-		                *) msg "Invalid option: ($1)"; exit 1 ;;
-		esac
-		shift
-	done
-	
-}
-
-parse_options2() {
+parse_opts() {
 	
 	if [ -z "$1" ]; then
 		SHOWHELP=yes
 	else
 		while [ "$1" ]; do
 			case $1 in
-			                    --dep) DEP_INSTALL=yes       ;;
-			-u  |           --upgrade) UPGRADE_PKG=yes       ;;
-			-r  |         --reinstall) REINSTALL_PKG=yes     ;;
-			-id | --ignore-dependency) IGNORE_DEP=yes        ;;
-			-ic |   --ignore-conflict) IGNORE_CONFLICT=yes   ;;
-			-v  |           --verbose) VERBOSE_INSTALL=yes   ;;
-					  --no-preinstall) NO_PREINSTALL=yes     ;;
-					 --no-postinstall) NO_POSTINSTALL=yes    ;;
-					  --no-preupgrade) NO_PREUPGRADE=yes     ;;
-					 --no-postupgrade) NO_POSTUPGRADE=yes    ;;
-						  --no-backup) NO_BACKUP=yes         ;;
-						   --no-color) NOCOLOR=yes           ;;
-					--no-orphan-check) NO_ORPHAN_CHECK=yes   ;;
-						   *.spkg.txz) PKGNAME="$1"          ;;
-			-h  |              --help) SHOWHELP=yes          ;;
-									*) msg "Invalid option!"; exit 1 ;;
+			-u |           --upgrade) UPGRADE_PKG=yes ;;
+			-r |         --reinstall) REINSTALL_PKG=yes ;;
+			-d |            --no-dep) IGNORE_DEP=yes ;;
+			-c |   --ignore-conflict) IGNORE_CONFLICT=yes ;;
+			-v |           --verbose) VERBOSE_INSTALL=yes ;;
+			-h |              --help) SHOWHELP=yes ;;
+				     --no-preinstall) NO_PREINSTALL=yes ;;
+				    --no-postinstall) NO_POSTINSTALL=yes ;;
+				     --no-preupgrade) NO_PREUPGRADE=yes ;;
+				    --no-postupgrade) NO_POSTUPGRADE=yes ;;
+					     --no-backup) NO_BACKUP=yes ;;
+					      --no-color) NOCOLOR=yes ;;
+					      *.spkg.txz) PKGNAME="$1" ;;
+						   		   *) msg "Invalid option! ($1)"; exit 1 ;;
 			esac
 			shift
 		done
@@ -478,7 +422,10 @@ parse_options2() {
 
 main() {
 	
-	parse_options "$@"
+	#parse_options "$@"
+	parse_opts $(extract_opt $@)
+	
+	BASEPKGNAME=$(basename $PKGNAME)
 		
 	# disable colour
 	if [ "$NOCOLOR" ]; then
@@ -496,6 +443,8 @@ main() {
 		msgerr "Package ${RED}$1${CRESET} not exist!"
 		exit 1
 	fi
+	
+	echo -ne "Reading $BASEPKGNAME...\r"
 	
 	# check integrity of package
 	if ! tar -tf $PKGNAME &>/dev/null; then
@@ -519,7 +468,6 @@ main() {
 	fi
 	
 	# extract .pkginfo file into /tmp ###
-	BASEPKGNAME=$(basename $PKGNAME)
 	tar -xf $PKGNAME .pkginfo -O > /tmp/spkg.$BASEPKGNAME.pkginfo
 	
 	### GET NAME, VERSION, RELEASE FROM TMP .pkginfo FILE ###
@@ -531,9 +479,14 @@ main() {
 	backup=$(getinfopkg backup $BASEPKGNAME)
 	conflict=$(getinfopkg conflict $BASEPKGNAME)
 	
+	# tmp
+	depends+=(${makedepends[@]})
+	
 	### REMOVE .pkginfo file from /tmp ###
 	rm -f /tmp/spkg.$BASEPKGNAME.pkginfo
 	
+	echo -ne "\033[0K"
+		
 	### IF INSTALLED & NO UPGRADE & NO REINSTALL ###
 	if [ -d $INDEX_DIR/$name ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then
 		iname=$(installed_pkg_info name $name)

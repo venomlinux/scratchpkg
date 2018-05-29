@@ -226,13 +226,12 @@ Usage:
   removepkg [ <options> <package name> ]
 
 Options:
-  -d                     skip dependency check
-  -v                     print deleted files
-  --no-preremove         don't run pre-remove script
-  --no-postremove        don't run post-remove script
-  --no-orphan-check      skip orphaned package check removing package
-  --no-color             disable colour for output
-  -h,  --help            show this help message
+  -d, --no-dep          skip dependency check
+  -v, --verbose         print removed files
+  -h, --help            show this help message
+      --no-preremove    don't run pre-remove script
+      --no-postremove   don't run post-remove script
+      --no-color        disable colour for output
 
 Example:
   removepkg firefox -dv --no-preremove       remove package firefox, skipping dependency check,
@@ -240,52 +239,34 @@ Example:
 EOF
 }
 
-get_opts() {
-	
-	for (( i=1; i<${#1}; i++ )); do
-		case "${1:$i:1}" in
-			d) IGNORE_DEP=yes ;;
-			v) VERBOSE_REMOVE=yes ;;
-			h) SHOWHELP=yes ;;
-			*) msg "Invalid option (-${1:$i:1})"; exit 1 ;;
+extract_opt() {
+	for opt in $@; do
+		case $opt in
+			--*=*) OPTS+=($opt) ;;
+			  --*) OPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
+			    *) OPTS+=($opt) ;;
 		esac
 	done
-	
+	echo "${OPTS[@]}"
 }
 
-parse_options() {
-	
-	while [ "$1" ]; do
-		case $1 in
-		         --help) SHOWHELP=yes ;;
-		 --no-preremove) NO_PREREMOVE=yes ;;
-		--no-postremove) NO_POSTREMOVE=yes ;;
-		     --no-color) NOCOLOR=yes ;;
-	  --no-orphan-check) NO_ORPHAN_CHECK=yes ;;
-		            --*) msg "Invalid option: ($1)"; exit 1 ;;
-		             -*) get_opts "$1" ;;
-		              *) RMNAME+=($1) ;;
-		esac
-		shift
-	done
-	
-}
-
-parse_options2() {
+parse_opts() {
 	
 	if [ -z "$1" ]; then
 		SHOWHELP=yes
 	else
 		while [ "$1" ]; do
 			case $1 in
-			-id | --ignore-dependency) IGNORE_DEP=yes       ;;
-			-v  |           --verbose) VERBOSE_REMOVE=yes   ;;
-			-h  |              --help) SHOWHELP=yes         ;;
-					   --no-preremove) NO_PREREMOVE=yes     ;;
-					  --no-postremove) NO_POSTREMOVE=yes    ;;
-						   --no-color) NOCOLOR=yes          ;;
-					--no-orphan-check) NO_ORPHAN_CHECK=yes  ;;
-									*) arg "$1" && RMNAME+=($1) || { msgerr "Invalid option!"; exit 1; }  ;;
+			-d |            --no-dep) IGNORE_DEP=yes ;;
+			-v |           --verbose) VERBOSE_REMOVE=yes ;;
+			-h |              --help) SHOWHELP=yes ;;
+				      --no-preremove) NO_PREREMOVE=yes ;;
+				     --no-postremove) NO_POSTREMOVE=yes ;;
+					      --no-color) NOCOLOR=yes ;;
+				   --no-orphan-check) NO_ORPHAN_CHECK=yes ;;
+		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
+					               *) RMNAME+=($1) ;;
 			esac
 			shift
 		done
@@ -295,7 +276,7 @@ parse_options2() {
 
 main() {
 	
-	parse_options "$@"
+	parse_opts $(extract_opt $@)
 	
 	# disable colour
 	if [ "$NOCOLOR" ]; then
@@ -306,7 +287,14 @@ main() {
 	if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
 		help
 		exit 0
-	fi		
+	fi
+	
+	for pkg in ${RMNAME[@]}; do
+		if [ ! -d $INDEX_DIR/$pkg ]; then
+			msg "Package ${RED}$pkg${CRESET} not installed."
+			exit 1
+		fi
+	done
 	
 	# check for root access
 	needroot "Removing package"
@@ -324,18 +312,12 @@ main() {
 	fi
 	
 	for pkg in ${RMNAME[@]}; do
-		if [ ! -d $INDEX_DIR/$pkg ]; then
-			msg "Package ${RED}$pkg${CRESET} not installed."
-		else
-			getoldname $pkg ### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
-			removepkg $pkg  ### REMOVE PACKAGE ###
-		fi
+		getoldname $pkg ### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
+		removepkg $pkg  ### REMOVE PACKAGE ###	
+		#if [ ! "$NO_ORPHAN_CHECK" ]; then		# check for orphan package
+			#checkneworphan
+		#fi	
 	done
-	
-	# check for orphan package
-	if [ ! "$NO_ORPHAN_CHECK" ]; then
-		checkneworphan
-	fi	
 	
 	# running ldconfig
 	if [ -x /sbin/ldconfig ]; then
