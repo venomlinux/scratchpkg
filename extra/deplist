@@ -52,7 +52,7 @@ calc_dep() {
 	
 	# check dependencies
 	for i in $(checkdep "$1"); do
-		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -w $i) = "" ]]; then
+		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $i) = "" ]]; then
 			calc_dep $i
 		fi
 	done
