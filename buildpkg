@@ -316,8 +316,8 @@ packaging() {
 	fi
 	
 	case $PREINSTALL_STATUS in
-		OK) msg "preinstall	: ${GREEN}OK${CRESET}" ;;
-		KO) msg "preinstall	: ${RED}FAIL${CRESET}" ;;
+		OK) echo -e "preinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) echo -e "preinstall	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	popd

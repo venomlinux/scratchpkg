@@ -15,11 +15,11 @@ spkglock() {
 
 removepkg() {
 	
-	msg "Removing ${GREEN}$ipackagename${CRESET}..."
+	echo -e "Removing ${GREEN}$ipackagename${CRESET}..."
 	
 	### CHECK DEPENDENCY ###
 	if [ ! "$IGNORE_DEP" ]; then
-		msg2 "Checking dependencies..."
+		echo -ne "Checking dependencies...\033[0K\r"
 		checkdeps $1
 	fi
 	
@@ -35,7 +35,7 @@ removepkg() {
 		run_preremove
 	fi
 
-	msg2 "Removing files & dirs..."
+	echo -ne "Removing files & dirs...\033[0K\r"
 	pushd $ROOT_DIR
 		for backup in $ibackup; do
 			[ -f ${backup}.spkgnew ] && rm ${backup}.spkgnew
@@ -73,21 +73,24 @@ removepkg() {
 		msgerr "Error occured while removing ${RED}$ipackagename${CRESET}."
 		spkglock
 		exit 1
-	else
-		msg "Successfully remove ${GREEN}$ipackagename${CRESET}."
 	fi
 	
 	case $PREREMOVE_STATUS in
-		OK) msg "preremove	: ${GREEN}OK${CRESET}" ;;
-		KO) msg "preremove	: ${RED}FAIL${CRESET}" ;;
+		OK) echo -e "preremove	: ${GREEN}OK${CRESET}" ;;
+		KO) echo -e "preremove	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $POSTREMOVE_STATUS in
-		OK) msg "postremove	: ${GREEN}OK${CRESET}" ;;
-		KO) msg "postremove	: ${RED}FAIL${CRESET}" ;;
+		OK) echo -e "postremove	: ${GREEN}OK${CRESET}" ;;
+		KO) echo -e "postremove	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	runremovehooks
+	
+	msg "Successfully remove ${GREEN}$ipackagename${CRESET}."
+	
+	unset -f pre_remove post_remove
+	unset PREREMOVE_STATUS POSTREMOVE_STATUS
 	
 	# remove lock file
 	spkglock
@@ -96,7 +99,7 @@ removepkg() {
 run_preremove() {
 	
 	if [ "`type -t pre_remove`" = "function" ]; then
-		msg "Running preremove script..."
+		echo -ne "Running preremove script...\033[0K\r"; echo -ne "\033[0K"
 		pre_remove "$iversion" && PREREMOVE_STATUS=OK || PREREMOVE_STATUS=KO
 	fi
 
@@ -105,7 +108,7 @@ run_preremove() {
 run_postremove() {
 	
 	if [ "`type -t post_remove`" = "function" ]; then
-		msg "Running postremove script..."
+		echo -ne "Running postremove script...\033[0K\r"; echo -ne "\033[0K\r"
 		post_remove "$iversion" && POSTREMOVE_STATUS=OK || POSTREMOVE_STATUS=KO
 	fi
 	

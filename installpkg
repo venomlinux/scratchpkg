@@ -21,7 +21,18 @@ installpkg() {
 	#	checkdeps
 	#fi
 	
-	msg "Installing ${GREEN}$name-$version-$release${CRESET}..."
+	if [ "$UPGRADE_PKG" ]; then
+		oprmsg=upgrade
+		oprmsg2=Upgrading
+	elif [ "$REINSTALL_PKG" ]; then
+		oprmsg=reinstall
+		oprmsg2=Reinstalling
+	else
+		oprmsg=install
+		oprmsg2=Installing
+	fi
+	
+	echo -e "$oprmsg2 ${GREEN}$name-$version-$release${CRESET}..."
 	
 	# noextract file into system
 	for noextr in ${NO_EXTRACT[@]}; do
@@ -30,7 +41,7 @@ installpkg() {
 	
 	#ignore conflict
 	if [ ! "$IGNORE_CONFLICT" ]; then
-		msg2 "Checking file conflict..."
+		echo -ne "Checking file conflict...\033[0K\r"
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 			upcheckconflict
 		else
@@ -44,7 +55,8 @@ installpkg() {
 	
 	# backup conf as set in spkgbuld if upgrade or reinstall package
 	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-		if [ ! "$NO_BACKUP" ]; then
+		if [ ! "$NO_BACKUP" ] && [ -n "$backup" ]; then
+			echo -ne "Backup ${PURPLE}$bkp${CRESET}...\033[0K\r"
 			backupconf
 		fi
 	fi
@@ -56,16 +68,18 @@ installpkg() {
 	
 	# run preinstall script if no --no-preinstall flag and not upgrade package
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
+		echo -ne "Running preinstall script...\033[0K\r"; echo -ne "\033[0K"
 		run_preinstall
 	fi
 	
 	# run preupgrade script if package upgrade
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
+		echo -ne "Running preupgrade script...\033[0K\r"; echo -ne "\033[0K"
 		run_preupgrade
 	fi
 	
 	#installing package into system
-	msg2 "Extracting package..."
+	echo -ne "Extracting package...\033[0K\r"
 	if [ "$VERBOSE_INSTALL" ]; then
 		tar --keep-directory-symlink --no-overwrite-dir -p -x -v -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
 	else
@@ -83,47 +97,52 @@ installpkg() {
 		exit 1
 	fi
 		
-	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then	
+	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
+		echo -ne "Removing old files...\033[0K\r"
 		removeoldfiles
 	fi	
 
 	registerpkg
 	
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
+		echo -ne "Running postinstall script...\033[0K\r"; echo -ne "\033[0K"
 		run_postinstall
 	fi
 	
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
+		echo -ne "Running postupgrade script...\033[0K\r"; echo -ne "\033[0K"
 		run_postupgrade
 	fi
 	
 	restoreconf
 	
 	case $PREINSTALL_STATUS in
-		OK) msg "preinstall	: ${GREEN}OK${CRESET}" ;;
-		KO) msg "preinstall	: ${RED}FAIL${CRESET}" ;;
+		OK) echo -e "preinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) echo -e "preinstall	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $PREUPGRADE_STATUS in
-		OK) msg "preupgrade	: ${GREEN}OK${CRESET}" ;;
-		KO) msg "preupgrade	: ${RED}FAIL${CRESET}" ;;
+		OK) echo -e "preupgrade	: ${GREEN}OK${CRESET}" ;;
+		KO) echo -e "preupgrade	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $POSTINSTALL_STATUS in
-		OK) msg "postinstall	: ${GREEN}OK${CRESET}" ;;
-		KO) msg "postinstall	: ${RED}FAIL${CRESET}" ;;
+		OK) echo -e "postinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) echo -e "postinstall	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $POSTUPGRADE_STATUS in
-		OK) msg "postupgrade	: ${GREEN}OK${CRESET}" ;;
-		KO) msg "postupgrade	: ${RED}FAIL${CRESET}" ;;
+		OK) echo -e "postupgrade	: ${GREEN}OK${CRESET}" ;;
+		KO) echo -e "postupgrade	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	runhooks
 	
 	if [ -f $INDEX_DIR/$name/.pkgreadme ]; then
-		msg "This package has ${GREEN}readme${CRESET}"
+		echo -e "This package has ${GREEN}readme${CRESET}\033[0K\r"
 	fi
+	
+	msg "Successfully $oprmsg ${GREEN}$name-$version-$release${CRESET}."
 	
 	# remove lock file
 	spkglock
@@ -133,8 +152,7 @@ removeoldfiles() {
 	
 	TMP_TARLIST="/tmp/$name.tarlist.spkg"
 	tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $TMP_TARLIST
-		
-	msg2 "Removing old files & dirs..."		
+
 	grep -v '/$' $INDEX_DIR/$name/.files | while read line; do
 		if [ ! "$(grep -Fx "$line" $TMP_TARLIST)" ]; then
 			pushd $ROOT_DIR
@@ -169,8 +187,6 @@ registerpkg() {
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
 	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
-	
-	msg "Successfully install ${GREEN}$name-$version-$release${CRESET}."
 	
 }
 
@@ -254,7 +270,6 @@ backupconf() {
 	pushd $ROOT_DIR	
 		for bkp in ${backup[@]}; do
 			if [ -e $bkp ]; then
-				msg2 "Backup ${PURPLE}$bkp${CRESET}"
 				rm -f $bkp.spkgtmp
 				cp $bkp $bkp.spkgtmp
 				FILEBACKUP+=($bkp)
@@ -290,7 +305,6 @@ checkoutdate() {
 run_preinstall() {
 	
 	if [ "`type -t pre_install`" = "function" ]; then
-		msg "Running preinstall script..."
 		pre_install "$version" && PREINSTALL_STATUS=OK || PREINSTALL_STATUS=KO
 	fi
 	
@@ -299,7 +313,6 @@ run_preinstall() {
 run_postinstall() {
 	
 	if [ "`type -t post_install`" = "function" ]; then
-		msg "Running postinstall script..."
 		post_install "$version" && POSTINSTALL_STATUS=OK || POSTINSTALL_STATUS=KO
 	fi
 }
@@ -307,7 +320,6 @@ run_postinstall() {
 run_preupgrade() {
 	
 	if [ "`type -t pre_upgrade`" = "function" ]; then
-		msg "Running preupgrade script..."
 		pre_upgrade "$version" "$iversion" && PREUPGRADE_STATUS=OK || PREUPGRADE_STATUS=KO
 	fi
 	
@@ -316,7 +328,6 @@ run_preupgrade() {
 run_postupgrade() {
 	
 	if [ "`type -t post_upgrade`" = "function" ]; then
-		msg "Running postupgrade script..."
 		post_upgrade "$version" "$iversion" && POSTUPGRADE_STATUS=OK || POSTUPGRADE_STATUS=KO
 	fi
 	
@@ -512,10 +523,10 @@ main() {
 				exit 0
 			fi
 			checkoutdate
-			msg "Upgrading package: ${YELLOW}$iname-$iversion-$irelease${CRESET} -> ${GREEN}$name-$version-$release${CRESET}"
+			#msg "Upgrading package: ${YELLOW}$iname-$iversion-$irelease${CRESET} -> ${GREEN}$name-$version-$release${CRESET}"
 		# REINSTALL PACKAGE
-		elif [ "$REINSTALL_PKG" ]; then
-			msg "Reinstall package ${GREEN}$name${CRESET}."
+		#elif [ "$REINSTALL_PKG" ]; then
+			#msg "Reinstall package ${GREEN}$name${CRESET}."
 		fi
 	fi
 	

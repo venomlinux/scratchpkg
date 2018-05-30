@@ -8,6 +8,14 @@ export LC_ALL=C
 # helper func
 #
 
+confirm() {
+	read -r -p "$1 (Y/n) " response
+	case "$response" in
+		[Nn][Oo]|[Nn]) echo "$2"; exit 2 ;;
+		*) : ;;
+	esac
+}
+
 needarg() {
 	if [ -z "$@" ]; then
 		msgerr "This operation require arguments!"
@@ -765,18 +773,30 @@ if [ "$mode" = "install" ]; then
 			if [ -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
 				msg "Package ${GREEN}$pkg${CRESET} already installed."
 			else
-				echo -ne "Calculating $pkg dependencies...\033[0K\r"
+				echo -e "Calculating $pkg dependencies..."
 				deplist "$pkg"
 			fi
 		done
-		echo -ne "\033[0K"
-		for dep in ${DEP[@]}; do # install all required dependencies and target packages itself
-			if getportpath "$dep" >/dev/null; then
-				if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
-					portinstall $dep -i ${OPTS[@]}
+		if [ ${#DEP[@]} -gt 0 ]; then
+			for dep in ${DEP[@]}; do
+				if getportpath "$dep" >/dev/null; then
+					if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+						WILLINSTALL+=($dep)
+					fi
+				else
+					MISSINGPKG+=($dep)
 				fi
-			fi
-		done
+			done
+			echo
+			echo "Package(s) will be installed : ${#WILLINSTALL[@]}"
+			echo "Missing package(s)           : ${#MISSINGPKG[@]}"
+			echo
+			confirm "Continue install these package(s)?" "Package installation cancelled."
+			echo
+			for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
+				portinstall $inst -i ${OPTS[@]}
+			done
+		fi
 	fi
 	exit 0
 fi
