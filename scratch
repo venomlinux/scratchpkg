@@ -493,23 +493,25 @@ searchpkg() {
 						popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
-							search_result="${BLUE}($portname)${CRESET} ${PURPLE}$name${CRESET} ${CYAN}$version-$release${CRESET}"
-							if [ -d $INDEX_DIR/$name ]; then
-								iversion=$(installed_pkg_info version $name)
-								irelease=$(installed_pkg_info release $name)
-								[ -f $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
-								if [ "$version-$release" = "$iversion-$irelease" ]; then
-									msg3 "$search_result ${GREEN}[installed]${CRESET} ${BLUE}$ITSLOCK${CRESET}"
-									msg4 "$description"
-								else
-									msg3 "$search_result ${YELLOW}[installed $iversion-$irelease]${CRESET} ${BLUE}$ITSLOCK${CRESET}"
-									msg4 "$description"
-								fi
+							search_result="${BLUE}($portname)${CRESET} ${PURPLE}$name${CRESET} ${CYAN}$version-$release${CRESET} $description"
+							if [ -e $INDEX_DIR/$name/.pkginfo ]; then
+								#iversion=$(installed_pkg_info version $name)
+								#irelease=$(installed_pkg_info release $name)
+								#[ -f $INDEX_DIR/$name/.lock ] && ITSLOCK="[locked]"
+								#if [ "$version-$release" = "$iversion-$irelease" ]; then
+									#msg3 "$search_result ${GREEN}[installed]${CRESET} ${BLUE}$ITSLOCK${CRESET}"
+									#msg4 "$description"
+								#else
+									#msg3 "$search_result ${YELLOW}[installed $iversion-$irelease]${CRESET} ${BLUE}$ITSLOCK${CRESET}"
+									#msg4 "$description"
+								#fi
+								echo -e "[${GREEN}*${CRESET}] $search_result"
 							else
-								msg3 "$search_result"
-								msg4 "$description"
+								echo -e "[ ] $search_result"
+								#msg3 "$search_result"
+								#msg4 "$description"
 							fi
-							unset description ITSLOCK
+							unset description
 						fi
 					fi
 				done
