@@ -7,6 +7,8 @@ source "/usr/share/scratchpkg/message"
 
 onepkg() {
 	
+	MISSING=""
+	
 	pushd / >/dev/null
 		echo -ne "Checking $1...\r"
 		while IFS=' ' read -r line; do
@@ -16,8 +18,8 @@ onepkg() {
 					LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 					LIB=$(echo $LIB_NAME | tr '\n' ' ')
 					REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
-					MISSING_LIB=""
 					for i in $LIB_NAME; do
+						echo -e "$line ${GREEN}>>>${CRESET} $i"
 						if echo $REQ_LIB | grep -q $i; then
 							MISSING_LIB="$MISSING_LIB $i"
 						fi
@@ -25,7 +27,7 @@ onepkg() {
 					if [ "$MISSING_LIB" != "" ]; then
 						echo "$MISSING_LIB"
 					fi
-					MISSING=1
+					MISSING=yes
 				fi ;;
 			*)
 				continue ;;
@@ -35,8 +37,8 @@ onepkg() {
 	
 	echo -ne "\033[0K"
 	
-	[ "$MISSING" != 1 ] && msg "Packages '$1' is doing fine."
-	
+	[ "$MISSING" != "yes" ] && msg "Packages '$1' is doing fine."
+	return 0
 }
 
 allpkg() {
@@ -55,10 +57,9 @@ allpkg() {
 						PKG_NAME=$(basename $(dirname $(grep -Rx $line $INDEX_DIR | cut -d ':' -f1)))
 						REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
 						LIB=$(echo $LIB_NAME | tr '\n' ' ')
-						MISSING_LIB=""
 						for i in $LIB_NAME; do
+							echo -e "(${GREEN}$PKG_NAME${CRESET}) $line ${GREEN}>>>${CRESET} $i"
 							if echo $REQ_LIB | grep -q $i; then
-								[ "$VERBOSE" ] && echo -e "(${GREEN}$PKG_NAME${CRESET}) $line ${GREEN}>>>${CRESET} $i"
 								if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
 									continue
 								else
@@ -78,8 +79,8 @@ allpkg() {
 	echo -ne "\033[0K"
 	
 	if [ "${#ALLPKG[@]}" -gt 0 ]; then
-		[ -z "$VERBOSE" ] || echo
-		echo "This package(s) need rebuild:"
+		echo
+		echo "This package(s) required rebuild:"
 		for rebuild in ${ALLPKG[@]}; do
 			echo -e "${GREEN}>>>${CRESET} $rebuild"
 		done
@@ -91,12 +92,16 @@ allpkg() {
 
 help() {
 	
-	cat << EOF	
+	cat << EOF
+$(basename $0) is script to scan broken package
+
+scanned directory/files:
+   /bin /usr/bin /sbin /usr/sbin /usr/libexec *.so.*
+  
 Usage:
-	revdep [ option | pkgname ]
+	revdep [ pkgname ]
 	
 Options:
-	-v, --verbose     print out missing library
 	-h, --help        show this help page and exit
 EOF
  
@@ -106,7 +111,6 @@ parse_options() {
 	
 	while [ "$1" ]; do
 		case "$1" in
-			-v|--verbose) VERBOSE=yes ;;
 			-h|--help)    help; exit 0 ;;
 			*) PKG+=($1) ;;
 		esac
