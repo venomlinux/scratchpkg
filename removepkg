@@ -19,7 +19,7 @@ removepkg() {
 	
 	### CHECK DEPENDENCY ###
 	if [ ! "$IGNORE_DEP" ]; then
-		echo -ne "Checking dependencies...\033[0K\r"
+		msg2 "Checking dependencies..."
 		checkdeps $1
 	fi
 	
@@ -35,14 +35,14 @@ removepkg() {
 		run_preremove
 	fi
 
-	echo -ne "Removing files & dirs...\033[0K\r"
+	msg2 "Removing files & dirs..."
 	pushd $ROOT_DIR
 		for backup in $ibackup; do
 			[ -f ${backup}.spkgnew ] && rm ${backup}.spkgnew
 		done
 		while IFS=' ' read -r line; do
 					if [ "$VERBOSE_REMOVE" = "yes" ]; then
-						rm_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
+						rm_silent "$line" && echo " - $line" || msgwarn "Failed remove $line"
 					else
 						rm_silent "$line" || msgwarn "Failed remove $line"
 					fi
@@ -53,7 +53,7 @@ removepkg() {
 		while IFS=' ' read -r line; do
 			if [ ! "$(grep -R --exclude-dir="$1" -w "$line" "$INDEX_DIR")" ]; then
 					if [ "$VERBOSE_REMOVE" = "yes" ]; then
-						rmdir_silent "$line" && echo "$line" || msgwarn "Failed remove $line"
+						rmdir_silent "$line" && echo " - $line" || msgwarn "Failed remove $line"
 					else
 						rmdir_silent "$line" || msgwarn "Failed remove $line"
 					fi
@@ -76,18 +76,18 @@ removepkg() {
 	fi
 	
 	case $PREREMOVE_STATUS in
-		OK) echo -e "preremove	: ${GREEN}OK${CRESET}" ;;
-		KO) echo -e "preremove	: ${RED}FAIL${CRESET}" ;;
+		OK) msg2 "preremove	: ${GREEN}OK${CRESET}" ;;
+		KO) msg2 "preremove	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	case $POSTREMOVE_STATUS in
-		OK) echo -e "postremove	: ${GREEN}OK${CRESET}" ;;
-		KO) echo -e "postremove	: ${RED}FAIL${CRESET}" ;;
+		OK) msg2 "postremove	: ${GREEN}OK${CRESET}" ;;
+		KO) msg2 "postremove	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	runremovehooks
 	
-	msg "Successfully remove ${GREEN}$ipackagename${CRESET}."
+	msg "Successfully removed."
 	
 	unset -f pre_remove post_remove
 	unset PREREMOVE_STATUS POSTREMOVE_STATUS
@@ -99,7 +99,7 @@ removepkg() {
 run_preremove() {
 	
 	if [ "`type -t pre_remove`" = "function" ]; then
-		echo -ne "Running preremove script...\033[0K\r"; echo -ne "\033[0K"
+		msg2 "Running preremove script..."
 		pre_remove "$iversion" && PREREMOVE_STATUS=OK || PREREMOVE_STATUS=KO
 	fi
 
@@ -108,7 +108,7 @@ run_preremove() {
 run_postremove() {
 	
 	if [ "`type -t post_remove`" = "function" ]; then
-		echo -ne "Running postremove script...\033[0K\r"; echo -ne "\033[0K\r"
+		msg2 "Running postremove script..."
 		post_remove "$iversion" && POSTREMOVE_STATUS=OK || POSTREMOVE_STATUS=KO
 	fi
 	

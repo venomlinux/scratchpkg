@@ -1044,7 +1044,6 @@ if [ "$mode" = "search" ]; then
 	exit 0
 fi
 
-# print help message if require mode not met or empty
-help
+echo "Run '$(basename $0) help' to see available mode and options"
 
 exit 0

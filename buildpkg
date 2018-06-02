@@ -239,7 +239,7 @@ buildpackage() {
 			clearworkdir
 			exitscript1
 		else
-			msg "Successfully build ${GREEN}$name-$version-$release${CRESET}."
+			msg "Build successfully."
 		fi
 	
 	popd
@@ -294,7 +294,7 @@ packaging() {
 	[ -n "$depends" ] && for d in ${depends[@]}; do echo "depends = $d" >> .pkginfo; done
 	[ -n "$noextract" ] && echo "noextract = $noextract" >> .pkginfo
 	
-	msg "Packaging ${GREEN}$name-$version-$release${CRESET}..."
+	msg2 "Packaging..."
 	
 	for file in .pkginstall .pkgreadme; do
 		if [ -f $file ]; then
@@ -304,20 +304,22 @@ packaging() {
 	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * .pkginfo "${addtotar[@]}"
 	
 	if [ $? != 0 ]; then
-		msgerr "Packaging ${RED}$PKGNAME${CRESET} failed."
+		msgerr "Packaging failed."
 		if [ -f $PACKAGE_DIR/$PKGNAME ]; then
 			rm $PACKAGE_DIR/$PKGNAME
 		fi
 		exitscript1
 	else
 		pkgsize="$(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}')"
-		$EXTPROG -t -v -f $PACKAGE_DIR/$PKGNAME
-		msg "Successfully create package ${GREEN}$PKGNAME${CRESET}. (${pkgsize})"
+		if [ "$VERBOSE" ]; then
+			$EXTPROG -t -v -f $PACKAGE_DIR/$PKGNAME
+		fi
+		msg "Successfully created package ${GREEN}$PKGNAME${CRESET}. (${pkgsize})"
 	fi
 	
 	case $PREINSTALL_STATUS in
-		OK) echo -e "preinstall	: ${GREEN}OK${CRESET}" ;;
-		KO) echo -e "preinstall	: ${RED}FAIL${CRESET}" ;;
+		OK) msg2 "preinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) msg2 "preinstall	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	popd
@@ -536,7 +538,7 @@ parse_opts() {
 		-r |         --reinstall) REINSTALL_PKG=yes; OPTS+=($1) ;;
 		-d |            --no-dep) IGNORE_DEP=yes; OPTS+=($1) ;;
 		-c |   --ignore-conflict) OPTS+=($1) ;;
-		-v |           --verbose) OPTS+=($1) ;;
+		-v |           --verbose) VERBOSE=yes; OPTS+=($1) ;;
 		-f |     --force-rebuild) FORCE_REBUILD=yes ;;
 		-m |        --skip-mdsum) IGNORE_MDSUM=yes ;;
 		-g |          --genmdsum) UPDATE_MDSUM=yes ;;

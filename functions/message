@@ -1,7 +1,11 @@
 #!/bin/bash
 
 msg() {
-	echo -e "${GREEN}==>${CRESET} $1"
+	echo -e "${GREEN}>>>${CRESET} $1"
+}
+
+msg2() {
+	echo -e " ${BLUE}*${CRESET} $1"
 }
 
 msginfo() {
@@ -14,10 +18,6 @@ msgerr() {
 
 msgwarn() {
 	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
-}
-
-msg2() {
-	echo -e "${BLUE}  ->${CRESET} $1"
 }
 
 msg3() {
