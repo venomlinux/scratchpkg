@@ -1,0 +1,51 @@
+#!/bin/bash
+
+if [ "$UID" != 0 ]; then
+	echo "This operation need root access. Exiting..."
+	exit 1
+fi
+
+spkgnew=$(find /etc -regextype posix-extended -regex ".+\.spkgnew" 2> /dev/null)
+
+if [ -z "$spkgnew" ]; then
+	echo "Nothing to do. Exiting..."
+	exit 0
+fi
+
+for file in $spkgnew; do
+	clear
+	currentfile=${file%.*}
+	if [ ! -e "$currentfile" ]; then
+		echo "Remove '$file', '$currentfile' not exist."
+		rm -f "$file"
+		sleep 1
+		continue
+	fi
+	diff -u $currentfile $file --color=always
+	if [ $? = 0 ]; then
+		echo "Remove '$file', no diff found."
+		rm -f "$file"
+		sleep 1
+		continue
+	fi
+	echo
+	echo "Choose action:"
+	echo "1) Remove new file"
+	echo "2) Replace old with new file"
+	echo "*) Do nothing"
+	echo
+	echo -n "Action: "
+	read ACTION
+	if [ "$ACTION" = "1" ]; then
+		echo "Remove '$file'"
+		rm -f "$file"
+	elif [ "$ACTION" = "2" ]; then
+		echo "Replace '$currentfile' with '$file'."
+		mv "$file" "$currentfile"
+	else
+		echo "Do nothing."
+	fi
+	sleep 1
+done
+
+exit 0
