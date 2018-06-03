@@ -125,11 +125,11 @@ installpkg() {
 		KO) msg2 "postupgrade	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
-	runhooks
-	
 	if [ -f $INDEX_DIR/$name/.pkgreadme ]; then
-		msg2 "This package has ${GREEN}readme${CRESET}\033[0K\r"
+		msg2 "This package has ${GREEN}readme${CRESET}"
 	fi
+	
+	runhooks
 	
 	msg "Successfully $oprmsg."
 	

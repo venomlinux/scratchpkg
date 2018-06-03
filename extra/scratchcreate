@@ -1,0 +1,30 @@
+#!/bin/bash
+
+if [ -d $1 ]; then
+	echo "ERROR: Directory '$1' already exist!"
+	exit 1
+else
+	mkdir $1
+	echo "# description	: 
+# backup	: 
+# conflict	: 
+# depends	: 
+# noextract	: 
+
+name=$1
+version=
+release=1
+options=()
+source=()
+md5sum=()
+
+build() {
+	cd \$name-\$version
+	./configure --prefix=/usr
+	make
+	make DESTDIR=\$PKG install
+}" > $1/spkgbuild
+	echo "Template port have created for '$1'."
+fi
+
+exit 0

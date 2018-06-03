@@ -603,14 +603,15 @@ updports() {
 	checktool httpup
 	
 	needroot "Updating ports"
-	
-	for repo in ${PORT_REPO[@]}; do
-		portname=$(basename $(echo $repo))
-		if [ -f /etc/ports/$portname.httpup ]; then
-			. /etc/ports/$portname.httpup
-			httpup sync $URL $repo
+
+	while read repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		if [ -n "$repodir" ] && [ -n "$repourl" ]; then
+			httpup sync $repourl $repodir
 		fi
-	done
+	done < /etc/scratchpkg.repo
 	
 }
 
@@ -636,7 +637,7 @@ mode:
     own       <file>          show package's owner of file
     pkgtree   <package>       show list files of installed package
     path      <package>       show package's buildscripts path
-    portup                    update port's repo
+    sync                      update port's repo
     dup                       print duplicate ports in repo
     listinst                  list installed package in system
     listorphan                list orphan package
@@ -719,6 +720,13 @@ done
 
 checkdirexist "$INDEX_DIR"
 
+while read repodir repourl junk; do
+	case $repodir in
+		""|"#"*) continue ;;
+	esac
+	PORT_REPO+=($repodir)
+done < /etc/scratchpkg.repo
+
 # build mode
 if [ "$mode" = "build" ]; then
 	parseopt() {
@@ -791,7 +799,7 @@ if [ "$mode" = "install" ]; then
 			done
 			echo
 			echo "Package(s) will be installed : ${#WILLINSTALL[@]}"
-			echo "Missing package(s)           : ${#MISSINGPKG[@]}"
+			echo "Missing dependencies         : ${#MISSINGPKG[@]}"
 			echo
 			confirm "Continue install these package(s)?" "Package installation cancelled."
 			echo
@@ -1032,7 +1040,7 @@ if [ "$mode" = "path" ]; then
 fi
 
 # update ports
-if [ "$mode" = "portup" ]; then
+if [ "$mode" = "sync" ]; then
 	updports
 	exit 0
 fi

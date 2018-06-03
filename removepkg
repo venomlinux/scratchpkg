@@ -15,7 +15,7 @@ spkglock() {
 
 removepkg() {
 	
-	echo -e "Removing ${GREEN}$ipackagename${CRESET}..."
+	msg "Removing ${GREEN}$ipackagename${CRESET}..."
 	
 	### CHECK DEPENDENCY ###
 	if [ ! "$IGNORE_DEP" ]; then
