@@ -603,6 +603,11 @@ updports() {
 	checktool httpup
 	
 	needroot "Updating ports"
+	
+	if [ ! -e /etc/scratchpkg.repo ]; then
+		msgerr "Repo file not found! (/etc/scratchpkg.repo)"
+		exit 1
+	fi
 
 	while read repodir repourl junk; do
 		case $repodir in

@@ -7,8 +7,6 @@ source "/usr/share/scratchpkg/message"
 
 onepkg() {
 	
-	MISSING=""
-	
 	pushd / >/dev/null
 		echo -ne "Checking $1...\r"
 		while IFS=' ' read -r line; do
@@ -16,17 +14,9 @@ onepkg() {
 			*application/x-sharedlib* | *application/x-executable*)
 				if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
 					LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
-					LIB=$(echo $LIB_NAME | tr '\n' ' ')
-					REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
 					for i in $LIB_NAME; do
-						echo -e "$line ${GREEN}>>>${CRESET} $i"
-						if echo $REQ_LIB | grep -q $i; then
-							MISSING_LIB="$MISSING_LIB $i"
-						fi
+						echo -e "(${GREEN}$1${CRESET}) $line ${GREEN}>>>${CRESET} $i"
 					done
-					if [ "$MISSING_LIB" != "" ]; then
-						echo "$MISSING_LIB"
-					fi
 					MISSING=yes
 				fi ;;
 			*)
@@ -38,7 +28,7 @@ onepkg() {
 	echo -ne "\033[0K"
 	
 	[ "$MISSING" != "yes" ] && msg "Packages '$1' is doing fine."
-	return 0
+	MISSING=
 }
 
 allpkg() {
@@ -59,13 +49,12 @@ allpkg() {
 						LIB=$(echo $LIB_NAME | tr '\n' ' ')
 						for i in $LIB_NAME; do
 							echo -e "(${GREEN}$PKG_NAME${CRESET}) $line ${GREEN}>>>${CRESET} $i"
-							if echo $REQ_LIB | grep -q $i; then
-								if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -w "$PKG_NAME")" ]]; then
+							if echo $REQ_LIB | tr ' ' '\n' | grep -qx $i; then
+								if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -x "$PKG_NAME")" ]]; then
 									continue
 								else
 									ALLPKG+=($PKG_NAME)
 								fi
-								MISSING_LIB="$MISSING_LIB $i"
 							fi
 						done
 					fi ;;

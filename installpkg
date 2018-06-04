@@ -46,17 +46,11 @@ installpkg() {
 	# create lock file prevent simultaneous install package
 	spkglock
 	
-	# backup conf as set in spkgbuld if upgrade or reinstall package
-	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-		if [ ! "$NO_BACKUP" ] && [ -n "$backup" ]; then
-			msg2 "Backup configuration file..."
-			backupconf
-		fi
-	fi
-	
 	# source .install file inside package
-	if [ $(tar -tf "$PKGNAME" | grep -x ".pkginstall") ] && [ ! "$REINSTALL_PKG" ]; then
-		source <(tar -xf "$PKGNAME" .pkginstall -O)
+	if [ ! "$REINSTALL_PKG" ]; then
+		if [ $(tar -tf "$PKGNAME" | grep -x ".pkginstall") ]; then
+			source <(tar -xf "$PKGNAME" .pkginstall -O)
+		fi
 	fi
 	
 	# run preinstall script if no --no-preinstall flag and not upgrade package
@@ -71,22 +65,35 @@ installpkg() {
 	
 	#installing package into system
 	msg2 "Extracting package..."
-	if [ "$VERBOSE_INSTALL" ]; then
-		tar --keep-directory-symlink --no-overwrite-dir -p -x -v -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | while read line; do echo -e " + $line"; done
-	else
-		tar --keep-directory-symlink --no-overwrite-dir -p -x -f $PKGNAME -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
-	fi
+	installcmd() {
+		tar --keep-directory-symlink --no-overwrite-dir -p -x -v -f $1 -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
+	}
 	
-	if [ $? != 0 ]; then
-		msgerr "Failed install ${RED}$name-$version-$release${CRESET}."
-			while IFS=' ' read -r line; do
-				pushd $ROOT_DIR
-						rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
-				popd
-			done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | tac)
-		spkglock
-		exit 1
-	fi
+	rm -f /tmp/spkginstall.$name
+	installcmd $PKGNAME | while IFS=' ' read line; do 
+		if [ "$line" = "${line%.*}.spkgnew" ]; then
+			line=${line%.*}
+			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
+				if [ ! -e ${ROOT_DIR}${line} ]; then
+					mv ${ROOT_DIR}${line}.spkgnew ${ROOT_DIR}${line}
+				fi
+			else
+				mv ${ROOT_DIR}${line}.spkgnew ${ROOT_DIR}${line}
+			fi
+		fi
+		echo "$line" >> /tmp/spkginstall.$name
+	done
+	
+	#if [ $? != 0 ]; then
+		#msgerr "Failed install ${RED}$name-$version-$release${CRESET}."
+			#while IFS=' ' read -r line; do
+				#pushd $ROOT_DIR
+						#rm_silent "$line" || rmdir_silent --ignore-fail-on-non-empty "$line"
+				#popd
+			#done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | tac)
+		#spkglock
+		#exit 1
+	#fi
 		
 	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		msg2 "Removing old files..."
@@ -102,8 +109,6 @@ installpkg() {
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
 		run_postupgrade
 	fi
-	
-	restoreconf
 	
 	case $PREINSTALL_STATUS in
 		OK) msg2 "preinstall	: ${GREEN}OK${CRESET}" ;;
@@ -139,10 +144,9 @@ installpkg() {
 
 removeoldfiles() {
 	
-	TMP_TARLIST="/tmp/$name.tarlist.spkg"
-	tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $TMP_TARLIST
+	TMP_TARLIST="/tmp/spkginstall.$name"
 
-	grep -v '/$' $INDEX_DIR/$name/.files | while read line; do
+	grep -v '/$' $INDEX_DIR/$name/.files | while IFS=' ' read line; do
 		if [ ! "$(grep -Fx "$line" $TMP_TARLIST)" ]; then
 			pushd $ROOT_DIR
 				if [ "$VERBOSE_INSTALL" = "yes" ]; then
@@ -165,50 +169,18 @@ removeoldfiles() {
 			popd
 		fi
 	done < <(tac $INDEX_DIR/$name/.files | grep '/$')
-			
-	rm $TMP_TARLIST
 		
 }
 
 registerpkg() {
 	
-	[ ! -d $INDEX_DIR/$name ] && mkdir $INDEX_DIR/$name
+	rm -fr $INDEX_DIR/$name
+	mkdir $INDEX_DIR/$name
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
-	tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
+	cat /tmp/spkginstall.$name > $INDEX_DIR/$name/.files
+	rm -f /tmp/spkginstall.$name
+	#tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
-	
-}
-
-checkdeps() {
-	
-	for dep in ${depends[@]}; do
-		if [ ! -d $INDEX_DIR/$dep ]; then
-			MSGDEP+=($dep)
-		fi
-	done
-	
-	if [ "${#MSGDEP[@]}" -gt 0 ]; then
-		msg "Missing dependencies:"
-		for msdp in ${MSGDEP[@]}; do
-			msg2 "$msdp"
-		done
-		exit 1
-	fi
-	
-}
-
-checkpkgconflict() {
-	
-	for pkg in ${conflict[@]}; do
-		if [ -d $INDEX_DIR/$pkg ]; then
-			msg "Conflict package!: ${YELLOW}$pkg${CRESET}"
-			PKG_CONFLICT=yes
-		fi
-	done
-	
-	if [ "$PKG_CONFLICT" ]; then
-		exit 1
-	fi
 	
 }
 
@@ -216,6 +188,9 @@ checkconflict() {
 	
 	while IFS=' ' read -r line; do
 		pushd $ROOT_DIR
+			if [ "$line" = "${line%.*}.spkgnew" ]; then
+				line=${line%.*}
+			fi
 			if [ -e "$line" ]; then
 				fileconflict+=(${line})
 			fi
@@ -236,6 +211,9 @@ upcheckconflict() {
 		
 	while IFS=' ' read -r line; do
 		pushd $ROOT_DIR
+			if [ "$line" = "${line%.*}.spkgnew" ]; then
+				line=${line%.*}
+			fi
 			if [ -e "$line" ]; then
 				if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
 					fileconflict+=(${line})
@@ -252,34 +230,6 @@ upcheckconflict() {
 		exit 1
 	fi
 	
-}
-
-backupconf() {
-	
-	pushd $ROOT_DIR	
-		for bkp in ${backup[@]}; do
-			if [ -e $bkp ]; then
-				rm -f $bkp.spkgtmp
-				cp $bkp $bkp.spkgtmp
-				FILEBACKUP+=($bkp)
-			fi
-		done	
-	popd
-}
-
-restoreconf() {
-	
-		if [ "${#FILEBACKUP[@]}" -gt 0 ]; then
-			pushd $ROOT_DIR
-				for b in ${FILEBACKUP[@]}; do
-					if [ -e $b ]; then
-						mv $b $b.spkgnew
-						mv $b.spkgtmp $b
-					fi
-				done
-			popd
-		fi
-		
 }
 
 checkoutdate() {
@@ -426,7 +376,6 @@ parse_opts() {
 
 main() {
 	
-	#parse_options "$@"
 	parse_opts $(extract_opt $@)
 	
 	BASEPKGNAME=$(basename $PKGNAME)
@@ -448,7 +397,7 @@ main() {
 		exit 1
 	fi
 	
-	echo -ne "Reading $BASEPKGNAME...\r"
+	echo -ne "Loading $BASEPKGNAME...\r"
 	
 	# check integrity of package
 	if ! tar -tf $PKGNAME &>/dev/null; then
@@ -471,55 +420,32 @@ main() {
 		exit 1
 	fi
 	
-	# extract .pkginfo file into /tmp ###
-	tar -xf $PKGNAME .pkginfo -O > /tmp/spkg.$BASEPKGNAME.pkginfo
-	
-	### GET NAME, VERSION, RELEASE FROM TMP .pkginfo FILE ###
-	name=$(getinfopkg name $BASEPKGNAME)
-	version=$(getinfopkg version $BASEPKGNAME)
-	release=$(getinfopkg release $BASEPKGNAME)
-	depends=$(getinfopkg depends $BASEPKGNAME)
-	makedepends=$(getinfopkg makedepends $BASEPKGNAME)
-	backup=$(getinfopkg backup $BASEPKGNAME)
-	conflict=$(getinfopkg conflict $BASEPKGNAME)
-	
-	# tmp
-	depends+=(${makedepends[@]})
-	
-	### REMOVE .pkginfo file from /tmp ###
-	rm -f /tmp/spkg.$BASEPKGNAME.pkginfo
-	
-	echo -ne "\033[0K"
-		
-	### IF INSTALLED & NO UPGRADE & NO REINSTALL ###
-	if [ -d $INDEX_DIR/$name ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then
+	name=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 3- | rev)
+	version=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 2 | rev)
+	release=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 1 | rev)
+			
+	# get package information if installed
+	if [ -e $INDEX_DIR/$name/.pkginfo ]; then
 		iname=$(installed_pkg_info name $name)
 		iversion=$(installed_pkg_info version $name)
 		irelease=$(installed_pkg_info release $name)
-		msg "Package ${GREEN}$iname-$iversion-$irelease${CRESET} already installed."
+		ALREADYINSTALLED=yes
+	fi
+	
+	if [ "$ALREADYINSTALLED" = "yes" ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then
+		msg "Package '$name' already installed. (${GREEN}$iversion-$irelease${CRESET})"
 		exit 0
 	fi
 	
 	### IF UPGRADE OR REINSTALL PACKAGE ###
 	if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then	
-		if [ ! -d $INDEX_DIR/$name ]; then
-			msg "Package ${RED}$name${CRESET} is not installed."
+		if [ "$ALREADYINSTALLED" != "yes" ]; then
+			msgerr "Package ${RED}$name${CRESET} not installed."
 			exit 1
 		fi
-		iname=$(installed_pkg_info name $name)
-		iversion=$(installed_pkg_info version $name)
-		irelease=$(installed_pkg_info release $name)
 		# UPGRADE PACKAGE
 		if [ "$UPGRADE_PKG" ]; then
-			if [ -f "$INDEX_DIR/$name"/.lock ]; then
-				msgerr "Package '$name' is locked."
-				exit 0
-			fi
 			checkoutdate
-			#msg "Upgrading package: ${YELLOW}$iname-$iversion-$irelease${CRESET} -> ${GREEN}$name-$version-$release${CRESET}"
-		# REINSTALL PACKAGE
-		#elif [ "$REINSTALL_PKG" ]; then
-			#msg "Reinstall package ${GREEN}$name${CRESET}."
 		fi
 	fi
 	
