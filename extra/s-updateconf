@@ -43,9 +43,13 @@ for file in $spkgnew; do
 		echo "Replace '$currentfile' with '$file'."
 		mv "$file" "$currentfile"
 	else
-		echo "Do nothing."
+		echo "Doing nothing."
 	fi
 	sleep 1
 done
+
+clear
+
+echo "Done updating package's configuration files."
 
 exit 0

@@ -151,40 +151,6 @@ checkdeps() {
 	fi
 }
 
-checkneworphan() {
-	
-	for dpd in ${idepends[@]}; do
-		saferemove $dpd
-	done
-	
-	for mdpd in ${imakedepends[@]}; do
-		saferemove $mdpd
-	done
-	
-	if [ "${#neworphan[@]}" -gt 0 ]; then
-		msg "New orphaned package:"
-		for list in ${neworphan[@]}; do
-			msg2 $list
-		done
-	fi
-}
-
-saferemove() {
-	
-	ORPHAN="yes"
-	for all_installed in $(ls $INDEX_DIR); do
-		depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
-			for dep in ${depend[@]}; do
-				if [ $dep = $1 ]; then
-					ORPHAN="no"
-				fi
-			done
-	done
-	
-	[ "$ORPHAN" = "yes" ] && [ -d $INDEX_DIR/$1 ] && neworphan+=($1)
-	
-}
-
 runremovehooks() {
 	
 	if [ "${#runthishook[@]}" -gt 0 ]; then
@@ -267,7 +233,6 @@ parse_opts() {
 				      --no-preremove) NO_PREREMOVE=yes ;;
 				     --no-postremove) NO_POSTREMOVE=yes ;;
 					      --no-color) NOCOLOR=yes ;;
-				   --no-orphan-check) NO_ORPHAN_CHECK=yes ;;
 		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
 					               *) RMNAME+=($1) ;;
 			esac
@@ -316,10 +281,7 @@ main() {
 	
 	for pkg in ${RMNAME[@]}; do
 		getoldname $pkg ### GET NAME, VERSION, RELEASE FROM INSTALLED PACKAGE DATABASE ###
-		removepkg $pkg  ### REMOVE PACKAGE ###	
-		#if [ ! "$NO_ORPHAN_CHECK" ]; then		# check for orphan package
-			#checkneworphan
-		#fi	
+		removepkg $pkg  ### REMOVE PACKAGE ###
 	done
 	
 	# running ldconfig

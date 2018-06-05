@@ -142,11 +142,10 @@ missingdep() {
 
 showportpath() {
 	
-	if getportpath "$1" >/dev/null; then
-		echo -e "$(getportpath $1)"
-		exit 0
+	if PPATH=$(getportpath "$1"); then
+		echo "$PPATH"
 	else
-		msgerr "Port '$1' not exist"
+		msgerr "Port '$1' not exist."
 		exit 1
 	fi
 	
@@ -239,11 +238,24 @@ showdependent2() {
 
 catport() {
 	
-	if getportpath "$1" >/dev/null; then
-		cat "$(getportpath $1)/$BUILD_SCRIPT"
-		exit 0
+	if PPATH=$(getportpath "$1"); then
+		cat "$PPATH/$BUILD_SCRIPT"
 	else
-		msgerr "Port '$1' not exist"
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+}
+
+printreadme() {
+	
+	if PPATH=$(getportpath "$1"); then
+		if [ -f "$PPATH/readme" ]; then
+			cat "$PPATH/readme"
+		else
+			msgerr "Port '$1' does not have readme."
+		fi
+	else
+		msgerr "Port '$1' not exist."
 		exit 1
 	fi
 }
@@ -363,6 +375,60 @@ pkgcache() {
 	msg "${CYAN}Source cache ($ALL_SOURCES_SIZE):${CRESET}"
 	[ ${#ALL_SOURCES[@]} -gt 0 ] && (echo ${ALL_SOURCES[@]} | tr ' ' '\n') || echo "(none)"
 	
+}
+
+sysup() {
+	
+	needroot "Upgrading package"
+	
+	PKGOUTDATE=$(outdatepkg)
+	
+	if [ ! "$PKGOUTDATE" ]; then
+		msg "All package is up to date."
+		exit 0
+	fi
+	
+	for i in ${PKGOUTDATE[@]}; do
+		echo -ne "Calculating '$i' dependencies...\033[0K\r"
+		deplist $i
+	done
+	echo -ne "\033[0K"
+	for d in ${DEP[@]}; do
+		if [ "$(echo ${PKGOUTDATE[@]} | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
+			msgupg "$d"
+			WILLINSTALL+=($d)
+		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && getportpath $d >/dev/null; then
+			msgnew "$d"
+			WILLINSTALL+=($d)
+		fi
+	done
+		
+	echo
+	echo "These package(s) will be upgrade and installed..."
+	echo
+	confirm "Continue upgrade and install these package(s)?" "Package upgrade cancelled."
+	echo
+	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
+		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
+			portinstall $inst -i || exit 1
+		else
+			portinstall $inst -u || exit 1
+		fi
+	done
+	
+}
+
+outdatepkg() {
+	for pkg in $(allinstalled); do
+		if [ ! -e "$INDEX_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
+			. $(getportpath $pkg)/$BUILD_SCRIPT
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
+				echo $name
+			fi
+		fi
+	done
 }
 
 checkupdate() {
@@ -552,6 +618,10 @@ deplist() {
 		fi
 	fi
 	
+	#if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $i) = "$i" ]]; then
+		#return 0
+	#fi
+	
 	# add package to currently process
 	CHECK+=($1)
 	
@@ -563,7 +633,9 @@ deplist() {
 	done
 	
 	# add dependency to list checked dep
-	DEP+=($1)
+	if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $1) = "" ]]; then
+		DEP+=($1)
+	fi
 	
 	# delete process package array
 	for i in "${!CHECK[@]}"; do
@@ -631,7 +703,9 @@ mode:
     pkgtree   <package>       show list files of installed package
     path      <package>       show package's buildscripts path
     sync                      update port's repo
+    sysup                     full system update
     dup                       print duplicate ports in repo
+    readme                    print readme file if exist
     listinst                  list installed package in system
     listorphan                list orphan package
     integrity                 check integrity of package's files
@@ -713,12 +787,14 @@ done
 
 checkdirexist "$INDEX_DIR"
 
-while read repodir repourl junk; do
-	case $repodir in
-		""|"#"*) continue ;;
-	esac
-	PORT_REPO+=($repodir)
-done < /etc/scratchpkg.repo
+if [ -f /etc/scratchpkg.repo ]; then
+	while read repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		PORT_REPO+=($repodir)
+	done < /etc/scratchpkg.repo
+fi
 
 # build mode
 if [ "$mode" = "build" ]; then
@@ -1042,6 +1118,19 @@ fi
 if [ "$mode" = "search" ]; then
 	needarg "$ARG" || exit 1
 	searchpkg $ARG
+	exit 0
+fi
+
+# print readme for ports
+if [ "$mode" = "readme" ]; then
+	needarg "$ARG" || exit 1
+	printreadme $ARG
+	exit 0
+fi
+
+# update all ports
+if [ "$mode" = "sysup" ]; then
+	sysup
 	exit 0
 fi
 
