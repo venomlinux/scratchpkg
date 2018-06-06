@@ -378,7 +378,9 @@ main() {
 	
 	parse_opts $(extract_opt $@)
 	
-	BASEPKGNAME=$(basename $PKGNAME)
+	if [ -n "$PKGNAME" ]; then
+		BASEPKGNAME=$(basename $PKGNAME)
+	fi
 		
 	# disable colour
 	if [ "$NOCOLOR" ]; then

@@ -991,6 +991,12 @@ if [ "$mode" = "deplist" ]; then
 	exit 0
 fi
 	
+# print help message
+if [ "$mode" = "help" ]; then
+	help
+	exit 0
+fi
+	
 # list installed package in system
 if [ "$mode" = "listinst" ]; then
 	listinstalled
