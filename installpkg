@@ -399,13 +399,14 @@ main() {
 		exit 1
 	fi
 	
-	echo -ne "Loading $BASEPKGNAME...\r"
+	echo -ne "Loading $BASEPKGNAME...\033[0K\r"
 	
 	# check integrity of package
 	if ! tar -tf $PKGNAME &>/dev/null; then
 		msgerr "Package ${RED}$1${CRESET} is corrupted!"
 		exit 1
 	fi
+	echo -ne "\033[0K"
 	
 	# check for root access
 	needroot "Installing package"

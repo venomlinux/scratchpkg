@@ -389,24 +389,30 @@ sysup() {
 	fi
 	
 	for i in ${PKGOUTDATE[@]}; do
-		echo -ne "Calculating '$i' dependencies...\033[0K\r"
+		echo -e "Calculating '$i' dependencies..."
 		deplist $i
 	done
-	echo -ne "\033[0K"
+	echo
+	
+	UPGPKG=0
+	NEWPKG=0
 	for d in ${DEP[@]}; do
 		if [ "$(echo ${PKGOUTDATE[@]} | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
-			msgupg "$d"
+			echo -ne "[${GREEN}U${CRESET}] $d  "
 			WILLINSTALL+=($d)
-		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && getportpath $d >/dev/null; then
-			msgnew "$d"
+			UPGPKG=$(( $UPGPKG + 1 ))
+		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && getportpath "$d" >/dev/null; then
+			echo -ne "[${CYAN}N${CRESET}] $d  "
 			WILLINSTALL+=($d)
+			NEWPKG=$(( $NEWPKG + 1 ))
 		fi
 	done
-		
+	echo		
 	echo
-	echo "These package(s) will be upgrade and installed..."
+	echo "Package(s) will be upgraded      : $UPGPKG"
+	echo "New package(s) will be installed : $NEWPKG"
 	echo
-	confirm "Continue upgrade and install these package(s)?" "Package upgrade cancelled."
+	confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
 	echo
 	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
 		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
@@ -852,7 +858,7 @@ if [ "$mode" = "install" ]; then
 			if [ -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
 				msg "Package ${GREEN}$pkg${CRESET} already installed."
 			else
-				echo -e "Calculating $pkg dependencies..."
+				echo -e "Calculating '$pkg' dependencies..."
 				deplist "$pkg"
 			fi
 		done
@@ -866,6 +872,16 @@ if [ "$mode" = "install" ]; then
 					MISSINGPKG+=($dep)
 				fi
 			done
+			echo
+			for pkg in ${WILLINSTALL[@]}; do
+				echo -ne "[${GREEN}I${CRESET}] $pkg  "
+			done
+			if [ ${#MISSINGPKG[@]} -gt 0 ]; then
+				for pkg in ${MISSINGPKG[@]}; do
+					echo -ne "[${RED}M${CRESET}] $pkg  "
+				done
+			fi
+			echo
 			echo
 			echo "Package(s) will be installed : ${#WILLINSTALL[@]}"
 			echo "Missing dependencies         : ${#MISSINGPKG[@]}"
@@ -908,7 +924,7 @@ if [ "$mode" = "upgrade" ]; then
 	done
 	if [ ! "$NO_DEP" ]; then
 		for pkg in ${PKG[@]}; do # calculate dependencies for all target packages
-			echo -ne "Calculating $pkg dependencies...\033[0K\r"
+			echo -ne "Calculating '$pkg' dependencies...\033[0K\r"
 			deplist "$pkg"
 		done
 		echo -ne "\033[0K"
@@ -921,7 +937,7 @@ if [ "$mode" = "upgrade" ]; then
 		done
 	fi
 	for pkg in ${PKG[@]}; do # upgrade all target packages
-		portinstall $pkg -ud ${OPTS[@]}
+		portinstall $pkg -ud ${OPTS[@]} || exit 1
 	done
 	exit $?
 fi
