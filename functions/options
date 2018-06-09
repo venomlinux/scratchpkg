@@ -100,7 +100,12 @@ compressinfomanpages() {
 		if [ -d $mandir ]; then
 			(cd $mandir
 				find . -type f ! -name "*.gz" -exec gzip -9 -f {} \; 2>/dev/null
-				for i in $(find . -type l) ; do ln -s $(readlink $i).gz $i.gz ; rm $i ; done
+				for i in $(find . -type l) ; do
+					if [ $(readlink $i) = ${i%%.gz} ]; then
+						ln -s $(readlink $i).gz $i.gz
+						rm $i
+					fi
+				done
 			)
 		fi
 	done

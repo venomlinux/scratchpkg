@@ -393,20 +393,20 @@ checkdeps() {
 		fi
 	done
 	
-	for makedep in ${makedepends[@]}; do
-		if [ ! -d $INDEX_DIR/$makedep ]; then
-			MSMKDEP+=($makedep)
-		fi
-	done
+	#for makedep in ${makedepends[@]}; do
+		#if [ ! -d $INDEX_DIR/$makedep ]; then
+			#MSMKDEP+=($makedep)
+		#fi
+	#done
 	
-	if [ "${#MSDEP[@]}" -gt 0 ] || [ "${#MSMKDEP[@]}" -gt 0 ]; then
+	if [ "${#MSDEP[@]}" -gt 0 ]; then
 		msg "Missing dependencies:"
 		for msd in ${MSDEP[@]}; do
 			msg2 "$msd"
 		done
-		for msmkd in ${MSMKDEP[@]}; do
-			msg2 "$msmkd ${CYAN}(make)${CRESET}"
-		done
+		#for msmkd in ${MSMKDEP[@]}; do
+			#msg2 "$msmkd ${CYAN}(make)${CRESET}"
+		#done
 		exitscript1
 	fi
 	

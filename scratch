@@ -99,9 +99,9 @@ checkdep() {
 		echo $dep
 	done
 	
-	for mdep in ${makedepends[@]}; do
-		echo $mdep
-	done
+	#for mdep in ${makedepends[@]}; do
+	#	echo $mdep
+	#done
 	
 }
 
@@ -807,7 +807,7 @@ if [ "$mode" = "build" ]; then
 	parseopt() {
 		while [ "$1" ]; do
 			case $1 in
-				-f|-m|-d|-e|-w|-o|--srcdir=*|--pkgdir=*) OPTS+=($1) ;;
+				-f|-m|-d|-e|-w|-o|-v|--verbose|--srcdir=*|--pkgdir=*) OPTS+=($1) ;;
 				--skip-mdsum|--no-dep|--extract|--keep-work|--download) OPTS+=($1) ;;
 				--force-rebuild|--redownload|--no-preinstall) OPTS+=($1) ;;
 				-*) msgerr "Invalid option! ($1)"; exit 1 ;;

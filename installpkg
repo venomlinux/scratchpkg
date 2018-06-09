@@ -70,7 +70,7 @@ installpkg() {
 	}
 	
 	rm -f /tmp/spkginstall.$name
-	installcmd $PKGNAME | while IFS=' ' read line; do 
+	LC_ALL= installcmd $PKGNAME | while IFS=' ' read line; do 
 		if [ "$line" = "${line%.*}.spkgnew" ]; then
 			line=${line%.*}
 			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
