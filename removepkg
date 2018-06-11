@@ -211,7 +211,6 @@ EOF
 extract_opt() {
 	for opt in $@; do
 		case $opt in
-			--*=*) OPTS+=($opt) ;;
 			  --*) OPTS+=($opt) ;;
 			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
 			    *) OPTS+=($opt) ;;
@@ -230,9 +229,9 @@ parse_opts() {
 			-d |            --no-dep) IGNORE_DEP=yes ;;
 			-v |           --verbose) VERBOSE_REMOVE=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
-				      --no-preremove) NO_PREREMOVE=yes ;;
+			          --no-preremove) NO_PREREMOVE=yes ;;
 				     --no-postremove) NO_POSTREMOVE=yes ;;
-					      --no-color) NOCOLOR=yes ;;
+				          --no-color) NOCOLOR=yes ;;
 		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
 					               *) RMNAME+=($1) ;;
 			esac
@@ -244,7 +243,8 @@ parse_opts() {
 
 main() {
 	
-	parse_opts $(extract_opt $@)
+	extract_opt $@
+	parse_opts ${OPTS[@]}
 	
 	# disable colour
 	if [ "$NOCOLOR" ]; then

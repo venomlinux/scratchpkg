@@ -309,7 +309,7 @@ packaging() {
 	[ -n "$depends" ] && for d in ${depends[@]}; do echo "depends = $d" >> .pkginfo; done
 	[ -n "$noextract" ] && echo "noextract = $noextract" >> .pkginfo
 	
-	msg2 "Packaging..."
+	msg2 "Compressing package..."
 	
 	for file in .pkginstall .pkgreadme; do
 		if [ -f $file ]; then
@@ -506,10 +506,10 @@ Options:
   -c, --ignore-conflict     ignore conflict when installing package
   -v, --verbose             verbose install process
   -f, --force-rebuild       rebuild package
-  -m, --ignore-mdsum        skip md5sum checking
+  -m, --skip-mdsum          skip md5sum checking
   -g, --genmdsum            generate md5sum
-  -o, --download-only       download only source file
-  -e, --extract-only        extract only source file
+  -o, --download            download only source file
+  -e, --extract             extract only source file
   -w, --keep-work           keep working directory
   -h, --help                show this help message
       --srcdir=<path>       override directory path for sources
@@ -535,13 +535,11 @@ EOF
 extract_opt() {
 	for opt in $@; do
 		case $opt in
-			--*=*) OPTS+=($opt) ;;
-			  --*) OPTS+=($opt) ;;
-			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
-			    *) OPTS+=($opt) ;;
+			  --*) BOPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do BOPTS+=(-${opt:$i:1}); done ;;
+			    *) BOPTS+=($opt) ;;
 		esac
 	done
-	echo "${OPTS[@]}"
 }
 
 parse_opts() {
@@ -558,7 +556,7 @@ parse_opts() {
 		-m |        --skip-mdsum) IGNORE_MDSUM=yes ;;
 		-g |          --genmdsum) UPDATE_MDSUM=yes ;;
 		-o |          --download) DOWNLOAD_ONLY=yes ;;
-		-e |           --extract) EXTRACT_ONLY=yes ;;
+		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
 		         --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
@@ -571,7 +569,7 @@ parse_opts() {
 		          --check-source) SOURCE_CHECK=yes ;;
 		              --srcdir=*) SOURCE_DIR="${1#*=}" ;;
 		              --pkgdir=*) PACKAGE_DIR="${1#*=}" ;;
-		                       *) msg "Invalid option! ($1)"; exit 1 ;;
+		                       *) msg "Invalid $(basename $0) option! ($1)"; exit 1 ;;
 		esac
 		shift
 	done
@@ -580,7 +578,8 @@ parse_opts() {
 
 main() {
 	
-	parse_opts $(extract_opt $@)
+	extract_opt $@
+	parse_opts ${BOPTS[@]}
 		
 	# disable colour
 	if [ "$NOCOLOR" ]; then

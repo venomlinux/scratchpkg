@@ -136,7 +136,7 @@ installpkg() {
 	
 	runhooks
 	
-	msg "Successfully $oprmsg."
+	msg "Successfully $oprmsg ${GREEN}$name-$version-$release${CRESET}."
 	
 	# remove lock file
 	spkglock
@@ -179,7 +179,6 @@ registerpkg() {
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginfo
 	cat /tmp/spkginstall.$name > $INDEX_DIR/$name/.files
 	rm -f /tmp/spkginstall.$name
-	#tar -t -f $PKGNAME --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} > $INDEX_DIR/$name/.files
 	tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 	
 }
@@ -337,13 +336,11 @@ EOF
 extract_opt() {
 	for opt in $@; do
 		case $opt in
-			--*=*) OPTS+=($opt) ;;
 			  --*) OPTS+=($opt) ;;
 			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
 			    *) OPTS+=($opt) ;;
 		esac
 	done
-	echo "${OPTS[@]}"
 }
 
 parse_opts() {
@@ -359,14 +356,14 @@ parse_opts() {
 			-c |   --ignore-conflict) IGNORE_CONFLICT=yes ;;
 			-v |           --verbose) VERBOSE_INSTALL=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
-				     --no-preinstall) NO_PREINSTALL=yes ;;
-				    --no-postinstall) NO_POSTINSTALL=yes ;;
-				     --no-preupgrade) NO_PREUPGRADE=yes ;;
+			         --no-preinstall) NO_PREINSTALL=yes ;;
+			        --no-postinstall) NO_POSTINSTALL=yes ;;
+			  	     --no-preupgrade) NO_PREUPGRADE=yes ;;
 				    --no-postupgrade) NO_POSTUPGRADE=yes ;;
-					     --no-backup) NO_BACKUP=yes ;;
-					      --no-color) NOCOLOR=yes ;;
+				         --no-backup) NO_BACKUP=yes ;;
+			   		      --no-color) NOCOLOR=yes ;;
 					      *.spkg.txz) PKGNAME="$1" ;;
-						   		   *) msg "Invalid option! ($1)"; exit 1 ;;
+					               *) msg "Invalid option! ($1)"; exit 1 ;;
 			esac
 			shift
 		done
@@ -376,7 +373,8 @@ parse_opts() {
 
 main() {
 	
-	parse_opts $(extract_opt $@)
+	extract_opt $@
+	parse_opts ${OPTS[@]}
 	
 	if [ -n "$PKGNAME" ]; then
 		BASEPKGNAME=$(basename $PKGNAME)

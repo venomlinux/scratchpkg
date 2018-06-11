@@ -731,6 +731,7 @@ options for:
         -e, --extract          extract only
         -w, --keep-work        keep woring directory
         -o, --download         download source files only
+        -v, --verbose          be verbose
         --redownload           re-download source files
         --srcdir=<path>        override default SOURCE_DIR
         --pkgdir=<path>        override default PACKAGE_DIR
@@ -740,7 +741,6 @@ options for:
         -d, --no-dep           skip installing dependencies
         -c, --ignore-conflict  skip file conflict check
         -r, --reinstall        reinstall installed package
-        -v, --verbose          print install process
         --no-preinstall        skip pre-install script
         --no-postinstall       skip post-install script
 		
@@ -769,21 +769,21 @@ EOF
 extract_opt() {
 	for opt in $@; do
 		case $opt in
-			--*=*) OPTS+=($opt) ;;
-			  --*) OPTS+=($opt) ;;
-			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
-			    *) OPTS+=($opt) ;;
+			  --*) MAINOPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do MAINOPTS+=(-${opt:$i:1}); done ;;
+			    *) MAINOPTS+=($opt) ;;
 		esac
 	done
-	echo "${OPTS[@]}"
 }
 
 # set mode
 mode=$1
 shift
+	
+extract_opt "$@"
 
 # strip global options
-for i in $(extract_opt $@); do
+for i in ${MAINOPTS[@]}; do
 	case $i in
 		--no-color) nocolor ;;
 		--debug) set -x ;;
@@ -807,10 +807,10 @@ if [ "$mode" = "build" ]; then
 	parseopt() {
 		while [ "$1" ]; do
 			case $1 in
-				-f|-m|-d|-e|-w|-o|-v|--verbose|--srcdir=*|--pkgdir=*) OPTS+=($1) ;;
+				-f|-m|-d|-x|-w|-o|-v|--verbose|--srcdir=*|--pkgdir=*) OPTS+=($1) ;;
 				--skip-mdsum|--no-dep|--extract|--keep-work|--download) OPTS+=($1) ;;
 				--force-rebuild|--redownload|--no-preinstall) OPTS+=($1) ;;
-				-*) msgerr "Invalid option! ($1)"; exit 1 ;;
+				-*) msgerr "Invalid build option! ($1)"; exit 1 ;;
 				*) PKG=$1 ;;
 			esac
 			shift
@@ -832,7 +832,7 @@ if [ "$mode" = "install" ]; then
 	parseopt() {
 		while [ "$1" ]; do
 			case $1 in
-				-v|-c|--verbose|--ignore-conflict) OPTS+=($1) ;;
+				-c|--ignore-conflict) OPTS+=($1) ;;
 				--no-preinstall|--no-postinstall) OPTS+=($1) ;;
 				-r|--reinstall) OPTS+=($1); REINSTALL=1 ;;
 				-d|--no-dep) NO_DEP=1 ;;
