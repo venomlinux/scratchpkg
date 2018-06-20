@@ -398,11 +398,11 @@ sysup() {
 	NEWPKG=0
 	for d in ${DEP[@]}; do
 		if [ "$(echo ${PKGOUTDATE[@]} | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
-			echo -ne "[${GREEN}U${CRESET}] $d  "
+			echo -ne "[${GREEN}u${CRESET}] $d  "
 			WILLINSTALL+=($d)
 			UPGPKG=$(( $UPGPKG + 1 ))
 		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && getportpath "$d" >/dev/null; then
-			echo -ne "[${CYAN}N${CRESET}] $d  "
+			echo -ne "[${CYAN}n${CRESET}] $d  "
 			WILLINSTALL+=($d)
 			NEWPKG=$(( $NEWPKG + 1 ))
 		fi
@@ -874,11 +874,11 @@ if [ "$mode" = "install" ]; then
 			done
 			echo
 			for pkg in ${WILLINSTALL[@]}; do
-				echo -ne "[${GREEN}I${CRESET}] $pkg  "
+				echo -ne "[${GREEN}i${CRESET}] $pkg  "
 			done
 			if [ ${#MISSINGPKG[@]} -gt 0 ]; then
 				for pkg in ${MISSINGPKG[@]}; do
-					echo -ne "[${RED}M${CRESET}] $pkg  "
+					echo -ne "[${RED}m${CRESET}] $pkg  "
 				done
 			fi
 			echo

@@ -33,11 +33,11 @@ msginst() {
 }
 
 msgnew() {
-	echo -e "[${GREEN}N${CRESET}] $@"
+	echo -e "[${GREEN}n${CRESET}] $@"
 }
 
 msgupg() {
-	echo -e "[${GREEN}U${CRESET}] $@"
+	echo -e "[${GREEN}u${CRESET}] $@"
 }
 
 msgnoinst() {
@@ -45,5 +45,5 @@ msgnoinst() {
 }
 
 msgmiss() {
-	echo -e "[${RED}M${CRESET}] $@"
+	echo -e "[${RED}m${CRESET}] $@"
 }
