@@ -614,10 +614,6 @@ main() {
 	checkdirwrite "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
 	checkdirread  "$WORK_DIR" "$SOURCE_DIR" "$PACKAGE_DIR" "$LOG_DIR"
 	
-	if [ "$INSTALL_PKG" ] || [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-		NO_ORPHAN_CHECK=yes
-	fi
-	
 	# check the required field in spkgbuild
 	if [ -z "$name" ]; then
 		msgerr "'name' is empty!"
@@ -633,6 +629,15 @@ main() {
 		exit 1
 	elif [ "`type -t build`" != "function" ]; then
 		msgerr "'build' function not exist!"
+		exit 1
+	elif $(echo "$version" | grep -q '-'); then
+		msgerr "'version' should not contain '-'."
+		exit 1
+	elif $(echo "$release" | grep -q '-'); then
+		msgerr "'release' should not contain '-'."
+		exit 1
+	elif [ -z "$description" ]; then
+		msgerr "'description' cant empty."
 		exit 1
 	fi
 	
