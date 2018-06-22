@@ -99,11 +99,20 @@ compressinfomanpages() {
 	for mandir in ${MAN_DIRS[@]}; do
 		if [ -d $mandir ]; then
 			(cd $mandir
-				find . -type f ! -name "*.gz" -exec gzip -9 -f {} \; 2>/dev/null
+				for file in $(find . -type f); do
+					if [ "$file" = "${file%%.gz}" ]; then
+						gzip -9 "$file"
+					fi
+				done
 				for i in $(find . -type l) ; do
-					if [ $(readlink $i) = ${i%%.gz} ]; then
-						ln -s $(readlink $i).gz $i.gz
-						rm $i
+					FILE="${i%%.gz}.gz"
+					TARGET="$(readlink $i)"
+					TARGET="${TARGET##*/}"
+					TARGET="${TARGET%%.gz}.gz"
+					DIR=$(dirname "$FILE")
+					rm -f $i
+					if [ -e "$DIR/$TARGET" ]; then
+						ln -sf $TARGET $FILE
 					fi
 				done
 			)
@@ -112,7 +121,11 @@ compressinfomanpages() {
 	
 	if [ -d usr/share/info ]; then
 		(cd usr/share/info
-			find . -type f ! -name "*.gz" -exec gzip -9 -f {} \; 2>/dev/null
+			for file in $(find . -type f); do
+				if [ "$file" = "${file%%.gz}" ]; then
+					gzip -9 "$file"
+				fi
+			done
 		)
 	fi
 }
