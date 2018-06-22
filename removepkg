@@ -216,7 +216,6 @@ extract_opt() {
 			    *) OPTS+=($opt) ;;
 		esac
 	done
-	echo "${OPTS[@]}"
 }
 
 parse_opts() {
