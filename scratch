@@ -845,7 +845,7 @@ if [ "$mode" = "install" ]; then
 	parseopt ${ARG[@]}
 	if [ "$NO_DEP" ]; then
 		for pkg in "${PKG[@]}"; do
-			portinstall "$pkg" -i ${OPTS[@]}
+			portinstall "$pkg" -di ${OPTS[@]}
 		done
 	elif [ "$REINSTALL" ]; then
 		for pkg in "${PKG[@]}"; do
@@ -1162,4 +1162,4 @@ fi
 
 echo "Run '$(basename $0) help' to see available mode and options"
 
-exit 0
+exit 1
