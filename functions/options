@@ -101,7 +101,7 @@ compressinfomanpages() {
 			(cd $mandir
 				for file in $(find . -type f); do
 					if [ "$file" = "${file%%.gz}" ]; then
-						gzip -9 "$file"
+						gzip -9 -f "$file"
 					fi
 				done
 				for i in $(find . -type l) ; do
