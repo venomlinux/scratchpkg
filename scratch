@@ -844,9 +844,13 @@ if [ "$mode" = "install" ]; then
 	}
 	parseopt ${ARG[@]}
 	if [ "$NO_DEP" ]; then
-		portinstall "${PKG[@]}" -i ${OPTS[@]}
+		for pkg in "${PKG[@]}"; do
+			portinstall "$pkg" -di ${OPTS[@]}
+		done
 	elif [ "$REINSTALL" ]; then
-		portinstall "${PKG[@]}" -r ${OPTS[@]}
+		for pkg in "${PKG[@]}"; do
+			portinstall "$pkg" -r ${OPTS[@]}
+		done
 	else
 		for pkg in ${PKG[@]}; do # check for existence of package
 			if ! getportpath "$pkg" >/dev/null; then
@@ -1158,4 +1162,4 @@ fi
 
 echo "Run '$(basename $0) help' to see available mode and options"
 
-exit 0
+exit 1
