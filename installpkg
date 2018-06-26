@@ -66,7 +66,7 @@ installpkg() {
 	#installing package into system
 	msg2 "Extracting package..."
 	installcmd() {
-		tar --keep-directory-symlink --no-overwrite-dir -p -x -v -f $1 -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
+		tar --keep-directory-symlink -p -x -v -f $1 -C $ROOT_DIR --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]}
 	}
 	
 	rm -f /tmp/spkginstall.$name
@@ -133,6 +133,8 @@ installpkg() {
 	if [ -f $INDEX_DIR/$name/.pkgreadme ]; then
 		msg2 "This package has ${GREEN}readme${CRESET}"
 	fi
+	
+	sysusers
 	
 	runhooks
 	
@@ -303,6 +305,38 @@ runhooks() {
 		done
 	fi
 	
+}
+
+sysusers() {
+	
+	if [ "$(ls $SYSUSERS_DIR/*.conf 2>/dev/null)" ]; then
+		for file in $(ls $SYSUSERS_DIR/*.conf); do
+			while read uid gid mode dir junk; do
+				# Ignore comments and blank lines
+				case "${uid}" in
+					""|\#*) continue ;;
+				esac
+				if [ -e "$dir" ]; then
+					if [ "$uid" != '-' ]; then
+						getent passwd $uid >/dev/null
+						if [[ "$?" = 0 ]]; then
+							chown "$uid" "$dir"
+						fi
+					fi
+					if [ "$gid" != '-' ]; then
+						getent group $gid >/dev/null
+						if [[ "$?" = 0 ]]; then
+							chgrp "$gid" "$dir"
+						fi
+					fi
+					if [ "$mode" != '-' ]; then
+						chmod "$mode" "$dir"
+					fi
+				fi
+			done < "$file"
+		done
+	fi
+
 }
 
 help() {

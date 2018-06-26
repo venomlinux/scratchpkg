@@ -18,6 +18,7 @@ SOURCE_DIR="/var/cache/scratchpkg/sources"
 WORK_DIR="/tmp"
 LOG_DIR="/var/cache/scratchpkg/log"
 HOOK_DIR="/etc/hooks"
+SYSUSERS_DIR="/etc/sysusers"
 
 OPTIONS=(!libtool emptydirs strip docs purge zipman buildflags makeflags)
 PURGE_FILES=(usr/{,share/}info/dir)
