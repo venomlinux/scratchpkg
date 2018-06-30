@@ -1,6 +1,6 @@
 # scratchpkg
 
-Пакетный менеджер ддя Linux From Scratch.
+Пакетный менеджер для Linux From Scratch.
 
 ## Description
 
