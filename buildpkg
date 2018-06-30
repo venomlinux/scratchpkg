@@ -8,7 +8,7 @@ backupconf() {
 	for bkp in ${backup[@]}; do
 		if [ ! -f $bkp ]; then
 			msgerr "File '$bkp' not exist!"
-			exit 1
+			exitscript1
 		else
 			mv $bkp $bkp.spkgnew
 		fi
