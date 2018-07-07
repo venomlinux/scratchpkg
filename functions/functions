@@ -93,14 +93,8 @@ getpkginfo() {
 	
 	description=$(grep "^# description[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 	backup=$(grep "^# backup[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
-	conflict=$(grep "^# conflict[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# conflict[[:blank:]]*:[[:blank:]]*//')
 	depends=$(grep "^# depends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
-	makedepends=$(grep "^# makedepends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# makedepends[[:blank:]]*:[[:blank:]]*//')
 	noextract=$(grep "^# noextract[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
-	options=$(grep "^# options[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# options[[:blank:]]*:[[:blank:]]*//')
-	
-	# tmp
-	depends+=(${makedepends[@]})
 	
 	. $BUILD_SCRIPT
 		
@@ -122,7 +116,7 @@ getinstalledname() {
 #   Usage:  installed_pkg_info <arg> <pkg>
 #
 #   Note: 'arg' could be name, version, release, depends,
-#         makedepends and descriptions.
+#         and descriptions.
 ################################################################
 installed_pkg_info() {
 	

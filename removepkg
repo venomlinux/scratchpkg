@@ -1,6 +1,4 @@
 #!/bin/bash
-
-export LC_ALL=C
 	
 . /usr/share/scratchpkg/functions || exit 1
 
@@ -121,7 +119,6 @@ getoldname() {
 	irelease=$(installed_pkg_info release $1)
 	ibackup=$(installed_pkg_info backup $1)
 	idepends=$(installed_pkg_info depends $1)
-	imakedepends=$(installed_pkg_info makedepends $1)
 	
 	ipackagename=$iname-$iversion-$irelease
 	
