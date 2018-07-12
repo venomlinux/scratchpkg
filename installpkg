@@ -1,6 +1,4 @@
 #!/bin/bash
-
-export LC_ALL=C
 	
 . /usr/share/scratchpkg/functions || exit 1
 

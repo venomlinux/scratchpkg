@@ -1,6 +1,4 @@
 #!/bin/bash
-
-export LC_ALL=C
 	
 . /usr/share/scratchpkg/functions || exit 1
 
@@ -99,10 +97,6 @@ checkdep() {
 		echo $dep
 	done
 	
-	#for mdep in ${makedepends[@]}; do
-	#	echo $mdep
-	#done
-	
 }
 
 #
@@ -115,7 +109,6 @@ missingdep() {
 		msd=()
 		msmd=()
 		dep=$(installed_pkg_info depends $pkg)
-		mdep=$(installed_pkg_info makedepends $pkg)
 		if [ ${#dep[@]} -gt 0 ]; then
 			for d in ${dep[@]}; do
 				if [ ! -f "$INDEX_DIR"/$d/.pkginfo ]; then
@@ -190,17 +183,6 @@ showdependent() {
 							fi
 						fi
 					done
-					makedepend=$(cat $port/$all/$BUILD_SCRIPT | grep ^'# makedepends' | tr -d ':' | cut -d " " -f3-)
-					for mdep in ${makedepend[@]}; do
-						if [ $mdep = $1 ]; then
-							GDP=yes
-							if [ -d $INDEX_DIR/$all ]; then
-								msginst "$all"
-							else
-								msgnoinst "$all"
-							fi
-						fi
-					done
 				fi
 			done
 		fi
@@ -217,19 +199,12 @@ showdependent2() {
 	else
 		for all_installed in $(ls $INDEX_DIR); do
 			depend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^depends | cut -d " " -f3-)
-				for dep in ${depend[@]}; do
-					if [ $dep = $1 ]; then
-						DP=yes
-						echo -e "$all_installed"
-					fi
-				done
-			makedepend=$(cat $INDEX_DIR/$all_installed/.pkginfo | grep ^makedepends | cut -d " " -f3-)
-				for mdep in ${makedepend[@]}; do
-					if [ $mdep = $1 ]; then
-						DP=yes
-						echo -e "$all_installed ${CYAN}(make)${CRESET}"
-					fi
-				done
+			for dep in ${depend[@]}; do
+				if [ $dep = $1 ]; then
+					DP=yes
+					echo -e "$all_installed"
+				fi
+			done
 		done
 	fi
 	
@@ -601,16 +576,6 @@ showdepends() {
 			msgnoinst "$dep"
 		else
 			msgmiss "$dep"
-		fi
-	done
-			
-	for mdep in ${makedepends[@]}; do
-		if [ -d $INDEX_DIR/$mdep ]; then
-			msginst "$mdep"
-		elif getportpath $mdep >/dev/null; then
-			msgnoinst "$mdep"
-		else
-			msgmiss "$mdep"
 		fi
 	done
 }	
