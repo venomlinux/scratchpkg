@@ -1,0 +1,8 @@
+#!/bin/bash
+
+name=${1:-foo}
+version=${2:-0.1}
+release=${3:-1}
+outputdir=${4:-/tmp}
+target=${5:-PWD}
+tar -cvJpf $outputdir/$name-$version-$release.spkg.txz *

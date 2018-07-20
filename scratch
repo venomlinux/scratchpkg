@@ -1,6 +1,59 @@
 #!/bin/bash
-	
-. /usr/share/scratchpkg/functions || exit 1
+
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+YELLOW='\e[0;33m'   #Yellow
+BLUE='\e[0;34m'     #Blue
+PURPLE='\e[0;35m'   #Purple
+CYAN='\e[0;36m'     #Cyan
+CRESET='\e[0m'		#Reset color
+
+INDEX_DIR="/var/lib/scratchpkg/index"
+BUILD_SCRIPT="spkgbuild"
+
+nocolor() {
+	RED=
+	GREEN=
+	YELLOW=
+	CYAN=
+	CRESET=
+}
+
+msg() {
+	echo -e "${GREEN}==>${CRESET} $1"
+}
+
+msg2() {
+	echo -e " ${CYAN}*${CRESET} $1"
+}
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
+
+msgwarn() {
+	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+}
+
+msginst() {
+	echo -e "[${GREEN}i${CRESET}] $1"
+}
+
+msgmiss() {
+	echo -e "[${YELLOW}m${CRESET}] $1"
+}
+
+msgnoinst() {
+	echo -e "[ ] $1"
+}
+
+pushd() {
+	command pushd "$1" >/dev/null
+}
+
+popd() {
+	command popd "$1" >/dev/null
+}
 
 #
 # helper func
@@ -12,6 +65,44 @@ confirm() {
 		[Nn][Oo]|[Nn]) echo "$2"; exit 2 ;;
 		*) : ;;
 	esac
+}
+
+vercomp() {	
+	if [ "$1" = "$2" ]; then
+		return 0 # same version
+	elif [ "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]; then
+		return 1 # $1 lower than $2
+	else
+		return 2 # $1 higher than $2
+	fi
+}
+
+installed_pkg_info() {	
+	if [ -f $INDEX_DIR/$2/.pkginfo ]; then
+		echo $(cat $INDEX_DIR/$2/.pkginfo | grep ^$1 | cut -d " " -f3-)
+	fi
+}
+
+checktool() {	
+	if ! type -p $1 &>/dev/null; then
+		msgerr "'$1' not exist in your system!"
+		exit 1
+	fi	
+}
+
+allinstalled() {	
+	ls ${INDEX_DIR}/*/.pkginfo | rev | cut -d '/' -f2 | rev 2>/dev/null
+}
+
+needroot() {	
+	if [ $UID != 0 ]; then
+		if [ "$#" -eq 0 ]; then
+			needroot "This operation"
+		else
+			msgerr "$@ need root access!"
+		fi
+		exit 1
+	fi	
 }
 
 needarg() {
@@ -243,9 +334,9 @@ listports() {
 			for ports in $(ls $repo/*/$BUILD_SCRIPT | rev | cut -d '/' -f2 | rev 2>/dev/null); do
 				. "$repo/$ports/$BUILD_SCRIPT"
 				if [ -f "$PACKAGE_DIR/$name-$version-$release.spkg.txz" ]; then
-					echo -e "$name ${GREEN}$version${CRESET}-${BLUE}$release${CRESET} ${PURPLE}[*]${CRESET}"
+					echo -e "$name ${GREEN}$version${CRESET}-${CYAN}$release${CRESET} ${PURPLE}[*]${CRESET}"
 				else
-					echo -e "$name ${GREEN}$version${CRESET}-${BLUE}$release${CRESET}"
+					echo -e "$name ${GREEN}$version${CRESET}-${CYAN}$release${CRESET}"
 				fi
 			done
 		fi
@@ -362,11 +453,8 @@ sysup() {
 		msg "All package is up to date."
 		exit 0
 	fi
-	
-	for i in ${PKGOUTDATE[@]}; do
-		echo -e "Calculating '$i' dependencies..."
-		deplist $i
-	done
+	echo "Resolving dependencies..."
+	DEP=($(pkgdeplist ${PKGOUTDATE[@]} -l | rev | awk '{print $1}' | rev))
 	echo
 	
 	UPGPKG=0
@@ -391,9 +479,9 @@ sysup() {
 	echo
 	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
 		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
-			portinstall $inst -i || exit 1
+			portinstall $inst -is || exit 1
 		else
-			portinstall $inst -u || exit 1
+			portinstall $inst -us || exit 1
 		fi
 	done
 	
@@ -536,11 +624,11 @@ searchpkg() {
 				for out in ${OUTPUT[@]}; do
 					if [ -f $port/$out/$BUILD_SCRIPT ]; then
 						pushd $port/$out
-							getpkginfo
+							. $BUILD_SCRIPT
 						popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
-							search_result="${BLUE}($portname)${CRESET} ${PURPLE}$name${CRESET} ${CYAN}$version-$release${CRESET} $description"
+							search_result="${PURPLE}($portname)${CRESET} $name ${CYAN}$version-$release${CRESET} $description"
 							if [ -e $INDEX_DIR/$name/.pkginfo ]; then
 								echo -e "[${GREEN}*${CRESET}] $search_result"
 							else
@@ -562,7 +650,7 @@ showdepends() {
 	
 	if getportpath "$1" >/dev/null; then
 		pushd $(getportpath "$1")
-			getpkginfo
+			depends=$(grep "^# depends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
 		popd
 	else
 		msgerr "Port ${RED}$1${CRESET} not exist."
@@ -622,7 +710,7 @@ portinstall() {
 	if getportpath "$1" >/dev/null; then
 		pushd "$(getportpath $1)"
 			shift
-			buildpkg "$@" || exit 1
+			pkgbuild "$@" || exit 1
 		popd
 	else
 		msgerr "Port '$1' not found."
@@ -756,7 +844,10 @@ for i in ${MAINOPTS[@]}; do
 	esac
 done
 
-checkdirexist "$INDEX_DIR"
+if [ ! -d "$INDEX_DIR" ]; then
+	msgerr "'$INDEX_DIR' not exist."
+	exit 1
+fi
 
 if [ -f /etc/scratchpkg.repo ]; then
 	while read repodir repourl junk; do
@@ -794,6 +885,7 @@ fi
 
 # install mode
 if [ "$mode" = "install" ]; then
+	needroot "Installing package"
 	parseopt() {
 		while [ "$1" ]; do
 			case $1 in
@@ -808,13 +900,32 @@ if [ "$mode" = "install" ]; then
 		done
 	}
 	parseopt ${ARG[@]}
-	if [ "$NO_DEP" ]; then
-		for pkg in "${PKG[@]}"; do
-			portinstall "$pkg" -di ${OPTS[@]}
-		done
-	elif [ "$REINSTALL" ]; then
+	if [ "$REINSTALL" ]; then
 		for pkg in "${PKG[@]}"; do
 			portinstall "$pkg" -r ${OPTS[@]}
+		done
+		exit 0
+	else
+		for pkg in ${!PKG[@]}; do # filter installed package
+			if [ -e "$INDEX_DIR/${PKG[pkg]}/.pkginfo" ]; then
+				msg "Package '${PKG[pkg]}' already installed."
+				unset 'PKG[pkg]'
+			fi
+		done
+	fi
+	if [ "${#PKG[@]}" = 0 ]; then
+		exit 0
+	fi
+	if [ "$NO_DEP" ]; then
+		echo; count=0
+		for pkg in "${PKG[@]}"; do
+			count=$(( $count + 1 ))
+			echo -ne "($count) $pkg  "
+		done
+		echo; echo
+		confirm "Continue install these package(s) without its dependencies?" "Package installation cancelled."
+		for pkg in "${PKG[@]}"; do
+			portinstall "$pkg" -i ${OPTS[@]}
 		done
 	else
 		for pkg in ${PKG[@]}; do # check for existence of package
@@ -822,51 +933,29 @@ if [ "$mode" = "install" ]; then
 				msgerr "Package '$pkg' not exist."
 				exit 1
 			fi
-		done
-		for pkg in ${PKG[@]}; do # calculate dependencies for all target packages
-			if [ -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
-				msg "Package ${GREEN}$pkg${CRESET} already installed."
-			else
-				echo -e "Calculating '$pkg' dependencies..."
-				deplist "$pkg"
-			fi
-		done
+		done		
+		echo "Resolving dependencies..."
+		DEP=($(pkgdeplist ${PKG[@]} -n -l))
+		echo
 		if [ ${#DEP[@]} -gt 0 ]; then
+			count=0
 			for dep in ${DEP[@]}; do
-				if getportpath "$dep" >/dev/null; then
-					if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
-						WILLINSTALL+=($dep)
-					fi
-				else
-					MISSINGPKG+=($dep)
-				fi
+				count=$(( $count + 1 ))
+				echo -ne "($count) $dep  "
 			done
-			echo
-			for pkg in ${WILLINSTALL[@]}; do
-				echo -ne "[${GREEN}i${CRESET}] $pkg  "
-			done
-			if [ ${#MISSINGPKG[@]} -gt 0 ]; then
-				for pkg in ${MISSINGPKG[@]}; do
-					echo -ne "[${RED}m${CRESET}] $pkg  "
-				done
-			fi
-			echo
-			echo
-			echo "Package(s) will be installed : ${#WILLINSTALL[@]}"
-			echo "Missing dependencies         : ${#MISSINGPKG[@]}"
-			echo
+			echo; echo
 			confirm "Continue install these package(s)?" "Package installation cancelled."
 			echo
-			for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
-				portinstall $inst -i ${OPTS[@]}
+			for inst in ${DEP[@]}; do # install all required dependencies and target packages itself
+				portinstall $inst -is ${OPTS[@]}
 			done
 		fi
 	fi
 	exit 0
 fi
 
-# upgrade mode
 if [ "$mode" = "upgrade" ]; then
+	needroot "Upgrading package"
 	parseopt() {
 		while [ "$1" ]; do
 			case $1 in
@@ -891,28 +980,39 @@ if [ "$mode" = "upgrade" ]; then
 			exit 1
 		fi
 	done
-	if [ ! "$NO_DEP" ]; then
-		for pkg in ${PKG[@]}; do # calculate dependencies for all target packages
-			echo -ne "Calculating '$pkg' dependencies...\033[0K\r"
-			deplist "$pkg"
-		done
-		echo -ne "\033[0K"
+	if [ ! "$NO_DEP" ]; then		
+		echo "Resolving new dependencies..."
+		DEP=($(pkgdeplist ${PKG[@]} -l | rev | awk '{print $1}' | rev))
+		echo
 		for dep in ${DEP[@]}; do # install new dep (if any)
 			if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
 				if getportpath "$dep" >/dev/null; then
-					portinstall $dep -i
+					NEWPKG+=($dep)
 				fi
 			fi
 		done
 	fi
+	if [ ${#NEWPKG[@]} -gt 0 ]; then
+		count=0
+		for pkg in ${NEWPKG[@]}; do
+			count=$(( $count + 1 ))
+			echo -ne "($count) $pkg  "
+		done
+		echo; echo
+		confirm "Continue install these new dependencies before upgrade target package(s)?" "Package installation cancelled."
+		for pkg in ${NEWPKG[@]}; do
+			portinstall $pkg -is
+		done
+	fi
 	for pkg in ${PKG[@]}; do # upgrade all target packages
-		portinstall $pkg -ud ${OPTS[@]} || exit 1
+		portinstall $pkg -u ${OPTS[@]} || exit 1
 	done
 	exit $?
 fi
 
 # remove mode
 if [ "$mode" = "remove" ]; then
+	needroot "Removing package"
 	parseopt() {
 		while [ "$1" ]; do
 			case $1 in
@@ -926,8 +1026,11 @@ if [ "$mode" = "remove" ]; then
 	}
 	parseopt ${ARG[@]}
 	needarg "$PKG" || exit 1
-	removepkg ${PKG[@]} ${OPTS[@]}
-	exit $?
+	confirm "Continue remove these package(s)?" "Package removing cancelled."
+	for pkg in ${PKG[@]}; do
+		pkgdel $pkg ${OPTS[@]}
+	done
+	exit 0
 fi
 
 if [ "$mode" = "depends" ]; then

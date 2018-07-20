@@ -1,0 +1,201 @@
+#!/bin/bash
+
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+YELLOW='\e[0;33m'   #Yellow
+CYAN='\e[0;36m'     #Cyan
+CRESET='\e[0m'		#Reset color
+
+nocolor() {
+	RED=
+	GREEN=
+	YELLOW=
+	CYAN=
+	CRESET=
+}
+
+msg() {
+	echo -e "${GREEN}==>${CRESET} $1"
+}
+
+msg2() {
+	echo -e " ${CYAN}*${CRESET} $1"
+}
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
+
+msgwarn() {
+	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+}
+
+runremovehooks() {
+	
+	if [ "${#runthishook[@]}" -gt 0 ]; then
+		for hook in ${runthishook[@]}; do
+			description=$(cat "$hook" | grep ^"# description" | sed 's/\://' | cut -d ' ' -f 3-)
+			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
+			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
+				msg "$description"
+				. $hook
+				if [ "`type -t exechook`" = "function" ]; then
+					exechook
+				fi
+			fi
+			unset description operation target
+		done
+	fi
+	
+}
+
+runpreremovehooks() {
+	
+	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
+		for hook in $(ls $HOOK_DIR/*.hook); do
+			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
+			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
+				if [ "$(echo $operation | grep -w "remove" )" ]; then
+					if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
+						runthishook+=($hook)
+					fi
+				fi
+			unset operation target
+		done
+	fi
+	
+}
+
+extract_opt() {
+	for opt in $@; do
+		case $opt in
+			  --*) OPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
+			    *) OPTS+=($opt) ;;
+		esac
+	done
+	echo ${OPTS[@]}
+}
+
+parse_opts() {
+	
+	if [ -z "$1" ]; then
+		SHOWHELP=yes
+	else
+		while [ "$1" ]; do
+			case $1 in
+			-v |           --verbose) VERBOSE_REMOVE=yes ;;
+			-h |              --help) SHOWHELP=yes ;;
+			          --no-preremove) NO_PREREMOVE=yes ;;
+				     --no-postremove) NO_POSTREMOVE=yes ;;
+				          --no-color) NOCOLOR=yes ;;
+		                    --root=*) ROOT="${1#*=}" ;;
+		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
+					               *) RMNAME=$1 ;;
+			esac
+			shift
+		done
+	fi
+	
+}
+
+ret() {
+	# remove lock file on exit
+	rm -f $LOCK_FILE
+	exit $1
+}
+	
+parse_opts $(extract_opt $@)
+
+INDEX_DIR=$ROOT/var/lib/scratchpkg/index
+LOCK_FILE=$ROOT/var/lib/scratchpkg/spkg.lock
+HOOK_DIR=/etc/hook
+	
+# show help page
+if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
+	help
+	ret 0
+fi
+	
+# disable color for output
+if [ "$NOCOLOR" ]; then
+	nocolor
+fi
+
+# check for lock file
+if [ -f $LOCK_FILE ]; then
+	msgerr "Cant install/remove package simultaneously."
+	msgerr "remove '$LOCK_FILE' if no install/remove package process running."
+	exit 1
+else
+	touch $LOCK_FILE
+fi
+
+if [ ! -d $INDEX_DIR/$RMNAME ]; then
+	msgerr "Package '$RMNAME' not installed."
+	ret 1
+fi
+
+# check for root access
+if [ "$UID" != "0" ]; then
+	echo "Installing package need root access!"
+	ret 1
+fi
+
+name=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^name | cut -d " " -f3-)
+version=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^version | cut -d " " -f3-)
+release=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^release | cut -d " " -f3-)
+
+msg "Removing '$name-$version-$release'..."
+	
+# source .install script
+if [ "$ROOT" = "" ]; then
+	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
+		source $INDEX_DIR/$name/.pkginstall
+	fi
+fi
+	
+if [ ! "$NO_PREREMOVE" ]; then	
+	if [ "`type -t pre_remove`" = "function" ]; then
+		msg2 "Running preremove script..."
+		pre_remove "$version"
+	fi
+fi
+
+if [ "$ROOT" = "" ]; then
+	runpreremovehooks $name
+fi
+
+msg2 "Removing files & dirs..."
+while IFS=' ' read -r line; do
+	rm "$ROOT/$line"
+done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
+
+while IFS=' ' read -r line; do
+	if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
+		rmdir "$ROOT/$line"
+	fi
+done < <(tac $INDEX_DIR/$name/.files | grep '/$')
+	
+if [ ! "$NO_POSTREMOVE" ]; then
+	if [ "`type -t post_remove`" = "function" ]; then
+		msg2 "Running postremove script..."
+		post_remove "$version"
+	fi
+fi
+	
+rm -rf $INDEX_DIR/$name
+
+if [ "$ROOT" = "" ]; then
+	runremovehooks
+fi
+
+msg "Package '$name-$version-$release' removed."
+
+# running ldconfig
+if [ "$ROOT" = "" ] && [ -x /sbin/ldconfig ]; then
+	/sbin/ldconfig
+fi
+
+ret 0

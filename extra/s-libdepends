@@ -2,8 +2,18 @@
 
 INDEX_DIR="/var/lib/scratchpkg/index"
 
-source "/usr/share/scratchpkg/color"
-source "/usr/share/scratchpkg/message"
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+YELLOW='\e[0;33m'   #Yellow
+CYAN='\e[0;36m'     #Cyan
+CRESET='\e[0m'		#Reset color
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
+
+#source "/usr/share/scratchpkg/color"
+#source "/usr/share/scratchpkg/message"
 
 if [ ! $1 ]; then
 	msgerr "This script requires one arguments."
