@@ -624,6 +624,7 @@ searchpkg() {
 				for out in ${OUTPUT[@]}; do
 					if [ -f $port/$out/$BUILD_SCRIPT ]; then
 						pushd $port/$out
+							description=$(grep "^# description[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 							. $BUILD_SCRIPT
 						popd
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
