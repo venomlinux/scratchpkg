@@ -1,0 +1,95 @@
+#!/bin/bash
+
+getportpath() {	
+	for repo in ${PORT_REPO[@]}; do
+		if [[ -f $repo/$1/$BUILD_SCRIPT ]]; then
+			echo "$(dirname $repo/$1/$BUILD_SCRIPT)"
+			return 0
+		fi
+	done
+	return 1	
+}
+
+confirm() {
+	read -r -p "$1 (Y/n) " response
+	case "$response" in
+		[Nn][Oo]|[Nn]) echo "$2"; exit 2 ;;
+		*) : ;;
+	esac
+}
+
+installpkg() {
+	for i in ${PKG[@]}; do
+		if [ -f $INDEX_DIR/$i/.pkginfo ]; then
+			echo "Package '$i' already installed."
+		else
+			IPKG+=($i)
+		fi
+	done
+	if [ "${#IPKG[@]}" = 0 ]; then
+		echo "Nothing to do. Exiting..."
+		return 0
+	else
+		echo
+	fi
+	echo "Resolving dependencies..."
+	INST="$(pkgdeplist -l -n ${IPKG[@]})"
+
+	if [ "$INST" ]; then
+		echo
+		pkgcount=0
+		for pkg in $INST; do
+			pkgcount=$(( $pkgcount + 1 ))
+			echo -n "$pkgcount)$pkg  "
+		done
+		echo; echo
+		confirm "Continue install package(s)?" "Package installation cancelled."
+		count=0
+		total=$(echo $INST | wc -w)
+		for int in ${INST[@]}; do
+			count=$(( $count + 1 ))
+			pushd $(getportpath $int) &>/dev/null
+				echo -ne "($count/$total) "
+				pkgbuild -is || exit 1
+			popd &>/dev/null
+		done
+	fi
+}
+
+parse_opts() {
+	while [ "$1" ]; do
+		case $1 in
+			*) PKG+=($1) ;;
+		esac
+		shift
+	done
+}
+
+main() {
+	mode=$1
+	shift
+
+	parse_opts "$@"
+	
+	if [ "$mode" = "install" ]; then
+		installpkg
+		exit 0
+	fi
+
+	echo "Run 'scratch help' to see available mode and options"
+	exit 5
+}
+
+BUILD_SCRIPT="spkgbuild"
+INDEX_DIR="/var/lib/scratchpkg/index"
+
+if [ -f /etc/scratchpkg.repo ]; then
+	while read repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		PORT_REPO+=($repodir)
+	done < /etc/scratchpkg.repo
+fi
+	
+main "$@"

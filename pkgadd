@@ -6,6 +6,12 @@ YELLOW='\e[0;33m'   #Yellow
 CYAN='\e[0;36m'     #Cyan
 CRESET='\e[0m'		#Reset color
 
+INDEX_DIR=$ROOT/var/lib/scratchpkg/index
+LOCK_FILE=$ROOT/var/lib/scratchpkg/spkg.lock
+TMP_PKGINSTALL=$ROOT/var/lib/scratchpkg/spkg.install
+HOOK_DIR=/etc/hooks
+SYSUSERS_DIR=/etc/sysusers
+
 nocolor() {
 	RED=
 	GREEN=
@@ -38,25 +44,24 @@ runhooks() {
 		opr=install
 	fi
 	
-	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
-		for hook in $(ls $HOOK_DIR/*.hook); do
-			description=$(cat "$hook" | grep ^"# description" | sed 's/\://' | cut -d ' ' -f 3-)
-			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
-			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
-			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
-				if [ "$(echo $operation | grep -w "$opr" )" ]; then
-					if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
-						echo -e " ${BLUE}*${CRESET} $description"
-						. $hook
-						if [ "`type -t exechook`" = "function" ]; then
-							exechook
-						fi
+	for hook in $(ls $HOOK_DIR/*.hook 2>/dev/null); do
+		description=$(grep "^# description[[:blank:]]*:" $hook | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+		operation=$(grep "^# operation[[:blank:]]*:" $hook | sed 's/^# operation[[:blank:]]*:[[:blank:]]*//')
+		target=$(grep "^# target[[:blank:]]*:" $hook | sed 's/^# target[[:blank:]]*:[[:blank:]]*//')
+		if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
+			if [ "$(echo $operation | grep -w "$opr" )" ]; then
+				if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
+					msg2 "$description"
+					. $hook
+					if [ "`type -t exechook`" = "function" ]; then
+						exechook
 					fi
 				fi
 			fi
-			unset description operation target
-		done
-	fi
+		fi
+		unset description operation target
+		unset -f exechook
+	done
 	
 }
 
@@ -166,12 +171,6 @@ ret() {
 }
 
 parse_opts $(extract_opt $@)
-
-INDEX_DIR=$ROOT/var/lib/scratchpkg/index
-LOCK_FILE=$ROOT/var/lib/scratchpkg/spkg.lock
-TMP_PKGINSTALL=$ROOT/var/lib/scratchpkg/spkg.install
-HOOK_DIR=/etc/hook
-SYSUSERS_DIR=/etc/sysusers
 
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
@@ -366,12 +365,12 @@ if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
 	fi
 fi
 
-msg "Package '$name-$version-$release' $oprdone."
-
 if [ "$ROOT" = "" ]; then
 	runhooks
 	sysusers
 fi
+
+msg "Package '$name-$version-$release' $oprdone."
 
 # running ldconfig
 if [ "$ROOT" = "" ] && [ -x /sbin/ldconfig ]; then

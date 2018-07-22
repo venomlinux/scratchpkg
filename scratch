@@ -614,6 +614,10 @@ duplicateports() {
 
 searchpkg() {
 	
+	local port
+	local found
+	local OUTPUT
+	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
 			pushd $port
@@ -635,7 +639,7 @@ searchpkg() {
 							else
 								echo -e "[ ] $search_result"
 							fi
-							unset description
+							unset description name version release
 						fi
 					fi
 				done
