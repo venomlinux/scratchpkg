@@ -133,7 +133,7 @@ download_src() {
 }
 
 prepare_src() {
-	local FILE FILENAME
+	local FILE FILENAME SRC_DIR
 	
 	checkmdsum
 	
@@ -148,8 +148,13 @@ prepare_src() {
 		for FILE in ${source[@]}; do
 			if [[ $FILE =~ ::(http|https|ftp|file):// ]]; then
 				FILENAME=$(echo $FILE | awk -F '::' '{print $1}')
+				SRC_DIR="$SOURCE_DIR"
+			elif [[ $FILE =~ ^(http|https|ftp|file):// ]]; then
+				FILENAME=$(basename $FILE)
+				SRC_DIR="$SOURCE_DIR"
 			else
 				FILENAME=$(basename $FILE)
+				SRC_DIR="$PWD"
 			fi
 			for NOEXT in ${noextract[@]}; do
 				if [ "$NOEXT" = "$FILENAME" ]; then
@@ -174,7 +179,7 @@ prepare_src() {
 				fi
 			else
 				msg2 "Preparing '$FILENAME'..."
-				cp $FILENAME $SRC
+				cp "$SRC_DIR/$FILENAME" "$SRC"
 			fi
 			nxt=
 		done
