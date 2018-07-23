@@ -314,6 +314,8 @@ installpkg() {
 	for i in ${PKG[@]}; do
 		if [ -f $INDEX_DIR/$i/.pkginfo ]; then
 			echo "Package '$i' already installed."
+		elif [ ! $(getportpath $i) ]; then
+			echo "Package '$i' not found."
 		else
 			IPKG+=($i)
 		fi
