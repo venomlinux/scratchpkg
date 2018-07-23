@@ -1,5 +1,47 @@
 #!/bin/bash
 
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+YELLOW='\e[0;33m'   #Yellow
+CYAN='\e[0;36m'     #CyanBlue
+PURPLE='\e[0;35m'   #Purple
+CRESET='\e[0m'		#Reset color
+
+msg() {
+	echo -e "${GREEN}==>${CRESET} $1"
+}
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
+
+msginst() {
+	echo -e "[${GREEN}i${CRESET}] $1"
+}
+
+msgmiss() {
+	echo -e "[${YELLOW}m${CRESET}] $1"
+}
+
+msgnoinst() {
+	echo -e "[ ] $1"
+}
+
+msgwarn() {
+	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+}
+
+needroot() {	
+	if [ $UID != 0 ]; then
+		if [ "$#" -eq 0 ]; then
+			needroot "This operation"
+		else
+			msgerr "$@ need root access!"
+		fi
+		exit 1
+	fi	
+}
+
 getportpath() {	
 	for repo in ${PORT_REPO[@]}; do
 		if [[ -f $repo/$1/$BUILD_SCRIPT ]]; then
@@ -10,12 +52,260 @@ getportpath() {
 	return 1	
 }
 
+pushd() {
+	command pushd $1 &>/dev/null
+}
+
+popd() {
+	command popd &>/dev/null
+}
+
+vercomp() {	
+	if [ "$1" = "$2" ]; then
+		return 0 # same version
+	elif [ "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]; then
+		return 1 # $1 lower than $2
+	else
+		return 2 # $1 higher than $2
+	fi
+}
+
+installed_pkg_info() {	
+	if [ -f $INDEX_DIR/$2/.pkginfo ]; then
+		echo $(cat $INDEX_DIR/$2/.pkginfo | grep ^$1 | cut -d " " -f3-)
+	fi
+}
+
+allinstalled() {	
+	ls ${INDEX_DIR}/*/.pkginfo | rev | cut -d '/' -f2 | rev 2>/dev/null
+}
+
 confirm() {
 	read -r -p "$1 (Y/n) " response
 	case "$response" in
 		[Nn][Oo]|[Nn]) echo "$2"; exit 2 ;;
 		*) : ;;
 	esac
+}
+
+checktool() {	
+	if ! type -p $1 &>/dev/null; then
+		msgerr "'$1' not exist in your system!"
+		exit 1
+	fi	
+}
+
+catport() {	
+	if PPATH=$(getportpath "$1"); then
+		cat "$PPATH/$BUILD_SCRIPT"
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+}
+
+listorphan() {
+	local pkg all depends deps
+	
+	for pkg in $(allinstalled); do
+		if [ $(getportpath $pkg) ]; then
+			depends=$(grep "^# depends[[:blank:]]*:" $(getportpath $pkg)/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+			. $(getportpath $pkg)/$BUILD_SCRIPT
+		fi
+		for deps in ${depends[@]}; do
+			ALL_DEP+=($deps)
+		done
+	done
+	
+	# find orphan package
+	for all in $(allinstalled); do
+		ORPHAN=yes
+		for depended in ${ALL_DEP[@]}; do
+			if [ $depended = $all ]; then
+				ORPHAN=no
+				break
+			fi
+		done
+		if [ "$ORPHAN" = yes ]; then
+			iname=$(installed_pkg_info name $all)
+			iversion=$(installed_pkg_info version $all)
+			irelease=$(installed_pkg_info release $all)
+			echo -e "$iname ${GREEN}$iversion${CRESET}-${BLUE}$irelease${CRESET}"
+		fi
+	done	
+}
+
+listinstalled() {
+	local pkg
+	
+	for pkg in $(allinstalled); do
+		iname=$(installed_pkg_info name $pkg)
+		iversion=$(installed_pkg_info version $pkg)
+		irelease=$(installed_pkg_info release $pkg)
+		echo -e "$iname ${GREEN}$iversion${CRESET}-${CYAN}$irelease${CRESET}"
+	done	
+}
+
+lockpkg() {
+	local pkg
+	
+	needroot "Locking package"
+	
+	for pkg in "$@"; do
+		if [ ! -f $INDEX_DIR/$pkg/.pkginfo ]; then
+			msgerr "Package '$pkg' is not installed."
+		else
+			touch $INDEX_DIR/$pkg/.lock && msg "Successfully locked package '$pkg'."
+		fi
+	done	
+}
+
+listlocked() {
+	local pkg
+	
+	for pkg in $(allinstalled); do
+		if [ -f "$INDEX_DIR"/$pkg/.lock ]; then
+			echo -e "$pkg"
+		fi
+	done
+}
+
+showdepends() {
+	local dep
+	
+	if [ $(getportpath "$1") ]; then
+		pushd $(getportpath "$1")
+			depends=$(grep "^# depends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+			. $BUILD_SCRIPT
+		popd
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+			
+	for dep in ${depends[@]}; do
+		if [ -d $INDEX_DIR/$dep ]; then
+			msginst "$dep"
+		elif getportpath $dep >/dev/null; then
+			msgnoinst "$dep"
+		else
+			msgmiss "$dep"
+		fi
+	done
+}	
+
+showdependent() {
+	local port all dep
+	
+	for port in ${PORT_REPO[@]}; do
+		if [ -d $port ]; then
+			for all in $(ls $port/*/$BUILD_SCRIPT | rev | cut -d '/' -f2 | rev 2>/dev/null); do
+				if [ -f $port/$all/$BUILD_SCRIPT ]; then
+					depend=$(cat $port/$all/$BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d " " -f3-)
+					for dep in ${depend[@]}; do
+						if [ $dep = $1 ]; then
+							GDP=yes
+							if [ -d $INDEX_DIR/$all ]; then
+								msginst "$all"
+							else
+								msgnoinst "$all"
+							fi
+						fi
+					done
+				fi
+			done
+		fi
+	done
+	
+	[ "$GDP" ] || msg "No package depends on '$1'."
+}
+
+checkowner() {
+	for pkg in $(allinstalled); do
+		for output in $(cat $INDEX_DIR/$pkg/.files | grep $1); do
+			echo -e "${CYAN}$pkg${CRESET} => ${PURPLE}$output${CRESET}"
+		done
+	done	
+}
+
+showtree() {	
+	if [ ! -f $INDEX_DIR/$1/.pkginfo ]; then
+		msg "Package'$1' not installed."
+	else
+		while IFS=' ' read -r line; do
+			echo "$line"
+		done < <(cat $INDEX_DIR/$1/.files)
+	fi	
+}
+
+updports() {	
+	checktool httpup
+	
+	needroot "Updating ports"
+	
+	if [ ! -e "$REPO_FILE" ]; then
+		msgerr "Repo file not found! ($REPO_FILE)"
+		exit 1
+	fi
+
+	while read repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		if [ -n "$repodir" ] && [ -n "$repourl" ]; then
+			httpup sync $repourl $repodir
+		fi
+	done < "$REPO_FILE"
+}
+
+printreadme() {
+	
+	if PPATH=$(getportpath "$1"); then
+		if [ -f "$PPATH/readme" ]; then
+			cat "$PPATH/readme"
+		else
+			msgerr "Port '$1' does not have readme."
+		fi
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+}
+
+searchpkg() {	
+	local port found OUTPUT
+	
+	for port in ${PORT_REPO[@]}; do
+		if [ -d $port ]; then
+			pushd $port
+				OUTPUT=$(grep -R description | grep "$BUILD_SCRIPT:# description[[:blank:]]*:" | sed "s/$BUILD_SCRIPT:# description[[:blank:]]*://" | grep -i "$1" | cut -d '/' -f1)
+			popd
+			if [ -n "$OUTPUT" ]; then
+				found=yes
+				for out in ${OUTPUT[@]}; do
+					if [ -f $port/$out/$BUILD_SCRIPT ]; then
+						pushd $port/$out
+							description=$(grep "^# description[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+							. $BUILD_SCRIPT
+						popd
+						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
+							portname=$(basename $port)
+							search_result="${PURPLE}($portname)${CRESET} $name ${CYAN}$version-$release${CRESET} $description"
+							if [ -e $INDEX_DIR/$name/.pkginfo ]; then
+								echo -e "[${GREEN}*${CRESET}] $search_result"
+							else
+								echo -e "[ ] $search_result"
+							fi
+							unset description name version release
+						fi
+					fi
+				done
+			fi
+		fi
+	done
+	if [ ! "$found" ]; then
+		msg "No matching package found."
+	fi
 }
 
 installpkg() {
@@ -85,6 +375,43 @@ removepkg() {
 	fi
 }
 
+outdate() {
+	local pkg
+	
+	for pkg in $(allinstalled); do
+		if [ $(getportpath $pkg) ]; then
+			. $(getportpath $pkg)/$BUILD_SCRIPT
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
+			outdatemsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+			newerinstmsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${YELLOW}[newer installed]${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+			if [ "$version" !=  "$iversion" ]; then
+				vercomp $version $iversion
+				if [ $? = 2 ]; then
+					echo -e "$outdatemsg"
+					OUTDATE=yes
+				elif [ $? = 1 ]; then
+					echo -e "$newerinstmsg"
+					OUTDATE=yes
+				fi
+			elif [ "$release" !=  "$irelease" ]; then
+				vercomp $release $irelease
+				if [ $? = 2 ]; then
+					echo -e "$outdatemsg"
+					OUTDATE=yes
+				elif [ $? = 1 ]; then
+					echo -e "$newerinstmsg"
+					OUTDATE=yes
+				fi
+			fi
+			unset ITSLOCK
+		fi
+	done
+	
+	[ ! "$OUTDATE" ] && msg "All package is up to date."
+}
+
 parse_opts() {
 	while [ "$1" ]; do
 		case $1 in
@@ -100,6 +427,11 @@ main() {
 
 	parse_opts "$@"
 	
+	if [ -z "$PORT_REPO" ]; then
+		msgerr 'repository is empty!'
+		exit 1
+	fi
+	
 	if [ "$mode" = "install" ]; then
 		installpkg
 		exit 0
@@ -107,6 +439,71 @@ main() {
 	
 	if [ "$mode" = "remove" ]; then
 		removepkg
+		exit 0
+	fi
+	
+	if [ "$mode" = "outdate" ]; then
+		outdate
+		exit 0
+	fi
+	
+	if [ "$mode" = "listorphan" ]; then
+		listorphan
+		exit 0
+	fi
+	
+	if [ "$mode" = "search" ]; then
+		searchpkg $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "sync" ]; then
+		updports
+		exit 0
+	fi
+	
+	if [ "$mode" = "listinstalled" ]; then
+		listinstalled
+		exit 0
+	fi
+	
+	if [ "$mode" = "readme" ]; then
+		printreadme $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "pkgtree" ]; then
+		showtree $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "own" ]; then
+		checkowner $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "dependent" ]; then
+		showdependent $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "cat" ]; then
+		catport $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "depends" ]; then
+		showdepends $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "lock" ]; then
+		lockpkg $@
+		exit 0
+	fi
+	
+	if [ "$mode" = "listlocked" ]; then
+		listlocked
 		exit 0
 	fi
 

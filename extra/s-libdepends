@@ -12,9 +12,6 @@ msgerr() {
 	echo -e "${RED}==> ERROR:${CRESET} $1"
 }
 
-#source "/usr/share/scratchpkg/color"
-#source "/usr/share/scratchpkg/message"
-
 if [ ! $1 ]; then
 	msgerr "This script requires one arguments."
 	exit 1
@@ -51,5 +48,4 @@ pushd / >/dev/null
 	done < <(tac $INDEX_DIR/$1/.files | grep -E ^"(bin/|lib/|libexec/|sbin/|usr/bin/|usr/lib/|usr/libexec/|usr/sbin/)" | grep -v "/$")
 popd >/dev/null
 
-echo "Shared lib from package(s):"
 echo $deppkg | tr ' ' '\n'

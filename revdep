@@ -2,8 +2,17 @@
 
 INDEX_DIR="/var/lib/scratchpkg/index"
 
-source "/usr/share/scratchpkg/color"
-source "/usr/share/scratchpkg/message"
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+CRESET='\e[0m'		#Reset color
+
+msg() {
+	echo -e "${GREEN}==>${CRESET} $1"
+}
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
 
 onepkg() {
 	
@@ -19,8 +28,6 @@ onepkg() {
 					done
 					MISSING=yes
 				fi ;;
-			*)
-				continue ;;
 			esac
 		done < <(grep -E '(*\.so\.*|^bin/|^sbin/|^usr/bin/|^usr/sbin/|^usr/libexec)'  $INDEX_DIR/$1/.files | grep -Ev "(opt/|firmware/)")
 	popd >/dev/null
@@ -58,8 +65,6 @@ allpkg() {
 							fi
 						done
 					fi ;;
-				*)
-					continue ;;
 				esac
 			done < <(grep -E '(*\.so\.*|^bin/|^sbin/|^usr/bin/|^usr/sbin/|^usr/libexec)' $INDEX_DIR/${allpkgs[pkgs]}/.files | grep -Ev "(opt/|firmware/|/share/theme/|/share/icons/)")
 		done
@@ -112,7 +117,7 @@ parse_options "$@"
 
 if [ "${#PKG[@]}" -gt 0 ]; then
 	for pkg in ${PKG[@]}; do
-		if [ ! -d "$INDEX_DIR/$pkg" ]; then
+		if [ ! -f "$INDEX_DIR/$pkg/.files" ]; then
 			msgerr "Package '$pkg' not installed."
 		else
 			onepkg "$pkg"

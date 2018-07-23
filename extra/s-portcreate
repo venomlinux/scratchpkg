@@ -7,7 +7,6 @@ else
 	mkdir $1
 	echo "# description	: 
 # backup	: 
-# conflict	: 
 # depends	: 
 # noextract	: 
 

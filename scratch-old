@@ -612,11 +612,8 @@ duplicateports() {
 	
 }
 
-searchpkg() {
-	
-	local port
-	local found
-	local OUTPUT
+searchpkg() {	
+	local port found OUTPUT
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
