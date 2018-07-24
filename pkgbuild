@@ -349,6 +349,9 @@ packaging() {
 			addtotar+=($FILE)
 		fi
 	done
+	
+	[ "$FORCE_REBUILD" ] && rm -fv "$PACKAGE_DIR/$PKGNAME"
+	
 	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
 	if [ $? != 0 ]; then
 		msgerr "Packaging failed."
@@ -580,7 +583,6 @@ main() {
 			abort 0
 		fi
 	else
-		[ "$FORCE_REBUILD" ] && rm -fv "$PACKAGE_DIR/$PKGNAME"
 		download_src
 		prepare_src
 		run_build

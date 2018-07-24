@@ -19,20 +19,8 @@ msgmiss() {
 }
 
 msgnoinst() {
-	echo -e "[ ] $1"
+	echo -e "[${RED}x${CRESET}] $1"
 }
-
-if [ ! "$1" ]; then
-	msgerr "Please specify package name to list its dependencies order."
-	exit 1
-fi
-
-while read repodir repourl junk; do
-	case $repodir in
-		""|"#"*) continue ;;
-	esac
-	PORT_REPO+=($repodir)
-done < /etc/scratchpkg.repo
 
 checkdep() {
 	local depends
@@ -91,6 +79,24 @@ deplist() {
 }
 
 INDEX_DIR="/var/lib/scratchpkg/index"
+REPO_FILE="/etc/scratchpkg.repo"
+
+if [ ! "$1" ]; then
+	msgerr "Please specify package name to list its dependencies order."
+	exit 1
+fi
+
+if [ ! -f "$REPO_FILE" ]; then
+	msgerr "repo file not exist. ($REPO_FILE)"
+	exit 1
+fi
+
+while read repodir repourl junk; do
+	case $repodir in
+		""|"#"*) continue ;;
+	esac
+	PORT_REPO+=($repodir)
+done < "$REPO_FILE"
 
 while [ "$1" ]; do
 	case $1 in
@@ -103,6 +109,14 @@ while [ "$1" ]; do
 	shift
 done
 
+# set all to 1 (all) if not use any of it
+if [ ! "$INSTALLED" ] && [ ! "$NOT_INSTALLED" ] && [ ! "$MISSING" ]; then
+	INSTALLED=1
+	NOT_INSTALLED=1
+	MISSING=1
+fi
+
+# check for ports existence
 for pkg in ${PKG[@]}; do
 	if [ ! $(getportpath $pkg) ]; then
 		msgerr "Package '$pkg' not found."
@@ -110,31 +124,18 @@ for pkg in ${PKG[@]}; do
 	fi
 done
 
+# calculate dependencies
 for pkg in ${PKG[@]}; do
 	deplist $pkg
 done
 
 for deps in ${DEP[@]}; do
-	if [ "$NOT_INSTALLED" = 1 ]; then
-		if [ ! -e $INDEX_DIR/$deps/.pkginfo ]; then
-			echo "$deps"
-		fi
-	elif [ "$MISSING" = 1 ]; then
-		if [ ! $(getportpath "$deps") ]; then
-			echo "$deps"
-		fi
-	elif [ "$INSTALLED" ]; then
-		if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
-			echo "$deps"
-		fi
+	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
+		[ "$INSTALLED" ] && msginst "$deps"       # print installed
+	elif ! getportpath "$deps" >/dev/null; then
+		[ "$MISSING" ] && msgmiss "$deps"         # print missing port
 	else
-		if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
-			msginst "$deps"
-		elif ! getportpath "$deps" >/dev/null; then
-			msgmiss "$deps"
-		else
-			msgnoinst "$deps"
-		fi
+		[ "$NOT_INSTALLED" ] && msgnoinst "$deps" # print not installed
 	fi
 done
 

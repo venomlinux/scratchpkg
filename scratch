@@ -95,6 +95,13 @@ checktool() {
 	fi	
 }
 
+needarg() {
+	if [[ -z "$@" ]]; then
+		msgerr "This operation required arguments!"
+		exit 1
+	fi
+}
+
 catport() {	
 	if PPATH=$(getportpath "$1"); then
 		cat "$PPATH/$BUILD_SCRIPT"
@@ -308,10 +315,68 @@ searchpkg() {
 	fi
 }
 
+buildpkg() {
+	if [ -z "$1" ]; then
+		echo "Please specify package to build."
+		exit 1
+	fi
+	while [ "$1" ]; do
+		if [[ "$1" =~ ^-(f|v|w) ]]; then
+			BOPTS+=($1)
+		elif [[ "$1" =~ ^-. ]]; then
+			echo "Unrecognize option. ($1)"
+			exit 1
+		else
+			PKGNAME=$1
+		fi
+		shift
+	done
+	pushd $(getportpath $PKGNAME)
+	if [ $? = 0 ]; then
+		pkgbuild ${BOPTS[@]}
+	else
+		echo "Package '$PKGNAME' not found."
+		exit 1
+	fi
+}
+
 installpkg() {
-	local pkg i int pkgcount count IPKG
+	local pkg i int pkgcount count IPKG OPTS REINSTALL
 	
-	for i in ${PKG[@]}; do
+	if [ -z "$1" ]; then
+		echo "Please specify package(s) to install."
+		exit 1
+	fi
+	while [ "$1" ]; do
+		if [[ "$1" =~ ^-(c|v)$ ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
+			OPTS+=($1)
+			REINSTALL=1
+		elif [[ "$1" =~ ^-. ]]; then
+			echo "Unrecognize option. ($1)"
+			exit 1
+		else
+			PKGNAME+=($1)
+		fi
+		shift
+	done
+	# if reinstall, dont calculate dep, just reinstall it then exit
+	if [ "$REINSTALL" = 1 ]; then
+		for ii in ${PKGNAME[@]}; do
+			if [ ! -f $INDEX_DIR/$ii/.pkginfo ]; then
+				echo "Package '$ii' not installed."
+			elif [ ! $(getportpath $ii) ]; then
+				echo "Package '$ii' not found."
+			else
+				pushd $(getportpath $ii)
+					pkgbuild -r ${OPTS[@]}
+				popd
+			fi
+		done
+		return 0
+	fi
+	for i in ${PKGNAME[@]}; do
 		if [ -f $INDEX_DIR/$i/.pkginfo ]; then
 			echo "Package '$i' already installed."
 		elif [ ! $(getportpath $i) ]; then
@@ -325,7 +390,7 @@ installpkg() {
 		return 0
 	fi
 	echo "Resolving dependencies..."
-	INST="$(pkgdeplist -l -n ${IPKG[@]})"
+	INST="$(pkgdeplist -l -n ${IPKG[@]} | awk '{print $2}')"
 
 	if [ "$INST" ]; then
 		echo
@@ -336,23 +401,106 @@ installpkg() {
 		done
 		echo; echo
 		confirm "Continue install package(s)?" "Package installation cancelled."
+		echo
 		count=0
 		total=$(echo $INST | wc -w)
 		for int in ${INST[@]}; do
 			count=$(( $count + 1 ))
-			pushd $(getportpath $int) &>/dev/null
+			pushd $(getportpath $int)
 				. $BUILD_SCRIPT
 				echo -en "\033]0;($count/$total) $name-$version-$release \a"
-				pkgbuild -is || exit 1
-			popd &>/dev/null
+				pkgbuild -is ${OPTS[@]} || exit 1
+			popd
 		done
 	fi
+}
+
+outdatepkg() {
+	local pkg
+	
+	for pkg in $(allinstalled); do
+		if [ ! -e "$INDEX_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
+			. $(getportpath $pkg)/$BUILD_SCRIPT
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
+				echo $name
+			fi
+		fi
+	done
+}
+
+sysup() {
+	local d
+	
+	needroot "Upgrading package"
+	
+	PKGOUTDATE=$(outdatepkg)
+	
+	if [ ! "$PKGOUTDATE" ]; then
+		msg "All package is up to date."
+		exit 0
+	fi
+	echo "Resolving dependencies..."
+	DEP=$(pkgdeplist ${PKGOUTDATE[@]} -l | awk '{print $2}')
+	echo
+	
+	UPGPKG=0
+	NEWPKG=0
+	for d in $DEP; do
+		if [ "$(echo $PKGOUTDATE | grep -x $d)" = "$d" ]; then
+			echo -ne "[${GREEN}u${CRESET}] $d  "
+			WILLINSTALL+=($d)
+			UPGPKG=$(( $UPGPKG + 1 ))
+		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && getportpath "$d" >/dev/null; then
+			echo -ne "[${CYAN}n${CRESET}] $d  "
+			WILLINSTALL+=($d)
+			NEWPKG=$(( $NEWPKG + 1 ))
+		fi
+	done
+	echo		
+	echo
+	echo "Package(s) will be upgraded      : $UPGPKG"
+	echo "New package(s) will be installed : $NEWPKG"
+	echo
+	confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
+	echo
+	count=0
+	total=$(echo ${WILLINSTALL[@]} | wc -w)
+	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
+		count=$(( $count + 1 ))
+		pushd $(getportpath $inst)
+		. $BUILD_SCRIPT
+		echo -en "\033]0;($count/$total) $name-$version-$release \a"
+		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
+			pkgbuild -is ${OPTS[@]} || exit 1
+		else
+			pkgbuild -us ${OPTS[@]} || exit 1
+		fi
+	done
+	
 }
 
 removepkg() {
 	local pkg i IPKG
 	
-	for i in ${PKG[@]}; do
+	if [ -z "$1" ]; then
+		echo "Please specify package(s) to remove."
+		exit 1
+	fi
+	while [ "$1" ]; do
+		if [[ "$1" =~ ^--(no-postremove|no-preremove)$ ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^-. ]]; then
+			echo "Unrecognize option. ($1)"
+			exit 1
+		else
+			PKGNAME+=($1)
+		fi
+		shift
+	done
+	
+	for i in ${PKGNAME[@]}; do
 		if [ ! -f $INDEX_DIR/$i/.pkginfo ]; then
 			echo "Package '$i' not installed."
 		else
@@ -371,10 +519,80 @@ removepkg() {
 		done
 		echo; echo
 		confirm "Continue remove package(s)?" "Package removing cancelled."
+		echo
 		for pkg in ${IPKG[@]}; do
 			pkgdel $pkg ${OPTS[@]}
 		done
 	fi
+}
+
+upgradepkg() {	
+	needarg "$@"
+	while [ "$1" ]; do
+		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade)$ ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^-(-no-dep|d)$ ]]; then
+			NO_DEP=1
+		elif [[ "$1" =~ ^-. ]]; then
+			echo "Unrecognize option. ($1)"
+			exit 1
+		else
+			PKGNAME+=($1)
+		fi
+		shift
+	done
+	for pkg in ${PKGNAME[@]}; do
+		if [ ! -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
+			msgerr "Package '$pkg' not installed."
+			exit 1
+		fi
+		if [ ! $(getportpath $pkg) ]; then
+			msgerr "Package '$pkg' not exist."
+			exit 1
+		fi
+	done
+	if [ -z "$NO_DEP" ]; then		
+		echo "Resolving new dependencies..."
+		DEP=$(pkgdeplist -l -n ${PKGNAME[@]} | awk '{print $2}')
+		for dep in $DEP; do # install new dep (if any)
+			if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+				if [ $(getportpath $dep) ]; then
+					NEWPKG+=($dep)
+				fi
+			fi
+		done
+	fi
+	if [ ${#NEWPKG[@]} -gt 0 ]; then
+		echo; echo -n "New dependencies: "
+		count=0
+		for newpkg in ${NEWPKG[@]}; do
+			count=$(( $count + 1 ))
+			echo -ne "$count) $newpkg  "
+		done
+		echo
+		echo; echo -n "Package(s) upgrade: "
+		for pkg in ${PKGNAME[@]}; do
+			count=$(( $count + 1 ))
+			echo -ne "$count) $pkg  "
+		done
+		echo; echo
+		confirm "Continue install new dependencies and upgrade target package(s)?" "Package installation cancelled."
+		echo
+		for newpkg in ${NEWPKG[@]}; do			
+			pushd $(getportpath $newpkg)
+				. $BUILD_SCRIPT
+				echo -en "\033]0;($count/$total) $name-$version-$release \a"
+				pkgbuild -is ${OPTS[@]} || exit 1
+			popd
+		done
+	fi
+	for pkg in ${PKGNAME[@]}; do # upgrade all target packages
+		pushd $(getportpath $pkg)
+			. $BUILD_SCRIPT
+			echo -en "\033]0;($count/$total) $name-$version-$release \a"
+			pkgbuild -us ${OPTS[@]} || exit 1
+		popd
+	done
 }
 
 outdate() {
@@ -414,6 +632,18 @@ outdate() {
 	[ ! "$OUTDATE" ] && msg "All package is up to date."
 }
 
+extract_opt() {
+	local opt OPTS
+	for opt in $@; do
+		case $opt in
+			  --*) OPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
+			    *) OPTS+=($opt) ;;
+		esac
+	done
+	echo ${OPTS[@]}
+}
+
 parse_opts() {
 	while [ "$1" ]; do
 		case $1 in
@@ -424,23 +654,29 @@ parse_opts() {
 }
 
 main() {
-	mode=$1
-	shift
-
-	parse_opts "$@"
 	
-	if [ -z "$PORT_REPO" ]; then
-		msgerr 'repository is empty!'
-		exit 1
+	if [ "$mode" = "build" ]; then
+		buildpkg $@
+		exit 0
 	fi
 	
 	if [ "$mode" = "install" ]; then
-		installpkg
+		installpkg $@
+		exit 0
+	fi
+	
+	if [ "$mode" = "upgrade" ]; then
+		upgradepkg $@
 		exit 0
 	fi
 	
 	if [ "$mode" = "remove" ]; then
-		removepkg
+		removepkg $@
+		exit 0
+	fi
+	
+	if [ "$mode" = "sysup" ]; then
+		sysup
 		exit 0
 	fi
 	
@@ -517,7 +753,10 @@ BUILD_SCRIPT="spkgbuild"
 INDEX_DIR="/var/lib/scratchpkg/index"
 REPO_FILE="/etc/scratchpkg.repo"
 
-if [ -f "$REPO_FILE" ]; then
+if [ ! -f "$REPO_FILE" ]; then
+	msgerr "repo file not exist. ($REPO_FILE)"
+	exit 1
+else
 	while read repodir repourl junk; do
 		case $repodir in
 			""|"#"*) continue ;;
@@ -525,5 +764,8 @@ if [ -f "$REPO_FILE" ]; then
 		PORT_REPO+=($repodir)
 	done < "$REPO_FILE"
 fi
+
+mode=$1
+shift
 	
-main "$@"
+main $(extract_opt $@)
