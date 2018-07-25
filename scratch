@@ -381,6 +381,7 @@ installpkg() {
 			echo "Package '$i' already installed."
 		elif [ ! $(getportpath $i) ]; then
 			echo "Package '$i' not found."
+			exit 1
 		else
 			IPKG+=($i)
 		fi
