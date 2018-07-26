@@ -1,7 +1,16 @@
 #!/bin/bash
 
-source "/usr/share/scratchpkg/color"
-source "/usr/share/scratchpkg/message"
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+CRESET='\e[0m'		#Reset color
+
+msg() {
+	echo -e "${GREEN}==>${CRESET} $1"
+}
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
 	
 if [ "$UID" != "0" ]; then
 	msgerr "Chroot need root access!"
@@ -11,12 +20,12 @@ fi
 LFS=$1
 
 if [ -z $1 ]; then
-	msgerr "Please set mount point for chroot!"
+	msgerr "Please set directory for chroot!"
 	exit 1
 fi
 
 if [ ! -d $LFS ]; then
-	msgerr "Dir '$LFS' not exist"
+	msgerr "Directory '$LFS' not exist"
 	exit 1
 fi
 
@@ -32,16 +41,16 @@ if [ -h $LFS/dev/shm ]; then
   mkdir -pv $LFS/$(readlink $LFS/dev/shm)
 fi
 
-if [ -d $LFS/tools ]; then
-	chroot "$LFS" /tools/bin/env -i HOME=/root TERM="$TERM" PS1='\u:\w\$ ' PATH=/bin:/usr/bin:/sbin:/usr/sbin:/tools/bin /tools/bin/bash --login +h
-else
-	chroot "$LFS" /usr/bin/env -i HOME=/root TERM="$TERM" PS1='\u:\w\$ ' PATH=/bin:/usr/bin:/sbin:/usr/sbin /bin/bash --login
-fi
+chroot "$LFS" /usr/bin/env -i \
+HOME=/root \
+TERM="$TERM" \
+PS1='\u:\w\$ ' \
+PATH=/bin:/usr/bin:/sbin:/usr/sbin /bin/bash --login
 
 popd
-echo chroot exited
+msg "Chroot exited"
 
-echo "Unmounting virtual filesystem"
+msg "Unmounting virtual filesystem"
 umount -v $LFS/dev/pts
 umount -v $LFS/dev
 umount -v $LFS/run

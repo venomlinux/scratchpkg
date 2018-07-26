@@ -1,0 +1,142 @@
+#!/bin/bash
+
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+YELLOW='\e[0;33m'   #Yellow
+CYAN='\e[0;36m'     #Cyan
+CRESET='\e[0m'		#Reset color
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
+
+msginst() {
+	echo -e "[${GREEN}i${CRESET}] $1"
+}
+
+msgmiss() {
+	echo -e "[${YELLOW}m${CRESET}] $1"
+}
+
+msgnoinst() {
+	echo -e "[${RED}x${CRESET}] $1"
+}
+
+checkdep() {
+	local depends
+	
+	depends=$(grep "^# depends[[:blank:]]*:" $(getportpath "$1")/spkgbuild | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+	source $(getportpath "$1")/spkgbuild
+	for dep in ${depends[@]}; do
+		echo $dep
+	done
+}
+
+getportpath() {	
+	for repo in ${PORT_REPO[@]}; do
+		if [[ -f $repo/$1/spkgbuild ]]; then
+			echo "$(dirname $repo/$1/spkgbuild)"
+			return 0
+		fi
+	done
+	return 1	
+}
+
+deplist() {	
+	# check currently process package for loop
+	if [ ${#CHECK[@]} -gt 0 ]; then
+		if [[ "$(echo ${CHECK[@]} | tr " " "\n" | grep -x $1)" == "$1" ]]; then
+			if [ "$IGNORE_LOOP" = 1 ]; then
+				return 0
+			else
+				msgerr "loop dependency found: $1"
+				exit 1
+			fi
+		fi
+	fi
+	
+	# add package to currently process
+	CHECK+=($1)
+	
+	# check dependencies
+	for i in $(checkdep $1); do
+		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $i) = "" ]]; then
+			deplist $i
+		fi
+	done
+	
+	# add dependency to list checked dep
+	if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $1) = "" ]]; then
+		DEP+=($1)
+	fi
+	
+	# delete process package array
+	for i in "${!CHECK[@]}"; do
+		if [[ ${CHECK[i]} = "$1" ]]; then
+			unset 'CHECK[i]'
+		fi
+	done	
+}
+
+INDEX_DIR="/var/lib/scratchpkg/index"
+REPO_FILE="/etc/scratchpkg.repo"
+
+if [ ! "$1" ]; then
+	msgerr "Please specify package name to list its dependencies order."
+	exit 1
+fi
+
+if [ ! -f "$REPO_FILE" ]; then
+	msgerr "repo file not exist. ($REPO_FILE)"
+	exit 1
+fi
+
+while read repodir repourl junk; do
+	case $repodir in
+		""|"#"*) continue ;;
+	esac
+	PORT_REPO+=($repodir)
+done < "$REPO_FILE"
+
+while [ "$1" ]; do
+	case $1 in
+		-i|--installed)     INSTALLED=1 ;;
+		-n|--not-installed) NOT_INSTALLED=1 ;;
+		-m|--missing)       MISSING=1 ;;
+		-l|--loop)          IGNORE_LOOP=1 ;;
+		*)                  PKG+=($1) ;;
+	esac
+	shift
+done
+
+# set all to 1 (all) if not use any of it
+if [ ! "$INSTALLED" ] && [ ! "$NOT_INSTALLED" ] && [ ! "$MISSING" ]; then
+	INSTALLED=1
+	NOT_INSTALLED=1
+	MISSING=1
+fi
+
+# check for ports existence
+for pkg in ${PKG[@]}; do
+	if [ ! $(getportpath $pkg) ]; then
+		msgerr "Package '$pkg' not found."
+		exit 1
+	fi
+done
+
+# calculate dependencies
+for pkg in ${PKG[@]}; do
+	deplist $pkg
+done
+
+for deps in ${DEP[@]}; do
+	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
+		[ "$INSTALLED" ] && msginst "$deps"       # print installed
+	elif ! getportpath "$deps" >/dev/null; then
+		[ "$MISSING" ] && msgmiss "$deps"         # print missing port
+	else
+		[ "$NOT_INSTALLED" ] && msgnoinst "$deps" # print not installed
+	fi
+done
+
+exit 0

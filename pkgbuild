@@ -1,0 +1,630 @@
+#!/bin/bash
+
+RED='\e[0;31m'      #Red
+GREEN='\e[0;32m'    #Green
+YELLOW='\e[0;33m'   #Yellow
+CYAN='\e[0;36m'     #Cyan
+CRESET='\e[0m'		#Reset color
+
+msg() {
+	echo -e "${GREEN}==>${CRESET} $1"
+}
+
+msg2() {
+	echo -e " ${CYAN}*${CRESET} $1"
+}
+
+msgerr() {
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
+
+msgwarn() {
+	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+}
+
+updatemdsum() {
+	
+	if [ -z $source ]; then
+		msgwarn "source=() is empty, no need md5sum."
+		abort 0
+	fi
+		
+	for um in $(seq 0 $((${#source[@]} - 1))); do
+		if [ $(echo ${source[$um]} | grep -E "(ftp|http|https)://") ]; then
+			if [ $(echo ${source[$um]} | grep -E "::(ftp|http|https)://") ]; then
+				sourcename="$SOURCE_DIR/$(echo ${source[$um]} | awk -F '::' '{print $1}')"
+			else
+				sourcename="$SOURCE_DIR/$(echo ${source[$um]} | rev | cut -d / -f 1 | rev)"
+			fi
+		else
+			sourcename="${source[$um]}"
+		fi
+		needupdatechecksum="$needupdatechecksum $sourcename"
+	done
+	
+	for file in ${needupdatechecksum[@]}; do
+		if [ ! -f $file ]; then
+			missingsource+=($file)
+		fi
+	done
+	
+	if [ "${#missingsource[@]}" -gt 0 ]; then
+		msg "Missing source:"
+		for ms in ${missingsource[@]}; do
+			msg2 "$ms"
+		done
+		abort 1
+	fi
+	
+	echo -e "md5sum=($(md5sum $needupdatechecksum | awk '{ print $1 }'))"
+		
+}
+
+checkmdsum() {
+	
+	if [ ! -z "$source" -a -z "$md5sum" ]; then
+		msgerr "md5sum=() is empty, please provide it."
+		abort 1
+	fi
+	
+	if [ "${#source[@]}" != "${#md5sum[@]}" ]; then
+		msgerr "Total source and md5sums different."
+		abort 1
+	fi
+	
+	for s in $(seq 0 $((${#source[@]} - 1))); do
+		if [ $(echo ${source[$s]} | grep -E "(ftp|http|https)://") ]; then
+			if [ $(echo ${source[$s]} | grep -E "::(ftp|http|https)://") ]; then
+				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | awk -F '::' '{print $1}')
+			else
+				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
+			fi
+		else
+			sourcename="${source[$s]}"
+		fi
+		sum=$(md5sum "$sourcename" | awk '{ print $1 }')
+		if [ "$sum" != "${md5sum[$s]}" ] && [ "SKIP" != "${md5sum[$s]}" ]; then
+			errormdsum+=($sourcename)
+		fi
+	done
+	
+	if [ "${#errormdsum[@]}" -gt 0 ]; then
+		msgerr "md5sum mismatch:"
+		for mismatch in ${errormdsum[@]}; do
+			msg2 "$mismatch"
+		done
+		abort 1
+	fi
+	
+}
+
+download_src() {
+	local FILE FILENAME
+	
+	for FILE in ${source[@]}; do
+		if [[ $FILE =~ ::(http|https|ftp|file):// ]]; then
+			FILENAME=$(echo $FILE | awk -F '::' '{print $1}')
+			SRCURL=$(echo $FILE | awk -F '::' '{print $2}')
+		else
+			FILENAME=$(basename $FILE)
+			SRCURL=$FILE
+		fi
+		WGETCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial"
+		if [ "$FILENAME" != "$FILE" ]; then
+			if [ -f "$SOURCE_DIR/$FILENAME" ]; then
+				msg "Source '$FILENAME' found."
+			else
+				if [ -f "$SOURCE_DIR/$FILENAME.partial" ]; then
+					msg "Resuming '$SRCURL'."
+				else
+					msg "Downloading '$SRCURL'."
+				fi
+				$WGETCMD $SRCURL && mv $SOURCE_DIR/$FILENAME.partial $SOURCE_DIR/$FILENAME || exit 1
+			fi
+		else
+			if [ ! -f "$FILENAME" ]; then
+				msgerr "Source '$FILENAME' not found."
+				abort 1
+			else
+				msg "Source '$FILENAME' found."
+			fi
+		fi
+	done
+}
+
+prepare_src() {
+	local FILE FILENAME SRC_DIR
+	
+	checkmdsum
+	
+	SRC=$WORK_DIR/$name/src
+	PKG=$WORK_DIR/$name/pkg
+	
+	clearworkdir
+	
+	mkdir -p $SRC $PKG
+	
+	if [ "${#source[@]}" -gt 0 ]; then
+		for FILE in ${source[@]}; do
+			if [[ $FILE =~ ::(http|https|ftp|file):// ]]; then
+				FILENAME=$(echo $FILE | awk -F '::' '{print $1}')
+				SRC_DIR="$SOURCE_DIR"
+			elif [[ $FILE =~ ^(http|https|ftp|file):// ]]; then
+				FILENAME=$(basename $FILE)
+				SRC_DIR="$SOURCE_DIR"
+			else
+				FILENAME=$(basename $FILE)
+				SRC_DIR="$PWD"
+			fi
+			for NOEXT in ${noextract[@]}; do
+				if [ "$NOEXT" = "$FILENAME" ]; then
+					nxt=1
+					break
+				fi
+			done
+			if [ "$FILENAME" != "$FILE" ] && [ "$nxt" != 1 ]; then
+				case $FILENAME in
+					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
+						COMMAND="tar -p -o -C $SRC -xf $SOURCE_DIR/$FILENAME"
+						MODE="Unpacking" ;;
+					*)
+						COMMAND="cp $SOURCE_DIR/$FILENAME $SRC"
+						MODE="Preparing" ;;				
+				esac
+				msg2 "$MODE '$FILENAME'..."
+				$COMMAND
+				if [ $? != 0 ]; then
+					msgerr "$MODE '$FILENAME' failed."
+					abort 1
+				fi
+			else
+				msg2 "Preparing '$FILENAME'..."
+				cp "$SRC_DIR/$FILENAME" "$SRC"
+			fi
+			nxt=
+		done
+	fi
+}
+
+runprebuildscript() {	
+	if [ "`type -t pre_build`" = "function" ]; then
+		pre_build && PREBUILD_STATUS=OK || PREBUILD_STATUS=KO
+	fi
+}
+
+run_build() {	
+	if [ "$UID" != 0 ]; then
+		msgerr "You must build package as root, or use fakeroot."
+		abort 1
+	fi
+	
+	msg "Start build '$name-$version-$release'."	
+	
+	[ "$MAKE_FLAGS" = 1 ]  && export MAKEFLAGS       || unset MAKEFLAGS
+	[ "$BUILD_FLAGS" = 1 ] && export CFLAGS CXXFLAGS || unset CFLAGS CXXFLAGS
+	
+	[ -f $name.install ] && . $name.install
+	
+	pushd $SRC >/dev/null
+	
+	runprebuildscript
+	
+	(set -e -x; build)
+	#(exec &> >(tee -i $LOG_DIR/$name.log); echo "$name-$version"; echo $(date); set -e -x; build)
+		
+	if [ $? != 0 ]; then
+		msgerr "Build '$name-$version-$release' failed."
+		abort 1
+	else
+		msg "Build '$name-$version-$release' success."
+	fi
+	
+	popd >/dev/null
+}
+
+purgefiles() {
+	local OPTIONS
+	[ "${#PURGE_FILES[@]}" -gt 0 ] || return 0
+	msg2 "Purging unwanted files..."
+	for OPTIONS in ${PURGE_FILES[@]}; do
+		if [ -e $OPTIONS ]; then
+			rm -fr $OPTIONS
+		fi
+	done
+}
+
+removeemptydirs() {	
+	msg2 "Removing empty directories..."
+	find . -type d -empty -delete	
+}
+
+removedocs() {
+	local OPTIONS
+	[ "${#DOC_DIRS[@]}" -gt 0 ] || return 0
+	msg2 "Removing docs..."
+	for OPTIONS in ${DOC_DIRS[@]}; do
+		[ -d $OPTIONS ] && rm -fr $OPTIONS
+	done	
+}
+
+removelibtool() {	
+	msg2 "Removing libtool files..."
+	find . ! -type d -name "*.la" -delete
+}
+
+strip_files() {	
+	msg2 "Stripping binaries & libraries..."	
+	find . -type f 2>/dev/null | while read -r binary ; do
+		case "$(file -bi "$binary")" in
+			*application/x-sharedlib*)  # Libraries (.so)
+				strip --strip-unneeded "$binary" ;;
+			*application/x-pie-executable*)  # Libraries (.so)
+				strip --strip-unneeded "$binary" ;;
+			*application/x-archive*)    # Libraries (.a)
+				strip --strip-debug "$binary" ;;
+			*application/x-object*)
+				case "$binary" in
+					*.ko)                   # Kernel module
+						strip --strip-unneeded "$binary" ;;
+					*)
+						continue;;
+				esac;;
+			*application/x-executable*) # Binaries
+				strip --strip-all "$binary" ;;
+			*)
+				continue ;;
+		esac
+	done
+}
+
+compressinfomanpages() {	
+	msg2 "Compressing man & info pages..."
+	for mandir in ${MAN_DIRS[@]}; do
+		if [ -d $mandir ]; then
+			(cd $mandir
+				for file in $(find . -type f); do
+					if [ "$file" = "${file%%.gz}" ]; then
+						gzip -9 -f "$file"
+					fi
+				done
+				for i in $(find . -type l) ; do
+					FILE="${i%%.gz}.gz"
+					TARGET="$(readlink $i)"
+					TARGET="${TARGET##*/}"
+					TARGET="${TARGET%%.gz}.gz"
+					DIR=$(dirname "$FILE")
+					rm -f $i
+					if [ -e "$DIR/$TARGET" ]; then
+						ln -sf $TARGET $FILE
+					fi
+				done
+			)
+		fi
+	done	
+	if [ -d usr/share/info ]; then
+		(cd usr/share/info
+			for file in $(find . -type f); do
+				if [ "$file" = "${file%%.gz}" ]; then
+					gzip -9 "$file"
+				fi
+			done
+		)
+	fi
+}
+
+backupconf() {
+	local FILE
+	for FILE in ${backup[@]}; do
+		if [ ! -f $FILE ]; then
+			msgerr "File '$FILE' not exist!"
+			abort 1
+		else
+			mv $FILE $FILE.spkgnew
+		fi
+	done
+}
+
+packaging() {
+	local FILE
+	
+	[ -f $name.install ] && cp $name.install $PKG/.pkginstall
+	[ -f readme ] && cp readme $PKG/.pkgreadme
+	
+	pushd $PKG >/dev/null
+	
+	[ "$PURGE_FILE" = 1 ]    && purgefiles
+	[ "$KEEP_EMPTYDIR" = 0 ] && removeemptydirs
+	[ "$KEEP_DOC" = 0 ]      && removedocs
+	[ "$KEEP_LIBTOOL" = 0 ]  && removelibtool
+	[ "$STRIP_BINARY" = 1 ]  && strip_files
+	[ "$ZIP_MAN" = 1 ]       && compressinfomanpages
+	
+	if [ "${#backup[@]}" -gt 0 ]; then
+		backupconf
+	fi
+	
+	msg2 "Compressing package..."	
+	for FILE in .pkginstall .pkgreadme; do
+		if [ -f $FILE ]; then
+			addtotar+=($FILE)
+		fi
+	done
+	
+	[ "$FORCE_REBUILD" ] && rm -fv "$PACKAGE_DIR/$PKGNAME"
+	
+	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
+	if [ $? != 0 ]; then
+		msgerr "Packaging failed."
+		if [ -f $PACKAGE_DIR/$PKGNAME ]; then
+			rm $PACKAGE_DIR/$PKGNAME
+		fi
+		abort 1
+	fi
+	
+	pkgsize="$(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}')"
+	if [ "$VERBOSE" ]; then
+		tar -t -v -f $PACKAGE_DIR/$PKGNAME
+	fi
+	msg "Successfully created package '$PKGNAME'. (${pkgsize})"
+	
+	case $PREINSTALL_STATUS in
+		OK) msg2 "preinstall	: ${GREEN}OK${CRESET}" ;;
+		KO) msg2 "preinstall	: ${RED}FAIL${CRESET}" ;;
+	esac
+	
+	popd >/dev/null
+}
+
+check_buildscript() {	
+	# check the required field in buildscript
+	if [ -z "$name" ]; then
+		msgerr "'name' is empty!"
+		exit 1
+	elif [ "$(basename `pwd`)" != "$name" ]; then
+		msgerr "Port name and Directory name is different!"
+		exit 1
+	elif [ -z "$version" ]; then
+		msgerr "'version' is empty!"
+		exit 1
+	elif [ -z "$release" ]; then
+		msgerr "'release' is empty!"
+		exit 1
+	elif [ "`type -t build`" != "function" ]; then
+		msgerr "'build' function not exist!"
+		exit 1
+	elif $(echo "$version" | grep -q '-'); then
+		msgerr "'version' should not contain '-'."
+		exit 1
+	elif $(echo "$release" | grep -q '-'); then
+		msgerr "'release' should not contain '-'."
+		exit 1
+	elif [ -z "$description" ]; then
+		msgerr "'description' cant empty."
+		exit 1
+	fi
+}
+
+set_options() {
+	local OPT
+	
+	for OPT in ${OPTIONS[@]} ${options[@]}; do
+		case $OPT in
+			libtool)     KEEP_LIBTOOL=1 ;;
+			!libtool)    KEEP_LIBTOOL=0 ;;
+			emptydirs)   KEEP_EMPTYDIR=1;;
+			!emptydirs)  KEEP_EMPTYDIR=0;;
+			strip)       STRIP_BINARY=1 ;;
+			!strip)      STRIP_BINARY=0 ;;
+			docs)        KEEP_DOC=1 ;;
+			!docs)       KEEP_DOC=0 ;;
+			purge)       PURGE_FILE=1 ;;
+			!purge)      PURGE_FILE=0 ;;
+			zipman)      ZIP_MAN=1 ;;
+			!zipman)     ZIP_MAN=0 ;;
+			buildflags)  BUILD_FLAGS=1 ;;
+			!buildflags) BUILD_FLAGS=0 ;;
+			makeflags)   MAKE_FLAGS=1 ;;
+			!makeflags)  MAKE_FLAGS=0 ;;
+		esac
+	done
+}
+
+checkdir() {
+	local DIR	
+	for DIR in "$@"; do
+		if [ ! -d $DIR ]; then
+			msgerr "Directory '$DIR' not exist."
+			abort 1
+		elif [ ! -w $dir ]; then
+			msgerr "Directory '$DIR' not writable."
+			abort 1
+		elif [ ! -x $dir ] || [ ! -r $1 ]; then
+			msgerr "Directory '$DIR' not readable."
+			abort 1
+		fi
+	done
+}
+
+clearworkdir() {
+	if [ ! "$KEEP_WORK" ]; then
+		rm -fr $WORK_DIR/$name
+	fi
+}
+
+interrupted() {
+	abort 100
+}
+
+abort() {
+	rm -f $LOCK_FILE
+	clearworkdir
+	exit $1
+}
+
+extract_opt() {
+	for opt in $@; do
+		case $opt in
+			  --*) BOPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do BOPTS+=(-${opt:$i:1}); done ;;
+			    *) BOPTS+=($opt) ;;
+		esac
+	done
+	echo ${BOPTS[@]}
+}
+
+parse_opts() {
+	
+	while [ "$1" ]; do
+		case $1 in
+		-i |           --install) INSTALL_PKG=yes ;;
+		-u |           --upgrade) UPGRADE_PKG=yes; OPTS+=($1) ;;
+		-r |         --reinstall) REINSTALL_PKG=yes; OPTS+=($1) ;;
+		-d |            --no-dep) IGNORE_DEP=yes; OPTS+=($1) ;;
+		-c |   --ignore-conflict) OPTS+=($1) ;;
+		-v |           --verbose) VERBOSE=yes; OPTS+=($1) ;;
+		-f |     --force-rebuild) FORCE_REBUILD=yes ;;
+		-m |        --skip-mdsum) IGNORE_MDSUM=yes ;;
+		-g |          --genmdsum) UPDATE_MDSUM=yes ;;
+		-o |          --download) DOWNLOAD_ONLY=yes ;;
+		-x |           --extract) EXTRACT_ONLY=yes ;;
+		-w |         --keep-work) KEEP_WORK=yes ;;
+		-s |    --silent-install) SILENT_INSTALL=yes ;;
+		-h |              --help) SHOWHELP=yes ;;
+		         --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
+		        --no-postinstall) OPTS+=($1) ;;
+		         --no-preupgrade) OPTS+=($1) ;;
+		        --no-postupgrade) OPTS+=($1) ;;
+		              --no-color) NOCOLOR=yes; OPTS+=($1) ;;
+		             --no-backup) OPTS+=($1) ;;
+		            --redownload) REDOWNLOAD_SOURCE=yes ;;
+		          --check-source) SOURCE_CHECK=yes ;;
+		              --srcdir=*) SOURCE_DIR="${1#*=}" ;;
+		              --pkgdir=*) PACKAGE_DIR="${1#*=}" ;;
+		                       *) msg "Invalid $(basename $0) option! ($1)"; exit 1 ;;
+		esac
+		shift
+	done
+	
+}
+
+main() {
+	
+	parse_opts $(extract_opt $@)
+	
+	local FILE
+	
+	if [ -f $PKGBUILD_CONF ]; then
+		source $PKGBUILD_CONF
+	else
+		msgerr "'$PKGBUILD_CONF' file not found."
+		exit 1
+	fi
+	
+	if [ -f $PKGBUILD_BSCRIPT ]; then
+		source $PKGBUILD_BSCRIPT
+	else
+		msgerr "'$PKGBUILD_BSCRIPT' file not found."
+		exit 1
+	fi
+	description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+	backup=$(grep "^# backup[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
+	depends=$(grep "^# depends[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+	noextract=$(grep "^# noextract[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
+
+	LOCK_FILE="/tmp/pkgbuild.$name.lock"
+	
+	# check for lock file
+	if [ -f "$LOCK_FILE" ]; then
+		msgerr "Cant build same package simultaneously."
+		msgerr "remove '$LOCK_FILE' if no build process for '$name'."
+		exit 1
+	else
+		touch "$LOCK_FILE"
+	fi
+	
+	if [ -z "$SOURCE_DIR" ]; then
+		msgerr "Option '--srcdir=' need argument (path)"
+		abort 1
+	elif [ -z "$PACKAGE_DIR" ]; then
+		msgerr "Option '--pkgdir=' need argument (path)"
+		abort 1
+	fi
+	checkdir "$SOURCE_DIR" "$PACKAGE_DIR"
+	
+	check_buildscript
+	set_options
+	
+	PKGNAME="$name-$version-$release.spkg.txz"
+	
+	# download source only
+	if [ "$DOWNLOAD_ONLY" ]; then
+		download_src
+		abort 0
+	fi
+	
+	# extract source only
+	if [ "$EXTRACT_ONLY" ]; then
+		download_src
+		prepare_src
+		KEEP_WORK=yes
+		abort 0
+	fi
+	
+	# calculate & print md5sum
+	if [ "$UPDATE_MDSUM" ]; then
+		updatemdsum
+		abort 0
+	fi
+	
+	# build package
+	if [ -f "$PACKAGE_DIR/$PKGNAME" ] && [ ! "$FORCE_REBUILD" ]; then
+		if [ ! "$INSTALL_PKG" ] && [ ! "$REINSTALL_PKG" ] && [ ! "$UPGRADE_PKG" ]; then
+			msg "Package '$PKGNAME' is up-to-date."
+			abort 0
+		fi
+	else
+		download_src
+		prepare_src
+		run_build
+		packaging
+		clearworkdir
+	fi
+	
+	# install package
+	if [ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ]; then
+		[ "$INSTALL_PKG" ] && opr=Installing
+		[ "$REINSTALL_PKG" ] && opr=Reinstalling
+		[ "$UPGRADE_PKG" ] && opr=Upgrading
+		if [ "$SILENT_INSTALL" ]; then
+			echo -ne "$opr '$PKGNAME'... "
+			pkgadd $PACKAGE_DIR/$PKGNAME ${OPTS[@]} >/dev/null 2>&1
+			if [ $? = 0 ]; then
+				echo -e "${GREEN}done${CRESET}."
+			else
+				echo -e "${RED}failed${CRESET}."
+				abort 1
+			fi
+		else
+			pkgadd $PACKAGE_DIR/$PKGNAME ${OPTS[@]} || abort 1
+		fi
+	fi
+	
+	abort 0
+	
+}
+
+trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+
+PKGBUILD_CONF="/etc/scratchpkg.conf"
+PKGBUILD_BSCRIPT="spkgbuild"
+
+SOURCE_DIR="/var/cache/scratchpkg/sources"
+PACKAGE_DIR="/var/cache/scratchpkg/packages"
+WORK_DIR="/var/cache/scratchpkg/work"
+
+OPTIONS=(!libtool emptydirs strip docs purge zipman buildflags makeflags)
+DOC_DIRS=(usr/{,local/}{,share/}{doc,gtk-doc} opt/*/{doc,gtk-doc})
+MAN_DIRS=({usr{,/local}{,/share},opt/*}/man)
+PURGE_FILES=(usr/{,share/}info/dir)
+
+main "$@"
