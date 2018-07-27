@@ -315,13 +315,28 @@ searchpkg() {
 	fi
 }
 
+foreignpkg() {
+	
+	for pkg in $(allinstalled); do
+		if ! getportpath $pkg >/dev/null; then
+			echo -e $pkg
+		fi
+	done
+	
+}
+
 buildpkg() {
+	local OPTS
 	if [ -z "$1" ]; then
 		echo "Please specify package to build."
 		exit 1
 	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(f|v|w) ]]; then
+		if [[ "$1" =~ ^-(f|v|w|m|o|x)$ ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^--(no-prebuild|--force-rebuild|skip-mdsum|download|extract|keep-work)$ ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^--(pkgdir|srcdir)= ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
@@ -343,16 +358,20 @@ buildpkg() {
 installpkg() {
 	local pkg i int pkgcount count IPKG OPTS REINSTALL
 	
+	needroot "Installing package"
+	
 	if [ -z "$1" ]; then
 		echo "Please specify package(s) to install."
 		exit 1
 	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(c|v)$ ]]; then
+		if [[ "$1" =~ ^-(c|v|-verbose|-ignore-conflict)$ ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
 			OPTS+=($1)
 			REINSTALL=1
+		elif [[ "$1" = "--no-confirm" ]]; then
+			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
 			exit 1
@@ -401,8 +420,10 @@ installpkg() {
 			echo -n "$pkgcount) $pkg  "
 		done
 		echo; echo
-		confirm "Continue install package(s)?" "Package installation cancelled."
-		echo
+		if [ ! "$NOCONFIRM" ]; then
+			confirm "Continue install package(s)?" "Package installation cancelled."
+			echo
+		fi
 		count=0
 		total=$(echo $INST | wc -w)
 		for int in ${INST[@]}; do
@@ -432,7 +453,7 @@ outdatepkg() {
 }
 
 sysup() {
-	local d
+	local d UPGPKG NEWPKG PKGOUTDATE
 	
 	needroot "Upgrading package"
 	
@@ -474,16 +495,18 @@ sysup() {
 		. $BUILD_SCRIPT
 		echo -en "\033]0;($count/$total) $name-$version-$release \a"
 		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
-			pkgbuild -is ${OPTS[@]} || exit 1
+			pkgbuild -is || exit 1
 		else
-			pkgbuild -us ${OPTS[@]} || exit 1
+			pkgbuild -us || exit 1
 		fi
 	done
 	
 }
 
 removepkg() {
-	local pkg i IPKG
+	local pkg i IPKG OPTS
+	
+	needroot "Removing package"
 	
 	if [ -z "$1" ]; then
 		echo "Please specify package(s) to remove."
@@ -492,6 +515,8 @@ removepkg() {
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^--(no-postremove|no-preremove)$ ]]; then
 			OPTS+=($1)
+		elif [[ "$1" = "--no-confirm" ]]; then
+			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
 			exit 1
@@ -519,15 +544,21 @@ removepkg() {
 			echo -n "$pkgcount) $pkg  "
 		done
 		echo; echo
-		confirm "Continue remove package(s)?" "Package removing cancelled."
-		echo
+		if [ ! "$NOCONFIRM" ]; then
+			confirm "Continue remove package(s)?" "Package removing cancelled."
+			echo
+		fi
 		for pkg in ${IPKG[@]}; do
 			pkgdel $pkg ${OPTS[@]}
 		done
 	fi
 }
 
-upgradepkg() {	
+upgradepkg() {
+	local pkg
+	
+	needroot "Upgrading package"
+	
 	needarg "$@"
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade)$ ]]; then
@@ -633,6 +664,87 @@ outdate() {
 	[ ! "$OUTDATE" ] && msg "All package is up to date."
 }
 
+printhelp() {
+	cat << EOF
+Usage:
+    $(basename $0) [ mode ] [ <pkgname> <options> ]	
+
+mode:
+    install   <packages>      install packages and its dependencies
+    upgrade   <packages>      upgrade packages and install new dependencies (if any)
+    build     <package>       build only packages
+    remove    <packages>      remove packages in system
+    depends   <package>       show depends of a package
+    deplist   <packages>      show list dependencies of a package
+    search    <pattern>       search packages in port's repos
+    lock      <packages>      lock packages from upgrade
+    unlock    <packages>      unlock packages from upgrade
+    listport  <repo>          list ports of a repo
+    cat       <package>       view a package build scripts
+    dependent <package>       show package's dependent
+    own       <file>          show package's owner of file
+    pkgtree   <package>       show list files of installed package
+    path      <package>       show package's buildscripts path
+    sync                      update port's repo
+    sysup                     full system update
+    dup                       print duplicate ports in repo
+    readme                    print readme file if exist
+    listinst                  list installed package in system
+    listorphan                list orphan package
+    integrity                 check integrity of package's files
+    outdate                   check for outdate packages
+    cache                     print leftover cache
+    rmcache                   remove leftover cache
+    missingdep                check for mising dependency of installed package
+    foreignpkg                print package installed without port in repo
+    listlocked                print locked packages
+    help                      print this help message
+	
+options for:		
+    build
+        -f, --force-rebuild    force rebuild
+        -m, --skip-mdsum       skip md5sum check for sources
+        -d, --no-dep           skip dependency check
+        -e, --extract          extract only
+        -w, --keep-work        keep woring directory
+        -o, --download         download source files only
+        -v, --verbose          be verbose
+        --redownload           re-download source files
+        --srcdir=<path>        override default SOURCE_DIR
+        --pkgdir=<path>        override default PACKAGE_DIR
+        --no-preinstall        skip pre-install script
+        
+    install
+        -d, --no-dep           skip installing dependencies
+        -c, --ignore-conflict  skip file conflict check
+        -r, --reinstall        reinstall installed package
+        --no-preinstall        skip pre-install script
+        --no-postinstall       skip post-install script
+        --no-confirm           dont ask confirmation
+		
+    upgrade
+        -d, --no-dep           skip installing dependencies (new dependencies)
+        -c, --ignore-conflict  skip file conflict check
+        -v, --verbose          print install process
+        --no-backup            skip backup configuration file
+        --no-preupgrade        skip pre-upgrade script
+        --no-postupgrade       skip post-upgrade script
+        --no-confirm           dont ask confirmation
+		
+    remove
+        -d, --no-dep           skip dependency check
+        -v, --verbose          print removed files
+        --no-preremove         skip pre-remove script
+        --no-postremove        skip post-remove script
+        --no-confirm           dont ask confirmation
+		
+global options:
+        --no-color             disable colour for output
+        --debug                debug $(basename $0) script
+
+EOF
+}
+
 extract_opt() {
 	local opt OPTS
 	for opt in $@; do
@@ -643,15 +755,6 @@ extract_opt() {
 		esac
 	done
 	echo ${OPTS[@]}
-}
-
-parse_opts() {
-	while [ "$1" ]; do
-		case $1 in
-			*) PKG+=($1) ;;
-		esac
-		shift
-	done
 }
 
 main() {
@@ -693,6 +796,12 @@ main() {
 	
 	if [ "$mode" = "search" ]; then
 		searchpkg $1
+		exit 0
+	fi
+	
+	# search for foreign port (installed package with no port in repos)
+	if [ "$mode" = "foreignpkg" ]; then
+		foreignpkg
 		exit 0
 	fi
 	
@@ -743,6 +852,11 @@ main() {
 	
 	if [ "$mode" = "listlocked" ]; then
 		listlocked
+		exit 0
+	fi
+	
+	if [ "$mode" = "help" ]; then
+		printhelp $1
 		exit 0
 	fi
 

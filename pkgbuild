@@ -356,7 +356,7 @@ packaging() {
 		fi
 	done
 	
-	[ "$FORCE_REBUILD" ] && rm -fv "$PACKAGE_DIR/$PKGNAME"
+	[ "$FORCE_REBUILD" ] && rm -f "$PACKAGE_DIR/$PKGNAME"
 	
 	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
 	if [ $? != 0 ]; then
@@ -373,9 +373,9 @@ packaging() {
 	fi
 	msg "Successfully created package '$PKGNAME'. (${pkgsize})"
 	
-	case $PREINSTALL_STATUS in
-		OK) msg2 "preinstall	: ${GREEN}OK${CRESET}" ;;
-		KO) msg2 "preinstall	: ${RED}FAIL${CRESET}" ;;
+	case $PREBUILD_STATUS in
+		OK) msg2 "prebuild	: ${GREEN}OK${CRESET}" ;;
+		KO) msg2 "prebuild	: ${RED}FAIL${CRESET}" ;;
 	esac
 	
 	popd >/dev/null
@@ -466,12 +466,13 @@ Options:
   -m, --skip-mdsum          skip md5sum checking
   -g, --genmdsum            generate md5sum
   -o, --download            download only source file
-  -e, --extract             extract only source file
+  -x, --extract             extract only source file
   -w, --keep-work           keep working directory
   -h, --help                show this help message
       --srcdir=<path>       override directory path for sources
       --pkgdir=<path>       override directory path for compiled package
-      --no-preinstall       skip preinstall script before build/install package
+      --no-prebuild         skip prebuild script before build package
+      --no-preinstall       skip preinstall script before install package
       --no-postinstall      skip postinstall script after install package
       --no-preupgrade       skip preupgrade script before upgrade package
       --no-postupgrade      skip postupgrade script after upgrade package
