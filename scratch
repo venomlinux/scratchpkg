@@ -370,6 +370,8 @@ installpkg() {
 		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
 			OPTS+=($1)
 			REINSTALL=1
+		elif [[ "$1" =~ ^-(d|-no-dep)$ ]]; then
+			NO_DEP=1
 		elif [[ "$1" = "--no-confirm" ]]; then
 			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
@@ -390,6 +392,20 @@ installpkg() {
 			else
 				pushd $(getportpath $ii)
 					pkgbuild -r ${OPTS[@]}
+				popd
+			fi
+		done
+		return 0
+	fi
+	if [ "$NO_DEP" = 1 ]; then
+		for ii in ${PKGNAME[@]}; do
+			if [ -f $INDEX_DIR/$ii/.pkginfo ]; then
+				echo "Package '$ii' already installed."
+			elif [ ! $(getportpath $ii) ]; then
+				echo "Package '$ii' not found."
+			else
+				pushd $(getportpath $ii)
+					pkgbuild -i ${OPTS[@]}
 				popd
 			fi
 		done
