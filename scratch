@@ -565,6 +565,8 @@ upgradepkg() {
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(-no-dep|d)$ ]]; then
 			NO_DEP=1
+		elif [[ "$1" = "--no-confirm" ]]; then
+			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
 			exit 1
@@ -608,8 +610,10 @@ upgradepkg() {
 			echo -ne "$count) $pkg  "
 		done
 		echo; echo
-		confirm "Continue install new dependencies and upgrade target package(s)?" "Package installation cancelled."
-		echo
+		if [ ! "$NOCONFIRM" ]; then
+			confirm "Continue install new dependencies and upgrade target package(s)?" "Package installation cancelled."
+			echo
+		fi
 		for newpkg in ${NEWPKG[@]}; do			
 			pushd $(getportpath $newpkg)
 				. $BUILD_SCRIPT
