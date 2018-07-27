@@ -67,6 +67,25 @@ runpreremovehooks() {
 	
 }
 
+help() {	
+	cat << EOF	
+Usage:
+  $(basename $0) [ <options> <package name> ]
+
+Options:
+  -v, --verbose         print removed files
+  -h, --help            show this help message
+      --no-preremove    don't run pre-remove script
+      --no-postremove   don't run post-remove script
+      --no-color        disable colour for output
+      --root=<path>     remove package from custom root directory
+
+Example:
+  $(basename $0) firefox -dv --no-preremove       remove package firefox, skipping dependency check,
+                                             print deleted files and skipp pre-remove script
+EOF
+}
+
 extract_opt() {
 	for opt in $@; do
 		case $opt in

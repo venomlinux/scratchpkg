@@ -135,8 +135,43 @@ extract_opt() {
 	echo ${OPTS[@]}
 }
 
+help() {	
+	cat << EOF
+Usage:
+  $(basename $0) package.spkg.txz <options>
+
+Options:
+  -u, --upgrade              upgrade package
+  -r, --reinstall            reinstall package
+  -c, --ignore-conflict      ignore conflict when installing package
+  -v, --verbose              print files installed
+  -h, --help                 show this help message
+      --no-preinstall        skip preinstall script before build/install package
+      --no-postinstall       skip postinstall script after install package
+      --no-preupgrade        skip preupgrade script before upgrade package
+      --no-postupgrade       skip postupgrade script after upgrade package
+      --no-backup            skip backup when upgrading package
+      --no-color             disable colour for output
+      --root=<path>          install to custom root directory
+
+Example:
+  $(basename $0) foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
+                                                         old configuration files and skip conflict check
+EOF
+}
+
+extract_opt() {
+	for opt in $@; do
+		case $opt in
+			  --*) OPTS+=($opt) ;;
+			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
+			    *) OPTS+=($opt) ;;
+		esac
+	done
+	echo ${OPTS[@]}
+}
+
 parse_opts() {
-	
 	if [ -z "$1" ]; then
 		SHOWHELP=yes
 	else
@@ -144,7 +179,6 @@ parse_opts() {
 			case $1 in
 			-u |           --upgrade) UPGRADE_PKG=yes ;;
 			-r |         --reinstall) REINSTALL_PKG=yes ;;
-			-d |            --no-dep) IGNORE_DEP=yes ;;
 			-c |   --ignore-conflict) IGNORE_CONFLICT=yes ;;
 			-v |           --verbose) VERBOSE_INSTALL=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
@@ -161,7 +195,6 @@ parse_opts() {
 			shift
 		done
 	fi
-	
 }
 
 ret() {
@@ -204,15 +237,6 @@ if [ ! -f "$PKGNAME" ]; then
 	ret 1
 fi
 
-echo -ne "Loading $BASEPKGNAME...\033[0K\r"
-
-# check integrity of package
-if ! tar -tf $PKGNAME &>/dev/null; then
-	msgerr "Package '$1' is corrupted!"
-	ret 1
-fi
-echo -ne "\033[0K"
-
 # check for root access
 if [ "$UID" != "0" ]; then
 	msgerr "Installing package need root access!"
@@ -235,6 +259,15 @@ if [ "$ALREADYINSTALLED" = "yes" ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PK
 	msg "Package '$name' already installed. ($iversion-$irelease)"
 	ret 0
 fi
+
+echo -ne "Loading $BASEPKGNAME...\033[0K\r"
+
+# check integrity of package
+if ! tar -tf $PKGNAME &>/dev/null; then
+	msgerr "Package '$1' is corrupted!"
+	ret 1
+fi
+echo -ne "\033[0K"
 
 # cant reinstall if not installed and cant upgrade if up-to-date
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then	

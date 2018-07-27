@@ -322,7 +322,7 @@ buildpkg() {
 	fi
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^-(f|v|w) ]]; then
-			BOPTS+=($1)
+			OPTS+=($1)
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
 			exit 1
@@ -333,7 +333,7 @@ buildpkg() {
 	done
 	pushd $(getportpath $PKGNAME)
 	if [ $? = 0 ]; then
-		pkgbuild ${BOPTS[@]}
+		pkgbuild ${OPTS[@]}
 	else
 		echo "Package '$PKGNAME' not found."
 		exit 1
