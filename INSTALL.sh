@@ -12,4 +12,5 @@ mkdir -pv ${DESTDIR}{${BINDIR},${CONFDIR},${HOOK_DIR},${SYSUSERS_DIR},${PORT_DIR
 install -m755 revdep pkgadd pkgdel pkgbuild pkgcreate pkgdeplist scratch ${DESTDIR}${BINDIR}
 install -m644 scratchpkg.conf scratchpkg.repo ${DESTDIR}${CONFDIR}
 install -m755 extra/* ${DESTDIR}${BINDIR}
-mkdir -pv ${DESTDIR}${CACHE_DIR}/{packages,sources,work} ${DESTDIR}${INDEX_DIR}/index
+mkdir -pv ${DESTDIR}${INDEX_DIR}/index
+install -dm777 ${DESTDIR}${CACHE_DIR}/{packages,sources,work}
