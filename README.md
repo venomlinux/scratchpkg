@@ -1,14 +1,14 @@
 # scratchpkg
 
-A package manager for Linux From Scratch.
+Пакетный менеджер для Linux From Scratch.
 
 ## Description
 
-Scratchpkg is a package manager built in order to manage packages for the Linux From Scratch system/distro. This package manager is fully written in bash. The package building script uses the port system like in Arch's makepkg, CRUX's pkgmk and NuTyX's cards. Packages are built and installed into a temporary location using DESTDIR method and are afterwards compressed in a file  directory using tar.
+Scratchpkg - программа управления пакетами (пакетный менеджер) для LFS (Linux From Scratch). Scratchpkg написан на bash. Сценарии сборки пакетов использует систему портов, похожую на makepkg у ArchLinux, pkgmk у CRUX и NuTyX cards. Пакеты собираются и устанавливаются во временный каталог с помощью метода DESTDIR, а затем архивируются в каталог с помощью tar.
 
-Installing the packaged tar means it is extracted into real system. After that all files extracted is recorded into an index directory. So scratchpkg will track all installed files. Scratchpkg can automatically resolve dependencies order.
+Процедура установки пакета заключается в распаковке архива в рабочую систему, после чего список распакованных файлов будет записан в index каталог. Таким образом scratchpkg будет отслеживать все установленные файлы. Также, Scratchpkg может автоматически разрешать зависимости, и их порядок.
 
-Scratchpkg reads the build script (spkgbuild) in the ports directory in order to get all necessary variables and functions before building them. Full package information  like version, description, depends etc ... will be written into the package. So the built package isn't needing its port anymore for getting the necessary information. This is really an advantage supposing you would like to check for package dependencies or install a package that was built for another machine.
+Scratchpkg читает файл сценария сборки (spkgbuild) в каталоге портов и определяет все необходимые переменные и функции перед тем как начать процесс сборки. Полная информация о пакете, такая как версия, описания и зависимости и т.д. записана в файле пакета. Поэтому собираемый пакет более не будет нуждаться в его порте для получения необходимой информации. Это является преимуществом, если вы хотите проверить зависимости пакетов или установить пакет, который был создан для другой машины.
 
 ## spkgbuild
 
