@@ -486,11 +486,11 @@ sysup() {
 	UPGPKG=0
 	NEWPKG=0
 	for d in $DEP; do
-		if [ "$(echo $PKGOUTDATE | grep -x $d)" = "$d" ]; then
+		if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
 			echo -ne "[${GREEN}u${CRESET}] $d  "
 			WILLINSTALL+=($d)
 			UPGPKG=$(( $UPGPKG + 1 ))
-		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && getportpath "$d" >/dev/null; then
+		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && [ $(getportpath "$d") ]; then
 			echo -ne "[${CYAN}n${CRESET}] $d  "
 			WILLINSTALL+=($d)
 			NEWPKG=$(( $NEWPKG + 1 ))
