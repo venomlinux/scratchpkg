@@ -4,11 +4,15 @@ A package manager for Linux From Scratch.
 
 ## Description
 
-Scratchpkg is a package manager built in order to manage packages for the Linux From Scratch system/distro. This package manager is fully written in bash. The package building script uses the port system like in Arch's makepkg, CRUX's pkgmk and NuTyX's cards. Packages are built and installed into a temporary location using DESTDIR method and are afterwards compressed in a file  directory using tar.
+Scratchpkg is a package manager built in order to manage packages for the Linux From Scratch system/distro. This package manager
+is fully written in bash. The package building script uses the port system like in Arch's makepkg, CRUX's pkgmk and NuTyX's
+cards. Packages are built and installed into a temporary location using DESTDIR method and are afterwards compressed in a file 
+directory using tar.
 
-Installing the packaged tar means it is extracted into real system. After that all files extracted is recorded into an index directory. So scratchpkg will track all installed files. Scratchpkg can automatically resolve dependencies order.
-
-Scratchpkg reads the build script (spkgbuild) in the ports directory in order to get all necessary variables and functions before building them. Full package information  like version, description, depends etc ... will be written into the package. So the built package isn't needing its port anymore for getting the necessary information. This is really an advantage supposing you would like to check for package dependencies or install a package that was built for another machine.
+Installing the packaged tar means it is extracted into real system. After that all files extracted is recorded into an index
+directory. So scratchpkg will track all installed files. Scratchpkg can automatically resolve dependencies order. Scratchpkg
+reads the build script (spkgbuild) in the ports directory in order to get all necessary variables and functions before building
+them.
 
 ## spkgbuild
 
@@ -17,7 +21,6 @@ The example of `spkgbuild` as follows:
 
     # description	: This is example package
     # backup	: etc/example.conf etc/foobar.conf
-    # conflict	: foobar2
     # depends	: package1 package2 package3
     # noextract	: example.tar.gz foobar.tar.xz
 
@@ -42,7 +45,6 @@ The example of `spkgbuild` as follows:
 You can also use headers (except for description, as it needs for search function of `scratch`) as array, example:
 
     backup=(etc/example.conf etc/foobar.conf)
-    conflict=(foobar2)
     depends=(package1 package2 package3)
     noextract=(example.tar.gz foobar.tar.xz)
 
@@ -52,7 +54,6 @@ You can also use headers (except for description, as it needs for search functio
 
 * `description`: Short description for package.
 * `backup`: File need backup when upgrading package (without leading with '/').
-* `conflict`: Specify package conflict, separate with space.
 * `depends`: All required dependencies, separate with space.
 * `noextract`: Specify file no need to extract, separate with space.
 * `name`: Package name, need same as port directory's name.
@@ -85,13 +86,92 @@ Available options:
     zipman:      Compress manual (man and info) pages in MAN_DIRS with gzip.
     buildflags:  Enable buildflags (CFLAGS and CXXFLAGS).
     makeflags:   Enable makeflags (MAKEFLAGS).
-    
-## Scratchpkg tools
+                                        
+### pkgbuild
+`pkgbuild` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.txz` format. To build package, you need `cd` into port directory before run `pkgbuild` command.
 
-Scratchpkg tools is separate into 4 main tools and several extra scripts (may added from time to time).
+    Usage:
+      pkgbuild [ <options> <arguments> ]
+
+    Options:
+      -i, --install             install package into system
+      -u, --upgrade             upgrade package
+      -r, --reinstall           reinstall package
+      -d, --no-dep              skip dependency check
+      -c, --ignore-conflict     ignore conflict when installing package
+      -v, --verbose             verbose install process
+      -f, --force-rebuild       rebuild package
+      -m, --ignore-mdsum        skip md5sum checking
+      -g, --genmdsum            generate md5sum
+      -o, --download-only       download only source file
+      -e, --extract-only        extract only source file
+      -w, --keep-work           keep working directory
+      -h, --help                show this help message
+          --srcdir=<path>       override directory path for sources
+          --pkgdir=<path>       override directory path for compiled package
+          --no-preinstall       skip preinstall script before build/install package
+          --no-postinstall      skip postinstall script after install package
+          --no-preupgrade       skip preupgrade script before upgrade package
+          --no-postupgrade      skip postupgrade script after upgrade package
+          --no-color            disable color
+          --no-backup           skip backup configuration file when upgrading package
+          --redownload          re-download source file
+
+    Example:
+      pkgbuild -irw	        this will force rebuild, install package and keep working directory
+
+    Note:
+      * use pkgbuild without any options will only download source and build package by using other default options
+      * pkgbuild need run inside port directory
+
+      
+### pkgadd
+`pkgadd` is a tool to install and upgrade package created by `pkgadd`. Install package is simply extract `<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `INDEX_DIR`. Upgrading package is also using same extract as install, it will replace old files then compare list file from old and new package and remove old file which not exist in new package (like Slackware pkgtool does).
+
+    Usage:
+      pkgadd package.spkg.txz <options>
+
+    Options:
+      -u, --upgrade              upgrade package
+      -r, --reinstall            reinstall package
+      -d, --no-dep               skip dependency check
+      -c, --ignore-conflict      ignore conflict when installing package
+      -v, --verbose              print files installed
+      -h, --help                 show this help message
+          --no-preinstall        skip preinstall script before build/install package
+          --no-postinstall       skip postinstall script after install package
+          --no-preupgrade        skip preupgrade script before upgrade package
+          --no-postupgrade       skip postupgrade script after upgrade package
+          --no-backup            skip backup when upgrading package
+          --no-orphan-check      skip orphaned package check after install package
+          --no-color             disable colour for output
+
+    Example:
+      pkgadd foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
+                                                         old configuration files and skip conflict check
+                                                             
+### pkgdel
+`pkgdel` is a tool to remove package from system. It will read file listed in package `INDEX_DIR` and remove it.
+
+    Usage:
+      pkgdel [ <options> <package name> ]
+
+    Options:
+      -d, --no-dep          skip dependency check
+      -v, --verbose         print removed files
+      -h, --help            show this help message
+          --no-preremove    don't run pre-remove script
+          --no-postremove   don't run post-remove script
+          --no-color        disable colour for output
+
+    Example:
+      pkgdel firefox -dv --no-preremove       remove package firefox, skipping dependency check,
+                                              print deleted files and skipp pre-remove script
 
 ### scratch
-`scratch` is like multi tools. Its have many functions like search packages, check dependency, dependent, orphan package, duplicate ports, list installed package and etc. `scratch` also can build package without `cd` into port directory to build package. Run `scratch help` to see available functions.
+`scratch` is front-end for pkgbuild, pkgadd and pkgdel. Its changed directory in ports and call pkgbuild to build package, then
+pkgadd to install package into system. Its also has some extra functions like search packages, check dependency, dependent,
+orphan package, duplicate ports, list installed package and etc. Run `scratch help` to see available functions.
 
     Usage:
     scratch [ mode ] [ <pkgname> <options> ]	
@@ -172,94 +252,12 @@ Scratchpkg tools is separate into 4 main tools and several extra scripts (may ad
 
       scratch remove firefox gvfs -dv      remove package firefox and gvfs from system, ignore dependent check
                                            and be verbose
-                                        
-### buildpkg
-`buildpkg` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.txz` format. To build package, you need `cd` into port directory before run `buildpkg` command.
-
-    Usage:
-      buildpkg [ <options> <arguments> ]
-
-    Options:
-      -i, --install             install package into system
-      -u, --upgrade             upgrade package
-      -r, --reinstall           reinstall package
-      -d, --no-dep              skip dependency check
-      -c, --ignore-conflict     ignore conflict when installing package
-      -v, --verbose             verbose install process
-      -f, --force-rebuild       rebuild package
-      -m, --ignore-mdsum        skip md5sum checking
-      -g, --genmdsum            generate md5sum
-      -o, --download-only       download only source file
-      -e, --extract-only        extract only source file
-      -w, --keep-work           keep working directory
-      -h, --help                show this help message
-          --srcdir=<path>       override directory path for sources
-          --pkgdir=<path>       override directory path for compiled package
-          --no-preinstall       skip preinstall script before build/install package
-          --no-postinstall      skip postinstall script after install package
-          --no-preupgrade       skip preupgrade script before upgrade package
-          --no-postupgrade      skip postupgrade script after upgrade package
-          --no-color            disable color
-          --no-backup           skip backup configuration file when upgrading package
-          --redownload          re-download source file
-
-    Example:
-      buildpkg -irw	        this will force rebuild, install package and keep working directory
-
-    Note:
-      * use buildpkg without any options will only download source and build package by using other default options
-      * buildpkg need run inside port directory
-
-      
-### installpkg
-`installpkg` is a tool to install and upgrade package created by `buildpkg`. Install package is simply extract `<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `INDEX_DIR`. Upgrading package is also using same extract as install, it will replace old files then compare list file from old and new package and remove old file which not exist in new package (like Slackware pkgtool does).
-
-    Usage:
-      installpkg package.spkg.txz <options>
-
-    Options:
-      -u, --upgrade              upgrade package
-      -r, --reinstall            reinstall package
-      -d, --no-dep               skip dependency check
-      -c, --ignore-conflict      ignore conflict when installing package
-      -v, --verbose              print files installed
-      -h, --help                 show this help message
-          --no-preinstall        skip preinstall script before build/install package
-          --no-postinstall       skip postinstall script after install package
-          --no-preupgrade        skip preupgrade script before upgrade package
-          --no-postupgrade       skip postupgrade script after upgrade package
-          --no-backup            skip backup when upgrading package
-          --no-orphan-check      skip orphaned package check after install package
-          --no-color             disable colour for output
-
-    Example:
-      installpkg foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
-                                                             old configuration files and skip conflict check
-                                                             
-### removepkg
-`removepkg` is a tool to remove package from system. It will read file listed in package `INDEX_DIR` and remove it.
-
-    Usage:
-      removepkg [ <options> <package name> ]
-
-    Options:
-      -d, --no-dep          skip dependency check
-      -v, --verbose         print removed files
-      -h, --help            show this help message
-          --no-preremove    don't run pre-remove script
-          --no-postremove   don't run post-remove script
-          --no-color        disable colour for output
-
-    Example:
-      removepkg firefox -dv --no-preremove       remove package firefox, skipping dependency check,
-                                                 print deleted files and skipp pre-remove script
 
 ## Extra tools
-Extra tools is some scripts come with scratchpkg to help users do things more easier. More extra scripts may added from time to time.
+Extra tools is some scripts come with scratchpkg to help users do things more easier. More extra scripts may added from time to
+time.
 
-* `s-baseinstall`: Script to build base system.
 * `s-chroot`: Chroot script.
-* `s-deplist`: Script for calculate all needed dependencies.
 * `s-libdepends`: Script to list package depends by shared libraries.
 * `s-portcreate`: Script to create template port.
 * `s-updateconf`: Script to update configuration files (*.spkgnew).
@@ -267,7 +265,8 @@ Extra tools is some scripts come with scratchpkg to help users do things more ea
                                                              
 ## Hook
 
-`hook` is specified command need to run after install/remove/upgrade package. `hook` suffix is `*.hook` and need to be placed in `HOOK_DIR` (default is `/etc/hook/`). The example of `hook` file for gdk-pixbuf package as follows:
+`hook` is specified command need to run after install/remove/upgrade package. `hook` suffix is `*.hook` and need to be placed in
+`HOOK_DIR` (default is `/etc/hook/`). The example of `hook` file for gdk-pixbuf package as follows:
 
     # description	: Probing GDK-Pixbuf loader modules...
     # operation	: install upgrade remove
@@ -286,9 +285,12 @@ Extra tools is some scripts come with scratchpkg to help users do things more ea
 
 ## Install script
 
-Install scripts is a bash script contains command need to run before/after install/upgrade/remove packages in system. The suffix of install script is `<portname>.install`. This install script need to placed in port directory and later will included in tar-ed package. The script contains the following functions which run at different times:
+Install scripts is a bash script contains command need to run before/after install/upgrade/remove packages in system. The suffix
+of install script is `<portname>.install`. This install script need to placed in port directory and later will included in tar-ed
+package. The script contains the following functions which run at different times:
 
-* `pre_install()`: The script is run right before package is built or files are extracted. One argument is passed: new package version.
+* `pre_build()`: The script is run right before package is built.
+* `pre_install()`: The script is run right before files are extracted. One argument is passed: new package version.
 * `post_install()`: The script is run right after files are extracted. One argument is passed: new package version.
 * `pre_upgrade()`: The script is run right before files are extracted. Two arguments are passed in the following order: new package version, old package version.
 * `post_upgrade()`: The script is run right after files are extracted. Two arguments are passed in the following order: new package version, old package version.
@@ -308,7 +310,8 @@ Example of install script for `dbus.install`:
 
 ## /etc/scratchpkg.repo
 
-`/etc/scratchpkg.repo` is file to define repo directory and url to sync/update port's. This is example default `/etc/scratchpkg.repo`;
+`/etc/scratchpkg.repo` is file to define repo directory and url to sync/update port's. This is example default
+`/etc/scratchpkg.repo`;
 
     #
     # /etc/scratchpkg.repo : scratchpkg repo file
