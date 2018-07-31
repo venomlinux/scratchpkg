@@ -126,7 +126,10 @@ Available options:
 
       
 ### pkgadd
-`pkgadd` is a tool to install and upgrade package created by `pkgadd`. Install package is simply extract `<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `INDEX_DIR`. Upgrading package is also using same extract as install, it will replace old files then compare list file from old and new package and remove old file which not exist in new package (like Slackware pkgtool does).
+`pkgadd` is a tool to install and upgrade package created by `pkgbuild`. Install package is simply extract
+`<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `INDEX_DIR`.
+Upgrading package is also using same extract as install, it will replace old files then compare list file from old and new
+package and remove old file which not exist in new package (like Slackware pkgtool does).
 
     Usage:
       pkgadd package.spkg.txz <options>
