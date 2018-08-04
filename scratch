@@ -111,6 +111,51 @@ catport() {
 	fi
 }
 
+checkintegrity() {
+	if [ "$1" ]; then
+		pushd /
+			if [ -f $INDEX_DIR/$1/.files ]; then
+				while IFS=' ' read -r line; do
+					if [ ! -e "$line" ]; then
+						MISSING_FILE=yes
+						if [ -L "$line" ]; then
+							echo -e "${YELLOW}broken symlink${CRESET} $1: /$line"
+						else
+							echo -e "${RED}file missing${CRESET} $1: /$line"
+						fi
+					fi
+				done < <(cat $INDEX_DIR/$1/.files)
+			else
+				echo "Package '$1' not installed."
+				exit 1
+			fi
+		popd
+	else
+		pushd /
+			for pkg in $(allinstalled); do
+				while IFS=' ' read -r line; do
+					if [ ! -e "$line" ]; then
+						MISSING_FILE=yes
+						if [ -L "$line" ]; then
+							echo -e "${YELLOW}broken symlink${CRESET} $pkg: /$line"
+						else
+							echo -e "${RED}file missing${CRESET} $pkg: /$line"
+						fi
+					fi
+				done < <(cat $INDEX_DIR/$pkg/.files)
+			done
+		popd
+	fi
+	
+	[ "$UID" != "0" ] && msg "${YELLOW}(check integrity is recommended run as root or using sudo)${CRESET}"
+	if [ "$1" ]; then
+		p="Package '$1'"
+	else
+		p="Your system"
+	fi
+	[ ! "$MISSING_FILE" ] && msg "$p files is consistent with package tree."
+}
+
 listorphan() {
 	local pkg all depends deps
 	
@@ -877,6 +922,11 @@ main() {
 	
 	if [ "$mode" = "help" ]; then
 		printhelp $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "integrity" ]; then
+		checkintegrity $1
 		exit 0
 	fi
 
