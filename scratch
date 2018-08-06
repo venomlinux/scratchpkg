@@ -448,9 +448,10 @@ installpkg() {
 				echo "Package '$ii' already installed."
 			elif [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
+				exit 1
 			else
 				pushd $(getportpath $ii)
-					pkgbuild -i ${OPTS[@]}
+					pkgbuild -i ${OPTS[@]} || exit 1
 				popd
 			fi
 		done
