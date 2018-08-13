@@ -156,6 +156,16 @@ checkintegrity() {
 	[ ! "$MISSING_FILE" ] && msg "$p files is consistent with package tree."
 }
 
+listinstalled() {
+	local pkg	
+	for pkg in $(allinstalled); do
+		iname=$(installed_pkg_info name $pkg)
+		iversion=$(installed_pkg_info version $pkg)
+		irelease=$(installed_pkg_info release $pkg)
+		echo -e "$iname ${GREEN}$iversion${CRESET}-${BLUE}$irelease${CRESET}"
+	done	
+}
+
 listorphan() {
 	local pkg all depends deps
 	
@@ -472,7 +482,7 @@ installpkg() {
 		return 0
 	fi
 	echo "Resolving dependencies..."
-	INST="$(pkgdeplist -l -n ${IPKG[@]} | awk '{print $2}')"
+	INST="$(pkgdeplist -l -q ${IPKG[@]} | awk '{print $2}')"
 
 	if [ "$INST" ]; then
 		echo
@@ -918,6 +928,11 @@ main() {
 	
 	if [ "$mode" = "listlocked" ]; then
 		listlocked
+		exit 0
+	fi
+	
+	if [ "$mode" = "listinst" ]; then
+		listinstalled
 		exit 0
 	fi
 	

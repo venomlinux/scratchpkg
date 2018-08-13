@@ -6,6 +6,9 @@ YELLOW='\e[0;33m'   #Yellow
 CYAN='\e[0;36m'     #Cyan
 CRESET='\e[0m'		#Reset color
 
+INDEX_DIR="/var/lib/scratchpkg/index"
+REPO_FILE="/etc/scratchpkg.repo"
+
 msgerr() {
 	echo -e "${RED}==> ERROR:${CRESET} $1"
 }
@@ -60,6 +63,7 @@ deplist() {
 	
 	# check dependencies
 	for i in $(checkdep $1); do
+		[ -e $INDEX_DIR/$i/.pkginfo -a "$QUICK" ] && continue
 		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $i) = "" ]]; then
 			deplist $i
 		fi
@@ -78,16 +82,47 @@ deplist() {
 	done	
 }
 
-INDEX_DIR="/var/lib/scratchpkg/index"
-REPO_FILE="/etc/scratchpkg.repo"
+usage() {
+	cat << EOF
+Usage:
+  $(basename $0) [ <options> <packages> ]
 
-if [ ! "$1" ]; then
-	msgerr "Please specify package name to list its dependencies order."
-	exit 1
+Options:
+  -q, --quick              calculate only not-installed package/dependency
+  -i, --installed          print only installed package/dependency
+  -n, --not-installed      print only not-installed package/dependency
+  -m, --missing            print only missing package/dependency
+  -l, --loop               ignore loop dependencies
+  -h, --help               print this help message
+   
+EOF
+}
+
+while [ "$1" ]; do
+	case $1 in
+		-q|--quick)         QUICK=1 ;;
+		-i|--installed)     INSTALLED=1 ;;
+		-n|--not-installed) NOT_INSTALLED=1 ;;
+		-m|--missing)       MISSING=1 ;;
+		-l|--loop)          IGNORE_LOOP=1 ;;
+		-h|--help)          USAGE=1 ;;
+		*)                  PKG+=($1) ;;
+	esac
+	shift
+done
+
+if [ "$USAGE" = 1 ]; then
+	usage
+	exit 0
 fi
 
 if [ ! -f "$REPO_FILE" ]; then
 	msgerr "repo file not exist. ($REPO_FILE)"
+	exit 1
+fi
+
+if [ "${#PKG[@]}" = 0 ]; then
+	msgerr "Please specify package name to list its dependencies order."
 	exit 1
 fi
 
@@ -97,17 +132,6 @@ while read repodir repourl junk; do
 	esac
 	PORT_REPO+=($repodir)
 done < "$REPO_FILE"
-
-while [ "$1" ]; do
-	case $1 in
-		-i|--installed)     INSTALLED=1 ;;
-		-n|--not-installed) NOT_INSTALLED=1 ;;
-		-m|--missing)       MISSING=1 ;;
-		-l|--loop)          IGNORE_LOOP=1 ;;
-		*)                  PKG+=($1) ;;
-	esac
-	shift
-done
 
 # set all to 1 (all) if not use any of it
 if [ ! "$INSTALLED" ] && [ ! "$NOT_INSTALLED" ] && [ ! "$MISSING" ]; then
@@ -132,7 +156,7 @@ done
 for deps in ${DEP[@]}; do
 	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
 		[ "$INSTALLED" ] && msginst "$deps"       # print installed
-	elif ! getportpath "$deps" >/dev/null; then
+	elif [ ! $(getportpath "$deps") ]; then
 		[ "$MISSING" ] && msgmiss "$deps"         # print missing port
 	else
 		[ "$NOT_INSTALLED" ] && msgnoinst "$deps" # print not installed

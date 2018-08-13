@@ -468,6 +468,7 @@ Options:
   -o, --download            download only source file
   -x, --extract             extract only source file
   -w, --keep-work           keep working directory
+  -s, --silent              print install message in simple format
   -h, --help                show this help message
       --srcdir=<path>       override directory path for sources
       --pkgdir=<path>       override directory path for compiled package
@@ -531,7 +532,7 @@ parse_opts() {
 		-o |          --download) DOWNLOAD_ONLY=yes ;;
 		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
-		-s |    --silent-install) SILENT_INSTALL=yes ;;
+		-s |            --silent) INST_OPT=$1 ;;
 		-h |              --help) SHOWHELP=yes ;;
 		         --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
@@ -552,16 +553,14 @@ parse_opts() {
 
 main() {
 	
-	parse_opts $(extract_opt $@)
-	
-	local FILE
-	
 	if [ -f $PKGBUILD_CONF ]; then
 		source $PKGBUILD_CONF
 	else
 		msgerr "'$PKGBUILD_CONF' file not found."
 		exit 1
 	fi
+	
+	parse_opts $(extract_opt $@)
 	
 	# show usage
 	if [ "$SHOWHELP" ]; then
@@ -575,6 +574,7 @@ main() {
 		msgerr "'$PKGBUILD_BSCRIPT' file not found."
 		exit 1
 	fi
+	
 	description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 	backup=$(grep "^# backup[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
 	depends=$(grep "^# depends[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
@@ -589,6 +589,10 @@ main() {
 		exit 1
 	else
 		touch "$LOCK_FILE"
+		if [ "$?" != 0 ]; then
+			msgerr "Cant create lock file in '$LOCK_FILE'"
+			exit 1
+		fi
 	fi
 	
 	if [ -z "$SOURCE_DIR" ]; then
@@ -641,21 +645,7 @@ main() {
 	
 	# install package
 	if [ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ]; then
-		[ "$INSTALL_PKG" ] && opr=Installing
-		[ "$REINSTALL_PKG" ] && opr=Reinstalling
-		[ "$UPGRADE_PKG" ] && opr=Upgrading
-		if [ "$SILENT_INSTALL" ]; then
-			echo -ne "$opr '$PKGNAME'... "
-			pkgadd $PACKAGE_DIR/$PKGNAME ${OPTS[@]} >/dev/null 2>&1
-			if [ $? = 0 ]; then
-				echo -e "${GREEN}done${CRESET}."
-			else
-				echo -e "${RED}failed${CRESET}."
-				abort 1
-			fi
-		else
-			pkgadd $PACKAGE_DIR/$PKGNAME ${OPTS[@]} || abort 1
-		fi
+		pkgadd $PACKAGE_DIR/$PKGNAME $INST_OPT ${OPTS[@]} || abort 1
 	fi
 	
 	abort 0

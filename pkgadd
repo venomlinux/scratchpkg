@@ -6,11 +6,12 @@ YELLOW='\e[0;33m'   #Yellow
 CYAN='\e[0;36m'     #Cyan
 CRESET='\e[0m'		#Reset color
 
-INDEX_DIR=$ROOT/var/lib/scratchpkg/index
-LOCK_FILE=$ROOT/var/lib/scratchpkg/spkg.lock
-TMP_PKGINSTALL=$ROOT/var/lib/scratchpkg/spkg.install
-HOOK_DIR=/etc/hooks
-SYSUSERS_DIR=/etc/sysusers
+trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+
+interrupted() {
+	echo
+	ret 1
+}
 
 nocolor() {
 	RED=
@@ -65,75 +66,37 @@ runhooks() {
 	
 }
 
-sysusers() {
+#sysusers() {
 	
-	if [ "$(ls $SYSUSERS_DIR/*.conf 2>/dev/null)" ]; then
-		for file in $(ls $SYSUSERS_DIR/*.conf); do
-			while read uid gid mode dir junk; do
-				# Ignore comments and blank lines
-				case "${uid}" in
-					""|\#*) continue ;;
-				esac
-				if [ -e "$dir" ]; then
-					if [ "$uid" != '-' ]; then
-						getent passwd $uid >/dev/null
-						if [[ "$?" = 0 ]]; then
-							chown "$uid" "$dir"
-						fi
-					fi
-					if [ "$gid" != '-' ]; then
-						getent group $gid >/dev/null
-						if [[ "$?" = 0 ]]; then
-							chgrp "$gid" "$dir"
-						fi
-					fi
-					if [ "$mode" != '-' ]; then
-						chmod "$mode" "$dir"
-					fi
-				fi
-			done < "$file"
-		done
-	fi
+	#if [ "$(ls $SYSUSERS_DIR/*.conf 2>/dev/null)" ]; then
+		#for file in $(ls $SYSUSERS_DIR/*.conf); do
+			#while read uid gid mode dir junk; do
+				## Ignore comments and blank lines
+				#case "${uid}" in
+					#""|\#*) continue ;;
+				#esac
+				#if [ -e "$dir" ]; then
+					#if [ "$uid" != '-' ]; then
+						#getent passwd $uid >/dev/null
+						#if [[ "$?" = 0 ]]; then
+							#chown "$uid" "$dir"
+						#fi
+					#fi
+					#if [ "$gid" != '-' ]; then
+						#getent group $gid >/dev/null
+						#if [[ "$?" = 0 ]]; then
+							#chgrp "$gid" "$dir"
+						#fi
+					#fi
+					#if [ "$mode" != '-' ]; then
+						#chmod "$mode" "$dir"
+					#fi
+				#fi
+			#done < "$file"
+		#done
+	#fi
 
-}
-
-help() {
-	
-	cat << EOF
-Usage:
-  $(basename $0) package.spkg.txz <options>
-
-Options:
-  -u, --upgrade              upgrade package
-  -r, --reinstall            reinstall package
-  -d, --no-dep               skip dependency check
-  -c, --ignore-conflict      ignore conflict when installing package
-  -v, --verbose              print files installed
-  -h, --help                 show this help message
-      --no-preinstall        skip preinstall script before build/install package
-      --no-postinstall       skip postinstall script after install package
-      --no-preupgrade        skip preupgrade script before upgrade package
-      --no-postupgrade       skip postupgrade script after upgrade package
-      --no-backup            skip backup when upgrading package
-      --no-color             disable colour for output
-
-Example:
-  installpkg foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
-                                                         old configuration files and skip conflict check
-EOF
-	
-}
-
-extract_opt() {
-	for opt in $@; do
-		case $opt in
-			  --*) OPTS+=($opt) ;;
-			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
-			    *) OPTS+=($opt) ;;
-		esac
-	done
-	echo ${OPTS[@]}
-}
+#}
 
 help() {	
 	cat << EOF
@@ -145,6 +108,7 @@ Options:
   -r, --reinstall            reinstall package
   -c, --ignore-conflict      ignore conflict when installing package
   -v, --verbose              print files installed
+  -s, --silent               print install message in simple format
   -h, --help                 show this help message
       --no-preinstall        skip preinstall script before build/install package
       --no-postinstall       skip postinstall script after install package
@@ -181,6 +145,7 @@ parse_opts() {
 			-r |         --reinstall) REINSTALL_PKG=yes ;;
 			-c |   --ignore-conflict) IGNORE_CONFLICT=yes ;;
 			-v |           --verbose) VERBOSE_INSTALL=yes ;;
+			-s |            --silent) QUIET_INSTALL=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
 			         --no-preinstall) NO_PREINSTALL=yes ;;
 			        --no-postinstall) NO_POSTINSTALL=yes ;;
@@ -205,6 +170,11 @@ ret() {
 
 parse_opts $(extract_opt $@)
 
+INDEX_DIR=$ROOT/var/lib/scratchpkg/index
+LOCK_FILE=$ROOT/tmp/spkg.lock
+TMP_PKGINSTALL=$ROOT/var/lib/scratchpkg/spkg.install
+HOOK_DIR=/etc/hooks
+
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
 	help
@@ -225,6 +195,10 @@ if [ -f $LOCK_FILE ]; then
 	exit 1
 else
 	touch $LOCK_FILE
+	if [ "$?" != 0 ]; then
+		msgerr "Cant create lock file in '$LOCK_FILE'"
+		exit 1
+	fi
 fi
 
 if [ -n "$PKGNAME" ]; then
@@ -287,11 +261,15 @@ fi
 opr=Installing; oprdone=installed
 [ "$UPGRADE_PKG" ] && { opr=Upgrading; oprdone=upgraded; }
 [ "$REINSTALL_PKG" ] && { opr=Reinstalling; oprdone=reinstalled; }
-msg "$opr '$name-$version-$release'..."
+if [ "$SILENT_INSTALL" ]; then
+	echo -ne "$opr '$name-$version-$release'... "
+else
+	msg "$opr '$name-$version-$release'..."
+fi
 
 #ignore conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
-	msg2 "Checking file conflict..."
+	[ "$SILENT_INSTALL" ] || msg2 "Checking file conflict..."
 	while IFS=' ' read -r line; do
 			if [ "$line" = "${line%.*}.spkgnew" ]; then
 				line=${line%.*}
@@ -308,6 +286,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
 		
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
+		[ "$SILENT_INSTALL" ] && echo
 		msgerr "File conflict found:"
 		for fc in ${fileconflict[@]}; do
 			msg2 "$fc"
@@ -327,21 +306,21 @@ fi
 # run preinstall script if no --no-preinstall flag and not upgrade package
 if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 	if [ "`type -t pre_install`" = "function" ]; then
-		msg2 "Running preinstall script..."
-		pre_install "$version"
+		[ "$SILENT_INSTALL" ] || msg2 "Running preinstall script..."
+		pre_install "$version" &>/dev/null
 	fi
 fi
 
 # run preupgrade script if package upgrade
 if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
 	if [ "`type -t pre_upgrade`" = "function" ]; then
-		msg2 "Running preupgrade script..."
-		pre_upgrade "$version" "$iversion"
+		[ "$SILENT_INSTALL" ] || msg2 "Running preupgrade script..."
+		pre_upgrade "$version" "$iversion" &>/dev/null
 	fi
 fi	
 
 #installing package into system
-msg2 "Extracting package..."
+[ "$SILENT_INSTALL" ] || msg2 "Extracting package..."
 installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme"
 
 rm -f $TMP_PKGINSTALL
@@ -361,7 +340,7 @@ done
 
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-	msg2 "Removing old files..."
+	[ "$SILENT_INSTALL" ] || msg2 "Removing old files..."
 	grep -v '/$' $INDEX_DIR/$name/.files | while IFS=' ' read line; do
 		if [ ! "$(grep -Fx "$line" $TMP_PKGINSTALL)" ]; then
 			rm "$ROOT/$line" &>/dev/null
@@ -386,24 +365,28 @@ tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 
 if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 	if [ "`type -t post_install`" = "function" ]; then
-		msg2 "Running postinstall script..."
-		post_install "$version"
+		[ "$SILENT_INSTALL" ] || msg2 "Running postinstall script..."
+		post_install "$version" &>/dev/null
 	fi
 fi
 
 if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
 	if [ "`type -t post_upgrade`" = "function" ]; then
-		msg2 "Running postupgrade script..."
-		post_upgrade "$version" "$iversion"
+		[ "$SILENT_INSTALL" ] || msg2 "Running postupgrade script..."
+		post_upgrade "$version" "$iversion" &>/dev/null
 	fi
 fi
 
 if [ "$ROOT" = "" ]; then
 	runhooks
-	sysusers
+	[ $(type -p sysusers) ] && sysusers
 fi
 
-msg "Package '$name-$version-$release' $oprdone."
+if [ "$SILENT_INSTALL" ]; then
+	echo -e "done"
+else
+	msg "Package '$name-$version-$release' $oprdone."
+fi
 
 # running ldconfig
 if [ "$ROOT" = "" ] && [ -x /sbin/ldconfig ]; then
