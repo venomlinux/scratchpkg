@@ -52,10 +52,10 @@ runhooks() {
 		if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
 			if [ "$(echo $operation | grep -w "$opr" )" ]; then
 				if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
-					msg2 "$description"
+					[ "$SILENT_INSTALL" ] || msg2 "$description"
 					. $hook
 					if [ "`type -t exechook`" = "function" ]; then
-						exechook
+						exechook >/dev/null
 					fi
 				fi
 			fi
@@ -145,7 +145,7 @@ parse_opts() {
 			-r |         --reinstall) REINSTALL_PKG=yes ;;
 			-c |   --ignore-conflict) IGNORE_CONFLICT=yes ;;
 			-v |           --verbose) VERBOSE_INSTALL=yes ;;
-			-s |            --silent) QUIET_INSTALL=yes ;;
+			-s |            --silent) SILENT_INSTALL=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
 			         --no-preinstall) NO_PREINSTALL=yes ;;
 			        --no-postinstall) NO_POSTINSTALL=yes ;;
