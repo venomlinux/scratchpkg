@@ -146,7 +146,7 @@ prepare_src() {
 	SRC=$WORK_DIR/$name/src
 	PKG=$WORK_DIR/$name/pkg
 	
-	clearworkdir
+	rm -fr $WORK_DIR/$name
 	
 	mkdir -p $SRC $PKG
 	

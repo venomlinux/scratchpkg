@@ -31,6 +31,15 @@ msgwarn() {
 	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
 }
 
+needarg() {
+	if [ -z "$@" ]; then
+		msgerr "This operation require arguments!"
+		return 1
+	else
+		return 0
+	fi
+}
+
 needroot() {	
 	if [ $UID != 0 ]; then
 		if [ "$#" -eq 0 ]; then
@@ -97,7 +106,7 @@ checktool() {
 
 needarg() {
 	if [[ -z "$@" ]]; then
-		msgerr "This operation required arguments!"
+		msgerr "This operation required an arguments!"
 		exit 1
 	fi
 }
@@ -109,6 +118,30 @@ catport() {
 		msgerr "Port '$1' not exist."
 		exit 1
 	fi
+}
+
+missingdep() {
+	local pkg d
+	
+	for pkg in $(allinstalled); do
+		if [ $(getportpath "$pkg") ]; then
+			pushd $(getportpath "$pkg")
+				depends=$(grep "^# depends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+				. $BUILD_SCRIPT
+			popd
+		fi
+		if [ "$depends" ]; then
+			for d in ${depends[@]}; do
+				if [ ! -f "$INDEX_DIR"/$d/.pkginfo ]; then
+					msd+=($d)
+				fi
+			done
+		fi
+		if [ ${#msd[@]} -gt 0 ]; then
+			echo -e "${GREEN}$pkg${CRESET} missing ${RED}${msd[@]}${CRESET}"
+		fi
+		unset depends msd
+	done
 }
 
 checkintegrity() {
@@ -205,6 +238,7 @@ listinstalled() {
 		iversion=$(installed_pkg_info version $pkg)
 		irelease=$(installed_pkg_info release $pkg)
 		echo -e "$iname ${GREEN}$iversion${CRESET}-${CYAN}$irelease${CRESET}"
+		unset iname iversion irelease
 	done	
 }
 
@@ -321,6 +355,7 @@ updports() {
 }
 
 printreadme() {
+	needarg $@
 	
 	if PPATH=$(getportpath "$1"); then
 		if [ -f "$PPATH/readme" ]; then
@@ -374,8 +409,12 @@ foreignpkg() {
 	
 	for pkg in $(allinstalled); do
 		if ! getportpath $pkg >/dev/null; then
-			echo -e $pkg
+			iname=$(installed_pkg_info name $pkg)
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			echo -e "$iname ${GREEN}$iversion${CRESET}-${CYAN}$irelease${CRESET}"
 		fi
+		unset iname iversion irelease
 	done
 	
 }
@@ -520,6 +559,7 @@ outdatepkg() {
 			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
 				echo $name
 			fi
+			unset iversion irelease
 		fi
 	done
 }
@@ -740,22 +780,136 @@ outdate() {
 	[ ! "$OUTDATE" ] && msg "All package is up to date."
 }
 
-printhelp() {
+clearpkgcache() {	
+	needroot "Removing package & source cache"
+	
+	getpkgcache
+	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
+		for pkg in ${ALL_PACKAGES[@]}; do
+			rm -v $PACKAGE_DIR/$pkg
+		done
+	fi
+	
+	if [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		for src in ${ALL_SOURCES[@]}; do
+			rm -v $SOURCE_DIR/$src
+		done
+	fi	
+}
+
+getpkgcache() {
+	
+	[ -f /etc/scratchpkg.conf ] && . /etc/scratchpkg.conf
+	
+	for list in $(ls "$PACKAGE_DIR"); do
+		[ -f "$PACKAGE_DIR"/$list ] && ALL_PACKAGES+=($list)
+	done
+	
+	for list in $(ls "$SOURCE_DIR"); do
+		[ -f "$SOURCE_DIR"/$list ] && ALL_SOURCES+=($list)
+	done
+	
+	for repo in ${PORT_REPO[@]}; do
+		for port in $(ls $repo); do
+			if [ -f $repo/$port/$BUILD_SCRIPT ]; then
+				. $repo/$port/$BUILD_SCRIPT
+				PORT_PACKAGES+=($name-$version-$release.spkg.txz)
+				if [ ! -z $source ]; then
+					for src in ${source[@]}; do
+						if [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+							if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
+								sourcename="$(echo $src | awk -F '::' '{print $1}')"
+							else
+								sourcename="$(echo $src | rev | cut -d / -f 1 | rev)"
+							fi
+							SOURCE_NAMES+=($sourcename)
+						fi
+					done
+				fi
+			fi
+		done
+	done
+	
+	for i in ${PORT_PACKAGES[@]}; do
+		for pkg in ${!ALL_PACKAGES[@]}; do
+			if [ "${ALL_PACKAGES[pkg]}" = "$i" ]; then
+				unset 'ALL_PACKAGES[pkg]'
+				break
+			fi
+		done
+	done
+	
+	for a in ${SOURCE_NAMES[@]}; do
+		for src in ${!ALL_SOURCES[@]}; do
+			if [ "${ALL_SOURCES[src]}" = "$a" ]; then
+				unset 'ALL_SOURCES[src]'
+				break
+			fi
+		done
+	done
+}
+
+pkgcache() {	
+	getpkgcache
+	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
+		ALL_PACKAGES_SIZE=$(pushd "$PACKAGE_DIR" && du -ch ${ALL_PACKAGES[@]} | grep total | awk '{print $1}' && popd)
+	else
+		ALL_PACKAGES_SIZE=0M
+	fi
+	
+	if [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		ALL_SOURCES_SIZE=$(pushd "$SOURCE_DIR" && du -ch ${ALL_SOURCES[@]} | grep total | awk '{print $1}' && popd)
+	else
+		ALL_SOURCES_SIZE=0M
+	fi
+	
+	msg "${CYAN}Package cache ($ALL_PACKAGES_SIZE):${CRESET}"
+	[ ${#ALL_PACKAGES[@]} -gt 0 ] && (echo ${ALL_PACKAGES[@]} | tr ' ' '\n') || echo "(none)"
+	
+	echo ""
+	msg "${CYAN}Source cache ($ALL_SOURCES_SIZE):${CRESET}"
+	[ ${#ALL_SOURCES[@]} -gt 0 ] && (echo ${ALL_SOURCES[@]} | tr ' ' '\n') || echo "(none)"
+}
+
+showportpath() {
+	needarg $@
+	
+	if PPATH=$(getportpath "$1"); then
+		echo "$PPATH"
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi	
+}
+
+duplicateports() {	
+	dup=$(find ${PORT_REPO[@]} -type d -print | egrep -xv "($(echo ${PORT_REPO[@]} | tr ' ' '|'))" | \
+		rev | cut -d '/' -f1 | rev | sort | uniq -d)
+	
+	if [ "$dup" ]; then
+		for dp in $dup; do
+			for repo in ${PORT_REPO[@]}; do
+				reponame=$(basename $repo)
+				[ -d $repo/$dp ] && echo "$repo/$dp"
+			done
+		done
+	else
+		msg "No duplicate ports found."
+	fi	
+}
+
+usage_extra() {
 	cat << EOF
 Usage:
-    $(basename $0) [ mode ] [ <pkgname> <options> ]	
-
-mode:
-    install   <packages>      install packages and its dependencies
-    upgrade   <packages>      upgrade packages and install new dependencies (if any)
-    build     <package>       build only packages
-    remove    <packages>      remove packages in system
+    $(basename $0) <operation> [ <pkgname/pattern/file> ]
+    
+Operation:
     depends   <package>       show depends of a package
-    deplist   <packages>      show list dependencies of a package
     search    <pattern>       search packages in port's repos
     lock      <packages>      lock packages from upgrade
     unlock    <packages>      unlock packages from upgrade
-    listport  <repo>          list ports of a repo
     cat       <package>       view a package build scripts
     dependent <package>       show package's dependent
     own       <file>          show package's owner of file
@@ -774,51 +928,106 @@ mode:
     missingdep                check for mising dependency of installed package
     foreignpkg                print package installed without port in repo
     listlocked                print locked packages
-    help                      print this help message
-	
-options for:		
-    build
-        -f, --force-rebuild    force rebuild
-        -m, --skip-mdsum       skip md5sum check for sources
-        -d, --no-dep           skip dependency check
-        -e, --extract          extract only
-        -w, --keep-work        keep woring directory
-        -o, --download         download source files only
-        -v, --verbose          be verbose
-        --redownload           re-download source files
-        --srcdir=<path>        override default SOURCE_DIR
-        --pkgdir=<path>        override default PACKAGE_DIR
-        --no-preinstall        skip pre-install script
-        
-    install
-        -d, --no-dep           skip installing dependencies
-        -c, --ignore-conflict  skip file conflict check
-        -r, --reinstall        reinstall installed package
-        --no-preinstall        skip pre-install script
-        --no-postinstall       skip post-install script
-        --no-confirm           dont ask confirmation
-		
-    upgrade
-        -d, --no-dep           skip installing dependencies (new dependencies)
-        -c, --ignore-conflict  skip file conflict check
-        -v, --verbose          print install process
-        --no-backup            skip backup configuration file
-        --no-preupgrade        skip pre-upgrade script
-        --no-postupgrade       skip post-upgrade script
-        --no-confirm           dont ask confirmation
-		
-    remove
-        -d, --no-dep           skip dependency check
-        -v, --verbose          print removed files
-        --no-preremove         skip pre-remove script
-        --no-postremove        skip post-remove script
-        --no-confirm           dont ask confirmation
-		
-global options:
-        --no-color             disable colour for output
-        --debug                debug $(basename $0) script
-
+    
 EOF
+}
+
+usage_build() {
+	cat << EOF
+Usage:
+    $(basename $0) build [ <pkgname> <options> ]
+    
+Options:
+    -f, --force-rebuild    force rebuild
+    -m, --skip-mdsum       skip md5sum check for sources
+    -d, --no-dep           skip dependency check
+    -e, --extract          extract only
+    -w, --keep-work        keep woring directory
+    -o, --download         download source files only
+    -v, --verbose          be verbose
+    --redownload           re-download source files
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --no-preinstall        skip pre-install script
+    
+EOF
+}
+
+usage_upgrade() {
+	cat << EOF
+Usage:
+    $(basename $0) upgrade [ <pkgname> <options> ]
+    
+Options:
+    -d, --no-dep           skip installing dependencies (new dependencies)
+    -c, --ignore-conflict  skip file conflict check
+    -v, --verbose          print install process
+    --no-backup            skip backup configuration file
+    --no-preupgrade        skip pre-upgrade script
+    --no-postupgrade       skip post-upgrade script
+    --no-confirm           dont ask confirmation
+    
+EOF
+}
+
+usage_remove() {
+	cat << EOF
+Usage:
+    $(basename $0) remove [ <pkgname> <options> ]
+    
+Options:
+    -d, --no-dep           skip dependency check
+    -v, --verbose          print removed files
+    --no-preremove         skip pre-remove script
+    --no-postremove        skip post-remove script
+    --no-confirm           dont ask confirmation
+    
+EOF
+}
+
+usage_install() {
+	cat << EOF
+Usage:
+    $(basename $0) install [ <pkgname> <options> ]
+    
+Options:
+    -d, --no-dep           skip installing dependencies
+    -c, --ignore-conflict  skip file conflict check
+    -r, --reinstall        reinstall installed package
+    --no-preinstall        skip pre-install script
+    --no-postinstall       skip post-install script
+    --no-confirm           dont ask confirmation
+    
+EOF
+}
+
+usage_help() {
+	cat << EOF
+Usage:
+    $(basename $0) help <operation>
+    
+Operation:
+    build           build only packages
+    install         install packages
+    remove          remove packages in system
+    upgrade         upgrade packages and install new dependencies (if any)
+    extra           various extra options
+    
+EOF
+}
+
+usage() {
+	if [ -z "$1" ];then
+		usage_help
+	else
+		case "$1" in
+			install) usage_install ;;
+			remove)  usage_remove ;;
+			upgrade) usage_upgrade ;;
+			build)   usage_build ;;
+			extra)   usage_extra ;;
+		esac
+	fi
 }
 
 extract_opt() {
@@ -936,13 +1145,38 @@ main() {
 		exit 0
 	fi
 	
+	if [ "$mode" = "rmcache" ]; then
+		clearpkgcache
+		exit 0
+	fi
+	
+	if [ "$mode" = "cache" ]; then
+		pkgcache
+		exit 0
+	fi
+	
 	if [ "$mode" = "help" ]; then
-		printhelp $1
+		usage $1
 		exit 0
 	fi
 	
 	if [ "$mode" = "integrity" ]; then
 		checkintegrity $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "path" ]; then
+		showportpath $1
+		exit 0
+	fi
+	
+	if [ "$mode" = "dup" ]; then
+		duplicateports
+		exit 0
+	fi
+	
+	if [ "$mode" = "missingdep" ]; then
+		missingdep
 		exit 0
 	fi
 
@@ -953,6 +1187,9 @@ main() {
 BUILD_SCRIPT="spkgbuild"
 INDEX_DIR="/var/lib/scratchpkg/index"
 REPO_FILE="/etc/scratchpkg.repo"
+
+SOURCE_DIR="/var/cache/scratchpkg/sources"
+PACKAGE_DIR="/var/cache/scratchpkg/packages"
 
 if [ ! -f "$REPO_FILE" ]; then
 	msgerr "repo file not exist. ($REPO_FILE)"
