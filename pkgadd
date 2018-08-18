@@ -66,38 +66,6 @@ runhooks() {
 	
 }
 
-#sysusers() {
-	
-	#if [ "$(ls $SYSUSERS_DIR/*.conf 2>/dev/null)" ]; then
-		#for file in $(ls $SYSUSERS_DIR/*.conf); do
-			#while read uid gid mode dir junk; do
-				## Ignore comments and blank lines
-				#case "${uid}" in
-					#""|\#*) continue ;;
-				#esac
-				#if [ -e "$dir" ]; then
-					#if [ "$uid" != '-' ]; then
-						#getent passwd $uid >/dev/null
-						#if [[ "$?" = 0 ]]; then
-							#chown "$uid" "$dir"
-						#fi
-					#fi
-					#if [ "$gid" != '-' ]; then
-						#getent group $gid >/dev/null
-						#if [[ "$?" = 0 ]]; then
-							#chgrp "$gid" "$dir"
-						#fi
-					#fi
-					#if [ "$mode" != '-' ]; then
-						#chmod "$mode" "$dir"
-					#fi
-				#fi
-			#done < "$file"
-		#done
-	#fi
-
-#}
-
 help() {	
 	cat << EOF
 Usage:
@@ -173,6 +141,7 @@ parse_opts $(extract_opt $@)
 INDEX_DIR=$ROOT/var/lib/scratchpkg/index
 LOCK_FILE=$ROOT/tmp/spkg.lock
 TMP_PKGINSTALL=$ROOT/var/lib/scratchpkg/spkg.install
+TMP_PKGINSTALL_BKP=$ROOT/var/lib/scratchpkg/spkg.bkp.install
 HOOK_DIR=/etc/hooks
 
 # show help page
@@ -323,9 +292,10 @@ fi
 [ "$SILENT_INSTALL" ] || msg2 "Extracting package..."
 installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme"
 
-rm -f $TMP_PKGINSTALL
+rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
 $installcmd | while IFS=' ' read line; do 
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
+		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 			if [ ! -e "$ROOT/$line" ]; then
@@ -355,12 +325,13 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 fi	
 
 # register package into database
-rm -fr $INDEX_DIR/$name
+rm -fr $INDEX_DIR/$name 
 mkdir $INDEX_DIR/$name
 echo "name = $name" > $INDEX_DIR/$name/.pkginfo
 echo "version = $version" >> $INDEX_DIR/$name/.pkginfo
 echo "release = $release" >> $INDEX_DIR/$name/.pkginfo
 mv $TMP_PKGINSTALL $INDEX_DIR/$name/.files
+[ -f $TMP_PKGINSTALL_BKP ] && mv $TMP_PKGINSTALL_BKP $INDEX_DIR/$name/.bkpfiles
 tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 
 if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then

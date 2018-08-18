@@ -197,6 +197,13 @@ if [ "$ROOT" = "" ]; then
 	runpreremovehooks $name
 fi
 
+if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
+	msg2 "Removing backup files..."
+	while IFS=' ' read -r line; do
+		[ -e "$ROOT/$line" ] && rm "$ROOT/$line"
+	done < <(tac $INDEX_DIR/$name/.bkpfiles)
+fi
+
 msg2 "Removing files & dirs..."
 while IFS=' ' read -r line; do
 	rm "$ROOT/$line"

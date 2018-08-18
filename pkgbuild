@@ -111,9 +111,10 @@ download_src() {
 		fi
 		WGETCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial"
 		if [ "$FILENAME" != "$FILE" ]; then
-			if [ -f "$SOURCE_DIR/$FILENAME" ]; then
+			if [ -f "$SOURCE_DIR/$FILENAME" ] && [ -z "$REDOWNLOAD_SOURCE" ]; then
 				msg "Source '$FILENAME' found."
 			else
+				[ "$REDOWNLOAD_SOURCE" ] && rm -f "$SOURCE_DIR/$FILENAME.partial"
 				if [ -f "$SOURCE_DIR/$FILENAME.partial" ]; then
 					msg "Resuming '$SRCURL'."
 				else
@@ -121,6 +122,7 @@ download_src() {
 				fi
 				$WGETCMD $SRCURL
 				if [ $? = 0 ]; then
+					[ "$REDOWNLOAD_SOURCE" ] && rm -f "$SOURCE_DIR/$FILENAME"
 					mv $SOURCE_DIR/$FILENAME.partial $SOURCE_DIR/$FILENAME
 				else
 					msgerr "Failed downloading '$FILENAME'."
@@ -497,6 +499,7 @@ clearworkdir() {
 }
 
 interrupted() {
+	echo
 	abort 100
 }
 
