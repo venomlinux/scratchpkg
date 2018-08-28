@@ -25,7 +25,7 @@ fi
 pushd / >/dev/null
 	while IFS=' ' read -r LINE; do
 		case "$(file -Lbi "${LINE}")" in
-			*application/x-sharedlib* | *application/x-executable*)
+			*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
 			NEEDED_LIB=$(objdump -x "$LINE" | grep NEEDED | awk '{print $2}')
 			for i in ${NEEDED_LIB[@]}; do
 				if [ "$i" != "ld-linux-x86-64.so.2" ]; then

@@ -1,131 +1,87 @@
-#!/bin/bash -e
+#!/bin/bash
 
-INDEX_DIR="/var/lib/scratchpkg/index"
-
-RED='\e[0;31m'      #Red
-GREEN='\e[0;32m'    #Green
-CRESET='\e[0m'		#Reset color
-
-msg() {
-	echo -e "${GREEN}==>${CRESET} $1"
-}
-
-msgerr() {
-	echo -e "${RED}==> ERROR:${CRESET} $1"
-}
-
-onepkg() {
-	
-	pushd / >/dev/null
-		echo -ne "Checking $1...\r"
-		while IFS=' ' read -r line; do
-			case "$(file -Lbi "${line}")" in
-			*application/x-sharedlib* | *application/x-executable*)
-				if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
-					LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
-					for i in $LIB_NAME; do
-						echo -e "(${GREEN}$1${CRESET}) $line ${GREEN}>>>${CRESET} $i"
-					done
-					MISSING=yes
-				fi ;;
-			esac
-		done < <(grep -E '(*\.so\.*|^bin/|^sbin/|^usr/bin/|^usr/sbin/|^usr/libexec)'  $INDEX_DIR/$1/.files | grep -Ev "(opt/|firmware/)")
-	popd >/dev/null
-	
-	echo -ne "\033[0K"
-	
-	[ "$MISSING" != "yes" ] && msg "Packages '$1' is doing fine."
-	MISSING=
-}
-
-allpkg() {
-	
-	allpkgs=($(ls ${INDEX_DIR}/*/.files | rev | cut -d '/' -f2 | rev))
-	totalpkgs=$(echo ${#allpkgs[@]})
-	
-	pushd / >/dev/null
-		for pkgs in $(seq 0 $(($totalpkgs -1))); do
-			echo -ne "[ $((pkgs + 1))/$totalpkgs ] Checking ${allpkgs[pkgs]}...\033[0K\r"
-			while IFS=' ' read -r line; do
-				case "$(file -Lbi "${line}")" in
-				*application/x-sharedlib* | *application/x-executable*)
-					if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
-						LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
-						PKG_NAME=$(basename $(dirname $(grep -Rx $line $INDEX_DIR | cut -d ':' -f1)))
-						REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
-						LIB=$(echo $LIB_NAME | tr '\n' ' ')
-						for i in $LIB_NAME; do
-							NOTOK=1
-							echo -e "(${GREEN}$PKG_NAME${CRESET}) $line ${GREEN}>>>${CRESET} $i"
-							if echo $REQ_LIB | tr ' ' '\n' | grep -qx $i; then
-								if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -x "$PKG_NAME")" ]]; then
-									continue
-								else
-									ALLPKG+=($PKG_NAME)
-								fi
-							fi
-						done
-					fi ;;
-				esac
-			done < <(grep -E '(*\.so\.*|^bin/|^sbin/|^usr/bin/|^usr/sbin/|^usr/libexec)' $INDEX_DIR/${allpkgs[pkgs]}/.files | grep -Ev "(opt/|firmware/|/share/theme/|/share/icons/)")
-		done
-	popd >/dev/null
-	
-	echo -ne "\033[0K"
-	
-	if [ "${#ALLPKG[@]}" -gt 0 ]; then
-		echo
-		echo "This package(s) required rebuild:"
-		for rebuild in ${ALLPKG[@]}; do
-			echo -e "${GREEN}>>>${CRESET} $rebuild"
-		done
-	elif [ "$NOTOK" != 1 ]; then
-		msg "All packages is doing fine."
+while read line; do
+	if [[ $(echo ${line::1}) = "/" ]]; then
+		EXTRA_SEARCH_DIRS+="$line "
 	fi
-	
-}
+done < /etc/ld.so.conf
 
-help() {
-	
-	cat << EOF
-$(basename $0) is script to scan broken package
-
-scanned directory/files:
-   /bin /usr/bin /sbin /usr/sbin /usr/libexec *.so.*
-  
-Usage:
-	revdep [ pkgname ]
-	
-Options:
-	-h, --help        show this help page and exit
-EOF
- 
-}
-
-parse_options() {
-	
-	while [ "$1" ]; do
-		case "$1" in
-			-h|--help)    help; exit 0 ;;
-			*) PKG+=($1) ;;
-		esac
-		shift
+if [ -d /etc/ld.so.conf.d/ ]; then
+	for dir in $(ls /etc/ld.so.conf.d/); do
+		while read line; do
+			if [[ $(echo ${line::1}) = "/" ]]; then
+				EXTRA_SEARCH_DIRS+="$line "
+			fi
+		done < /etc/ld.so.conf.d/$dir
 	done
-	
-}
-
-parse_options "$@"
-
-if [ "${#PKG[@]}" -gt 0 ]; then
-	for pkg in ${PKG[@]}; do
-		if [ ! -f "$INDEX_DIR/$pkg/.files" ]; then
-			msgerr "Package '$pkg' not installed."
-		else
-			onepkg "$pkg"
-		fi
-	done
-else
-	allpkg
 fi
 
-exit 0
+EXCLUDE_DIRS="/lib/modules"
+
+for d in $EXCLUDE_DIRS; do
+	EXCLUDED_DIRS+="-path $d -prune -o "
+done
+
+SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
+INDEX_DIR="/var/lib/scratchpkg/index"
+
+FILE_LIST=/tmp/$0-$$
+
+echo "SEARCH DIRS:"
+for d in $SEARCH_DIRS; do
+	echo $d
+done
+echo
+
+echo -n "Find all files... "
+find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
+
+total=$(cat $FILE_LIST | wc -l)
+count=0
+
+echo "$total files found"
+
+echo "Checking for broken linkage..."
+
+while IFS=' ' read -r line; do
+	count=$(( $count + 1 ))
+	echo -ne "$(( 100*$count/$total ))%\033[0K\r"
+	case "$(file -bi "$line")" in
+		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
+			if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
+				LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
+				line2=$(echo $line | sed 's#^/##')
+				PKG_NAME=$(grep -R $line2 $INDEX_DIR | cut -d : -f1)
+				[[ $PKG_NAME ]] || continue
+				PKG_NAME=$(dirname $(echo $PKG_NAME))
+				PKG_NAME=$(basename $(echo $PKG_NAME))
+				REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
+				LIB=$(echo $LIB_NAME | tr '\n' ' ')
+				for i in $LIB_NAME; do
+					echo -e "$PKG_NAME $line (requires $i)"
+					if echo $REQ_LIB | tr ' ' '\n' | grep -qx $i; then
+						if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -x "$PKG_NAME")" ]]; then
+							continue
+						else
+							ALLPKG+="$PKG_NAME "
+						fi
+					fi
+				done
+			fi
+			;;
+	esac
+done < $FILE_LIST
+
+echo -ne "\033[0K"
+	
+if [ "$ALLPKG" ]; then
+	echo
+	echo "This package(s) requires rebuild:"
+	for rebuild in $ALLPKG; do
+		echo -e "$rebuild"
+	done
+else
+	echo "All packages is doing fine."
+fi
+	
+rm $FILE_LIST
