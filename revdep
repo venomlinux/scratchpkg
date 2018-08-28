@@ -25,7 +25,7 @@ done
 SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
 INDEX_DIR="/var/lib/scratchpkg/index"
 
-FILE_LIST=/tmp/$0-$$
+FILE_LIST=/tmp/$(basename $0)-$$
 
 echo "SEARCH DIRS:"
 for d in $SEARCH_DIRS; do
