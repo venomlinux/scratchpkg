@@ -30,8 +30,8 @@ for file in $spkgnew; do
 	fi
 	echo
 	echo "Choose action:"
-	echo "1) Remove new file"
-	echo "2) Replace old with new file"
+	echo "1) Keep original"
+	echo "2) Replace original with new"
 	echo "*) Do nothing"
 	echo
 	echo -n "Action: "

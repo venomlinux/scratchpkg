@@ -45,13 +45,13 @@ echo "Checking for broken linkage..."
 
 while IFS=' ' read -r line; do
 	count=$(( $count + 1 ))
-	echo -ne "$(( 100*$count/$total ))%\033[0K\r"
+	echo -ne "$(( 100*$count/$total ))% $line\033[0K\r"
 	case "$(file -bi "$line")" in
 		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
 			if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
 				LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 				line2=$(echo $line | sed 's#^/##')
-				PKG_NAME=$(grep -R $line2 $INDEX_DIR | cut -d : -f1)
+				PKG_NAME=$(grep -Rx $line2 $INDEX_DIR | cut -d : -f1)
 				[[ $PKG_NAME ]] || continue
 				PKG_NAME=$(dirname $(echo $PKG_NAME))
 				PKG_NAME=$(basename $(echo $PKG_NAME))
@@ -84,4 +84,6 @@ else
 	echo "All packages is doing fine."
 fi
 	
-rm $FILE_LIST
+rm -f $FILE_LIST
+
+exit 0
