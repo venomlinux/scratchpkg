@@ -31,15 +31,6 @@ msgwarn() {
 	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
 }
 
-needarg() {
-	if [ -z "$@" ]; then
-		msgerr "This operation require arguments!"
-		return 1
-	else
-		return 0
-	fi
-}
-
 needroot() {	
 	if [ $UID != 0 ]; then
 		if [ "$#" -eq 0 ]; then
@@ -369,7 +360,9 @@ printreadme() {
 	fi
 }
 
-searchpkg() {	
+searchpkg() {
+	needarg $@
+	
 	local port found OUTPUT
 	
 	for port in ${PORT_REPO[@]}; do
