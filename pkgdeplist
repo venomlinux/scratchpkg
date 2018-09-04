@@ -27,12 +27,16 @@ msgnoinst() {
 
 checkdep() {
 	local depends
-	
-	depends=$(grep "^# depends[[:blank:]]*:" $(getportpath "$1")/spkgbuild | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
-	source $(getportpath "$1")/spkgbuild
-	for dep in ${depends[@]}; do
-		echo $dep
-	done
+	PORT_PATH=$(getportpath "$1")
+	if [ "$PORT_PATH" ]; then
+		depends=$(grep "^# depends[[:blank:]]*:" $PORT_PATH/spkgbuild | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+		source $PORT_PATH/spkgbuild
+		for dep in ${depends[@]}; do
+			echo $dep
+		done
+	else
+		return 0
+	fi
 }
 
 getportpath() {	
