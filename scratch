@@ -1,11 +1,29 @@
 #!/bin/bash
+#
+#  scratchpkg
+#
+#  Copyright (c) 2018 by Emmett1  (emmett1.2miligrams@gmail.com)
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
-RED='\e[0;31m'      #Red
-GREEN='\e[0;32m'    #Green
-YELLOW='\e[0;33m'   #Yellow
-CYAN='\e[0;36m'     #CyanBlue
-PURPLE='\e[0;35m'   #Purple
-CRESET='\e[0m'		#Reset color
+RED='\e[0;31m'
+GREEN='\e[0;32m'
+YELLOW='\e[0;33m'
+CYAN='\e[0;36m'
+PURPLE='\e[0;35m'
+CRESET='\e[0m'
 
 msg() {
 	echo -e "${GREEN}==>${CRESET} $1"

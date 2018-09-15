@@ -1,10 +1,28 @@
 #!/bin/bash
+#
+#  scratchpkg
+#
+#  Copyright (c) 2018 by Emmett1  (emmett1.2miligrams@gmail.com)
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
-RED='\e[0;31m'      #Red
-GREEN='\e[0;32m'    #Green
-YELLOW='\e[0;33m'   #Yellow
-CYAN='\e[0;36m'     #Cyan
-CRESET='\e[0m'		#Reset color
+RED='\e[0;31m'
+GREEN='\e[0;32m'
+YELLOW='\e[0;33m'
+CYAN='\e[0;36m'
+CRESET='\e[0m'
 
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
 
@@ -132,16 +150,18 @@ parse_opts() {
 
 ret() {
 	# remove lock file on exit
-	rm -f $LOCK_FILE
+	rm -fr $LOCK_FILE $TMP_PKGADD
 	exit $1
 }
 
 parse_opts $(extract_opt $@)
 
-INDEX_DIR=$ROOT/var/lib/scratchpkg/index
-LOCK_FILE=$ROOT/tmp/spkg.lock
-TMP_PKGINSTALL=$ROOT/var/lib/scratchpkg/spkg.install
-TMP_PKGINSTALL_BKP=$ROOT/var/lib/scratchpkg/spkg.bkp.install
+INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
+PKGADD_DIR="$ROOT/var/lib/scratchpkg"
+TMP_PKGADD="$PKGADD_DIR/$(basename $0)-$$"
+LOCK_FILE="$PKGADD_DIR/spkg.lock"
+TMP_PKGINSTALL="$TMP_PKGADD/$(basename $0).install"
+TMP_PKGINSTALL_BKP="$TMP_PKGADD/$(basename $0).bkp.install"
 HOOK_DIR=/etc/hooks
 
 # show help page
@@ -155,7 +175,7 @@ if [ "$NOCOLOR" ]; then
 	nocolor
 fi
 
-mkdir -p $INDEX_DIR
+mkdir -p $INDEX_DIR $PKGADD_DIR $TMP_PKGADD
 
 # check for lock file
 if [ -f $LOCK_FILE ]; then
@@ -206,7 +226,8 @@ fi
 echo -ne "Loading $BASEPKGNAME...\033[0K\r"
 
 # check integrity of package
-if ! tar -tf $PKGNAME &>/dev/null; then
+tar -tf $PKGNAME > $TMP_PKGADD/files 2>/dev/null
+if [ $? != 0 ]; then
 	msgerr "Package '$1' is corrupted!"
 	ret 1
 fi
@@ -252,7 +273,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 					fileconflict+=(${line})
 				fi
 			fi
-	done < <(tar -tf "$PKGNAME" --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme ${excludefile[@]} | grep -v '/$')
+	done < <(cat $TMP_PKGADD/files | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | grep -v '/$')
 		
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
 		[ "$SILENT_INSTALL" ] && echo
@@ -264,29 +285,29 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 	fi
 fi
 
-if [ "$ROOT" = "" ]; then
-	if [ ! "$REINSTALL_PKG" ]; then
-		if [ $(tar -tf "$PKGNAME" | grep -x ".pkginstall") ]; then
-			source <(tar -xf "$PKGNAME" .pkginstall -O)
-		fi
-	fi
+if [ $(grep -x .pkginstall $TMP_PKGADD/files) ]; then
+	source <(tar -xf "$PKGNAME" .pkginstall -O)
 fi
 
 # run preinstall script if no --no-preinstall flag and not upgrade package
-if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-	if [ "`type -t pre_install`" = "function" ]; then
-		[ "$SILENT_INSTALL" ] || msg2 "Running preinstall script..."
-		pre_install "$version" &>/dev/null
+( cd $ROOT/
+	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
+		if [ "`type -t pre_install`" = "function" ]; then
+			[ "$SILENT_INSTALL" ] || msg2 "Running preinstall script..."
+			pre_install "$version" &>/dev/null
+		fi
 	fi
-fi
+)
 
 # run preupgrade script if package upgrade
-if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-	if [ "`type -t pre_upgrade`" = "function" ]; then
-		[ "$SILENT_INSTALL" ] || msg2 "Running preupgrade script..."
-		pre_upgrade "$version" "$iversion" &>/dev/null
+( cd $ROOT/
+	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
+		if [ "`type -t pre_upgrade`" = "function" ]; then
+			[ "$SILENT_INSTALL" ] || msg2 "Running preupgrade script..."
+			pre_upgrade "$version" "$iversion" &>/dev/null
+		fi
 	fi
-fi	
+)
 
 #installing package into system
 [ "$SILENT_INSTALL" ] || msg2 "Extracting package..."
@@ -334,19 +355,23 @@ mv $TMP_PKGINSTALL $INDEX_DIR/$name/.files
 [ -f $TMP_PKGINSTALL_BKP ] && mv $TMP_PKGINSTALL_BKP $INDEX_DIR/$name/.bkpfiles
 tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 
-if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-	if [ "`type -t post_install`" = "function" ]; then
-		[ "$SILENT_INSTALL" ] || msg2 "Running postinstall script..."
-		post_install "$version" &>/dev/null
+( cd $ROOT/
+	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
+		if [ "`type -t post_install`" = "function" ]; then
+			[ "$SILENT_INSTALL" ] || msg2 "Running postinstall script..."
+			post_install "$version" &>/dev/null
+		fi
 	fi
-fi
+)
 
-if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-	if [ "`type -t post_upgrade`" = "function" ]; then
-		[ "$SILENT_INSTALL" ] || msg2 "Running postupgrade script..."
-		post_upgrade "$version" "$iversion" &>/dev/null
+( cd $ROOT/
+	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
+		if [ "`type -t post_upgrade`" = "function" ]; then
+			[ "$SILENT_INSTALL" ] || msg2 "Running postupgrade script..."
+			post_upgrade "$version" "$iversion" &>/dev/null
+		fi
 	fi
-fi
+)
 
 if [ "$ROOT" = "" ]; then
 	runhooks
@@ -360,8 +385,8 @@ else
 fi
 
 # running ldconfig
-if [ "$ROOT" = "" ] && [ -x /sbin/ldconfig ]; then
-	/sbin/ldconfig
+if [ -x /sbin/ldconfig ]; then
+	/sbin/ldconfig -r $ROOT/
 fi
 
 ret 0

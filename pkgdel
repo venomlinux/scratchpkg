@@ -1,10 +1,28 @@
 #!/bin/bash
+#
+#  scratchpkg
+#
+#  Copyright (c) 2018 by Emmett1  (emmett1.2miligrams@gmail.com)
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
-RED='\e[0;31m'      #Red
-GREEN='\e[0;32m'    #Green
-YELLOW='\e[0;33m'   #Yellow
-CYAN='\e[0;36m'     #Cyan
-CRESET='\e[0m'		#Reset color
+RED='\e[0;31m'
+GREEN='\e[0;32m'
+YELLOW='\e[0;33m'
+CYAN='\e[0;36m'
+CRESET='\e[0m'
 
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
 
@@ -134,9 +152,10 @@ ret() {
 	
 parse_opts $(extract_opt $@)
 
-INDEX_DIR=$ROOT/var/lib/scratchpkg/index
-LOCK_FILE=$ROOT/tmp/spkg.lock
-HOOK_DIR=/etc/hook
+INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
+PKGDEL_DIR="$ROOT/var/lib/scratchpkg"
+LOCK_FILE="$PKGDEL_DIR/spkg.lock"
+HOOK_DIR="/etc/hook"
 	
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
