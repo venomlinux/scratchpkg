@@ -310,11 +310,19 @@ fi
 )
 
 #installing package into system
+COLUMN=$(stty size | awk '{print $2}')
+COL=$(($COLUMN-4))
+CURPOS="\e[${COL}G"
+total=$(cat $TMP_PKGADD/files | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | wc -l)
+count=0
+
 [ "$SILENT_INSTALL" ] || msg2 "Extracting package..."
 installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme"
 
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
-$installcmd | while IFS=' ' read line; do 
+$installcmd | while IFS=' ' read line; do
+	count=$(( $count + 1 ))
+	[ "$SILENT_INSTALL" ] && echo -ne "${CURPOS}$(( 100*$count/$total ))%\r"
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
@@ -379,7 +387,7 @@ if [ "$ROOT" = "" ]; then
 fi
 
 if [ "$SILENT_INSTALL" ]; then
-	echo -e "done"
+	echo
 else
 	msg "Package '$name-$version-$release' $oprdone."
 fi
