@@ -63,13 +63,14 @@ runremovehooks() {
 			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
 			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
 			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
-				msg "$description"
+				msg2 "$description"
 				. $hook
 				if [ "`type -t exechook`" = "function" ]; then
 					exechook
 				fi
 			fi
 			unset description operation target
+			unset -f exechook
 		done
 	fi
 	
@@ -77,18 +78,16 @@ runremovehooks() {
 
 runpreremovehooks() {
 	
-	if [ "$(ls $HOOK_DIR/*.hook 2>/dev/null)" ]; then
-		for hook in $(ls $HOOK_DIR/*.hook); do
-			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
-			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
-				if [ "$(echo $operation | grep -w "remove" )" ]; then
-					if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
-						runthishook+=($hook)
-					fi
+	for hook in $(ls $HOOK_DIR/*.hook 2>/dev/null); do
+		operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
+		target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
+			if [ "$(echo $operation | grep -w "remove" )" ]; then
+				if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
+					runthishook+=($hook)
 				fi
-			unset operation target
-		done
-	fi
+			fi
+		unset operation target
+	done
 	
 }
 
@@ -155,7 +154,7 @@ parse_opts $(extract_opt $@)
 INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
 PKGDEL_DIR="$ROOT/var/lib/scratchpkg"
 LOCK_FILE="$PKGDEL_DIR/spkg.lock"
-HOOK_DIR="/etc/hook"
+HOOK_DIR="/etc/hooks"
 	
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
@@ -225,12 +224,12 @@ fi
 
 msg2 "Removing files & dirs..."
 while IFS=' ' read -r line; do
-	rm "$ROOT/$line"
+	rm "$ROOT/$line" &>/dev/null
 done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
 
 while IFS=' ' read -r line; do
 	if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
-		rmdir "$ROOT/$line"
+		rmdir "$ROOT/$line" &>/dev/null
 	fi
 done < <(tac $INDEX_DIR/$name/.files | grep '/$')
 	

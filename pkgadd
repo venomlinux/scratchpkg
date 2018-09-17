@@ -73,7 +73,7 @@ runhooks() {
 					[ "$SILENT_INSTALL" ] || msg2 "$description"
 					. $hook
 					if [ "`type -t exechook`" = "function" ]; then
-						exechook >/dev/null
+						exechook
 					fi
 				fi
 			fi
