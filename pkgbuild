@@ -623,7 +623,7 @@ main() {
 		msgerr "Option '--pkgdir=' need argument (path)"
 		abort 1
 	fi
-	checkdir "$SOURCE_DIR" "$PACKAGE_DIR"
+	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR"
 	
 	check_buildscript
 	set_options
@@ -680,7 +680,7 @@ PKGBUILD_BSCRIPT="spkgbuild"
 
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
-WORK_DIR="/tmp/pkgbuild"
+WORK_DIR="/tmp"
 
 OPTIONS=(!libtool emptydirs strip docs purge zipman buildflags makeflags)
 DOC_DIRS=(usr/{,local/}{,share/}{doc,gtk-doc} opt/*/{doc,gtk-doc})
