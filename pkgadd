@@ -340,18 +340,21 @@ done
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	[ "$SILENT_INSTALL" ] || msg2 "Removing old files..."
-	grep -v '/$' $INDEX_DIR/$name/.files | while IFS=' ' read line; do
-		if [ ! "$(grep -Fx "$line" $TMP_PKGINSTALL)" ]; then
-			rm "$ROOT/$line" &>/dev/null
-		fi
+	sort -k 2 $INDEX_DIR/$name/.files > $TMP_PKGADD/$name.old
+	sort -k 2 $TMP_PKGINSTALL > $TMP_PKGADD/$name.new
+	diff -w -t -U 0 $TMP_PKGADD/$name.new $TMP_PKGADD/$name.old | \
+		sed '/^@@/d' | \
+		sed '/^+++/d' | \
+		sed '/^---/d' | \
+		grep ^+ | \
+		sed 's/+//g' > $TMP_PKGADD/$name.diff
+	grep -v '/$' $TMP_PKGADD/$name.diff | while IFS=' ' read line; do
+		rm "$ROOT/$line" &>/dev/null
 	done
-
-	while IFS=' ' read -r line; do
-		if [ ! "$(tac $TMP_PKGINSTALL | grep -x "$line")" ] && [ ! "$(grep -Rx --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
-			rmdir "$ROOT/$line" &>/dev/null
-		fi
-	done < <(tac $INDEX_DIR/$name/.files | grep '/$')
-fi	
+	grep '/$' $TMP_PKGADD/$name.diff | tac | while IFS=' ' read line; do
+		rmdir "$ROOT/$line" &>/dev/null
+	done
+fi
 
 # register package into database
 rm -fr $INDEX_DIR/$name 
