@@ -63,7 +63,7 @@ echo "Checking for broken linkage..."
 
 while IFS=' ' read -r line; do
 	count=$(( $count + 1 ))
-	echo -ne "$(( 100*$count/$total ))% $line\033[0K\r"
+	echo -ne " $(( 100*$count/$total ))% $line\033[0K\r"
 	case "$(file -bi "$line")" in
 		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
 			if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
