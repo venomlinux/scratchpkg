@@ -191,7 +191,11 @@ prepare_src() {
 			if [ "$FILENAME" != "$FILE" ] && [ "$nxt" != 1 ]; then
 				case $FILENAME in
 					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
-						COMMAND="tar -p -o -C $SRC -xf $SOURCE_DIR/$FILENAME"
+						if [ $(type -p bsdtar) ]; then
+							COMMAND="bsdtar -p -o -C $SRC -xf $SOURCE_DIR/$FILENAME"
+						else
+							COMMAND="tar -p -o -C $SRC -xf $SOURCE_DIR/$FILENAME"
+						fi
 						MODE="Unpacking" ;;
 					*)
 						COMMAND="cp $SOURCE_DIR/$FILENAME $SRC"
