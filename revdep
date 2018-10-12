@@ -34,11 +34,20 @@ if [ -d /etc/ld.so.conf.d/ ]; then
 	done
 fi
 
-EXCLUDE_DIRS="/lib/modules"
+EXCLUDE_DIRS="$(cat /etc/revdep.conf | grep /$ | sed 's/\/*$//g')"
+EXCLUDE_DIRS+="$(cat /etc/revdep.d/*.conf | grep /$ | sed 's/\/*$//g')"
 
 for d in $EXCLUDE_DIRS; do
 	EXCLUDED_DIRS+="-path $d -prune -o "
 done
+
+EXCLUDE_FILES="$(cat /etc/revdep.conf | grep -v /$)"
+EXCLUDE_FILES+="$(cat /etc/revdep.d/*.conf | grep -v /$)"
+
+for f in $EXCLUDE_FILES; do
+	EXCLUDED_FILES+="! -path $f "
+done
+echo $EXCLUDE_FILES
 
 SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
 INDEX_DIR="/var/lib/scratchpkg/index"
@@ -47,12 +56,24 @@ FILE_LIST=/tmp/$(basename $0)-$$
 
 echo "SEARCH DIRS:"
 for d in $SEARCH_DIRS; do
-	echo $d
+	echo " $d"
+done
+echo
+
+echo "EXCLUDED DIRS:"
+for dd in $EXCLUDE_DIRS; do
+	echo " $dd"
+done
+echo
+
+echo "EXCLUDED FILES:"
+for dd in $EXCLUDE_FILES; do
+	echo " $dd"
 done
 echo
 
 echo -n "Find all files... "
-find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
+find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
 
 total=$(cat $FILE_LIST | wc -l)
 count=0
@@ -76,7 +97,7 @@ while IFS=' ' read -r line; do
 				REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
 				LIB=$(echo $LIB_NAME | tr '\n' ' ')
 				for i in $LIB_NAME; do
-					echo -e "$PKG_NAME $line (requires $i)"
+					echo -e " $PKG_NAME -> $line (requires $i)"
 					if echo $REQ_LIB | tr ' ' '\n' | grep -qx $i; then
 						if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -x "$PKG_NAME")" ]]; then
 							continue
