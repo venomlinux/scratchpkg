@@ -34,21 +34,23 @@ if [ -d /etc/ld.so.conf.d/ ]; then
 	done
 fi
 
-EXCLUDE_DIRS="$(cat /etc/revdep.conf | grep /$ | sed 's/\/*$//g')"
-EXCLUDE_DIRS+="$(cat /etc/revdep.d/*.conf | grep /$ | sed 's/\/*$//g')"
+# excluded dirs
+EXCLUDE_DIRS="$(cat /etc/revdep.conf 2>/dev/null | grep /$ | sed 's/\/*$//g')"
+EXCLUDE_DIRS+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep /$ | sed 's/\/*$//g')"
 
 for d in $EXCLUDE_DIRS; do
 	EXCLUDED_DIRS+="-path $d -prune -o "
 done
 
-EXCLUDE_FILES="$(cat /etc/revdep.conf | grep -v /$)"
-EXCLUDE_FILES+="$(cat /etc/revdep.d/*.conf | grep -v /$)"
+# excluded files
+EXCLUDE_FILES="$(cat /etc/revdep.conf 2>/dev/null | grep -v /$)"
+EXCLUDE_FILES+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v /$)"
 
 for f in $EXCLUDE_FILES; do
 	EXCLUDED_FILES+="! -path $f "
 done
-echo $EXCLUDE_FILES
 
+# search dirs
 SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
 INDEX_DIR="/var/lib/scratchpkg/index"
 

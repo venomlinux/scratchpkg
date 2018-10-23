@@ -265,6 +265,22 @@ lockpkg() {
 	done	
 }
 
+unlockpkg() {
+	local pkg
+	
+	needroot "Unlocking package"
+	
+	for pkg in "$@"; do
+		if [ ! -f $INDEX_DIR/$pkg/.pkginfo ]; then
+			msgerr "Package '$pkg' is not installed."
+		elif [ ! -f $INDEX_DIR/$pkg/.lock ]; then
+			msgerr "Package '$pkg' is not locked."
+		else
+			rm -f $INDEX_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
+		fi
+	done	
+}
+
 listlocked() {
 	local pkg
 	
@@ -550,11 +566,17 @@ installpkg() {
 		total=$(echo $INST | wc -w)
 		for int in ${INST[@]}; do
 			count=$(( $count + 1 ))
-			pushd $(getportpath $int)
-				. $BUILD_SCRIPT
-				echo -en "\033]0;($count/$total) $name-$version-$release \a"
-				pkgbuild -is ${OPTS[@]} || exit 1
-			popd
+			portpathh=$(getportpath $int)
+			if [ "$portpathh" ]; then
+				pushd $portpathh
+					. $BUILD_SCRIPT
+					echo -en "\033]0;($count/$total) $name-$version-$release \a"
+					pkgbuild -is ${OPTS[@]} || exit 1
+				popd
+			else
+				msgwarn "Skipping missing package: $int"
+			fi
+			unset portpathh
 		done
 	fi
 }
@@ -579,6 +601,10 @@ sysup() {
 	local d UPGPKG NEWPKG PKGOUTDATE
 	
 	needroot "Upgrading package"
+	
+	if [ "$1" = "--no-confirm" ]; then
+		NOCONFIRM=1
+	fi
 	
 	PKGOUTDATE=$(outdatepkg)
 	
@@ -608,8 +634,10 @@ sysup() {
 	echo "Package(s) will be upgraded      : $UPGPKG"
 	echo "New package(s) will be installed : $NEWPKG"
 	echo
-	confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
-	echo
+	if [ ! "$NOCONFIRM" ]; then
+		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
+		echo
+	fi
 	count=0
 	total=$(echo ${WILLINSTALL[@]} | wc -w)
 	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
@@ -1076,7 +1104,7 @@ main() {
 	fi
 	
 	if [ "$mode" = "sysup" ]; then
-		sysup
+		sysup $1
 		exit 0
 	fi
 	
@@ -1143,6 +1171,11 @@ main() {
 	
 	if [ "$mode" = "lock" ]; then
 		lockpkg $@
+		exit 0
+	fi
+	
+	if [ "$mode" = "unlock" ]; then
+		unlockpkg $@
 		exit 0
 	fi
 	

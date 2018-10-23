@@ -161,7 +161,7 @@ download_src() {
 prepare_src() {
 	local FILE FILENAME SRC_DIR
 	
-	checkmdsum
+	[ "$IGNORE_MDSUM" ] || checkmdsum
 	
 	SRC=$WORK_DIR/$name/src
 	PKG=$WORK_DIR/$name/pkg
