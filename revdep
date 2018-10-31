@@ -86,7 +86,7 @@ echo "Checking for broken linkage..."
 
 while IFS=' ' read -r line; do
 	count=$(( $count + 1 ))
-	libname=$(basename $line)
+	libname=$(basename "$line")
 	echo -ne " $(( 100*$count/$total ))% $libname\033[0K\r"
 	case "$(file -bi "$line")" in
 		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)

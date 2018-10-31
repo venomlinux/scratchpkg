@@ -343,8 +343,8 @@ showdependent() {
 
 checkowner() {
 	for pkg in $(allinstalled); do
-		for output in $(cat $INDEX_DIR/$pkg/.files | grep $1); do
-			echo -e "${CYAN}$pkg${CRESET} => ${PURPLE}$output${CRESET}"
+		cat $INDEX_DIR/$pkg/.files | grep $1 | while read line; do
+			echo -e "${CYAN}$pkg${CRESET} => ${PURPLE}$line${CRESET}"
 		done
 	done	
 }
