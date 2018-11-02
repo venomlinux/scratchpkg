@@ -598,13 +598,18 @@ outdatepkg() {
 }
 
 sysup() {
-	local d UPGPKG NEWPKG PKGOUTDATE
+	local d UPGPKG NEWPKG PKGOUTDATE OPTS
 	
 	needroot "Upgrading package"
 	
-	if [ "$1" = "--no-confirm" ]; then
-		NOCONFIRM=1
-	fi
+	while [ "$1" ]; do
+		if [ "$1" = "--no-confirm" ]; then
+			NOCONFIRM=1
+		elif [ "$1" = "--no-backup" ]; then
+			OPTS+=($1)
+		fi
+		shift
+	done
 	
 	PKGOUTDATE=$(outdatepkg)
 	
@@ -646,9 +651,9 @@ sysup() {
 		. $BUILD_SCRIPT
 		echo -en "\033]0;($count/$total) $name-$version-$release \a"
 		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
-			pkgbuild -is || exit 1
+			pkgbuild -is ${OPTS[@]} || exit 1
 		else
-			pkgbuild -us || exit 1
+			pkgbuild -us ${OPTS[@]} || exit 1
 		fi
 	done
 	
@@ -1104,7 +1109,7 @@ main() {
 	fi
 	
 	if [ "$mode" = "sysup" ]; then
-		sysup $1
+		sysup $@
 		exit 0
 	fi
 	

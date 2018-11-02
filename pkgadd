@@ -327,7 +327,7 @@ $installcmd | while IFS=' ' read line; do
 		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-			if [ ! -e "$ROOT/$line" ]; then
+			if [ ! -e "$ROOT/$line" ] || [ "$NO_BACKUP" = yes ]; then
 				mv "$ROOT/$line".spkgnew "$ROOT/$line"
 			fi
 		else
