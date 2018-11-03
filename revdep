@@ -18,6 +18,100 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+interrupted() {
+	cleanup
+	echo
+	exit 1
+}
+
+cleanup() {
+	rm -f $FILE_LIST
+}
+
+usage() {
+	cat << EOF
+Usage:
+  $(basename $0) [option] [arg]
+  
+Options:
+  -r, --rebuild                     rebuild & reinstall broken package
+  -e, --exclude <pkg1 pkg2 pkgN>    exclude package when rebuild (use with -r|--rebuild)
+  -h, --help                        print this help message
+
+EOF
+}
+
+parse_opt() {
+	while [ $1 ]; do
+		case $1 in
+			-r|--rebuild)	REBUILD=1 ;;
+			-e|--exclude)	while [ "$2" ]; do
+								case $2 in
+									-*) break ;;
+									*) [ -z "$expkg" ] && expkg="$2" || expkg="$expkg $2"
+								esac
+								shift
+							done ;;
+			-h|--help)		usage; exit 0 ;;
+			*)				echo "Invalid option ($1)"; exit 1 ;;
+		esac
+		shift
+	done
+}
+
+rebuild() {
+	if [[ "$expkg" ]]; then
+		for broken in $ALLPKG; do
+			for exclude in $expkg; do
+				if [ $broken = $exclude ]; then
+					remove=1
+				fi
+			done
+			if [ "$remove" != 1 ]; then
+				if [ -z "$needrebuild" ]; then
+					needrebuild="$broken"
+				else
+					needrebuild="$needrebuild $broken"
+				fi
+			fi
+			unset remove
+		done
+	else
+		needrebuild=$ALLPKG
+	fi
+	
+	for allpkg in $(pkgdeplist $needrebuild | cut -d ' ' -f2); do
+		for pkg in $needrebuild; do
+			if [ $pkg = $allpkg ]; then
+				if [ -z "$order" ]; then
+					order="$allpkg"
+				else
+					order="$order $allpkg"
+				fi
+				break
+			fi
+		done
+	done
+	echo
+	echo "Package will be rebuild & reinstall by this order:"
+	echo $order
+	echo
+	echo "Press ENTER to continue"
+	read
+	for p in $order; do
+		scratch build -f $p && scratch install -r $p || exit 1
+	done
+}
+
+trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+
+parse_opt $@
+
+if [ "$UID" != 0 ] && [ "$REBUILD" = 1 ]; then
+	echo "$(basename $0) need to run as root to rebuild & reinstall package"
+	exit 1
+fi
+
 while read line; do
 	if [[ $(echo ${line::1}) = "/" ]]; then
 		EXTRA_SEARCH_DIRS+="$line "
@@ -55,6 +149,7 @@ SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EX
 INDEX_DIR="/var/lib/scratchpkg/index"
 
 FILE_LIST=/tmp/$(basename $0)-$$
+touch $FILE_LIST || { echo "Can't create temporary file .Aborting..."; exit 1; }
 
 echo "SEARCH DIRS:"
 for d in $SEARCH_DIRS; do
@@ -122,10 +217,11 @@ if [ "$ALLPKG" ]; then
 	for rebuild in $ALLPKG; do
 		echo -e "$rebuild"
 	done
+	if [ "$REBUILD" = 1 ]; then
+		rebuild
+	fi
 else
 	echo "All packages is doing fine."
 fi
-	
-rm -f $FILE_LIST
 
 exit 0

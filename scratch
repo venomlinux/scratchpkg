@@ -320,7 +320,7 @@ showdependent() {
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
-			for all in $(ls $port/*/$BUILD_SCRIPT | rev | cut -d '/' -f2 | rev 2>/dev/null); do
+			for all in $(ls $port/*/$BUILD_SCRIPT 2>/dev/null | rev | cut -d '/' -f2 | rev); do
 				if [ -f $port/$all/$BUILD_SCRIPT ]; then
 					depend=$(cat $port/$all/$BUILD_SCRIPT | grep ^'# depends' | tr -d ':' | cut -d " " -f3-)
 					for dep in ${depend[@]}; do
@@ -455,7 +455,7 @@ buildpkg() {
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^-(f|v|w|m|o|x)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(no-prebuild|--force-rebuild|skip-mdsum|download|extract|keep-work)$ ]]; then
+		elif [[ "$1" =~ ^--(no-prebuild|force-rebuild|skip-mdsum|download|extract|keep-work)$ ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(pkgdir|srcdir)= ]]; then
 			OPTS+=($1)
@@ -469,7 +469,7 @@ buildpkg() {
 	done
 	pushd $(getportpath $PKGNAME)
 	if [ $? = 0 ]; then
-		pkgbuild ${OPTS[@]}
+		pkgbuild ${OPTS[@]} || exit 1
 	else
 		echo "Package '$PKGNAME' not found."
 		exit 1
@@ -512,7 +512,7 @@ installpkg() {
 				echo "Package '$ii' not found."
 			else
 				pushd $(getportpath $ii)
-					pkgbuild -r ${OPTS[@]}
+					pkgbuild -r ${OPTS[@]} || exit 1
 				popd
 			fi
 		done

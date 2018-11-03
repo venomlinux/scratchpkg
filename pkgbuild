@@ -233,7 +233,7 @@ run_build() {
 	[ "$MAKE_FLAGS" = 1 ]  && export MAKEFLAGS       || unset MAKEFLAGS
 	[ "$BUILD_FLAGS" = 1 ] && export CFLAGS CXXFLAGS || unset CFLAGS CXXFLAGS
 	
-	[ -f $name.install ] && . $name.install
+	[ -f install ] && . install
 	
 	pushd $SRC >/dev/null
 	
@@ -357,7 +357,7 @@ backupconf() {
 packaging() {
 	local FILE
 	
-	[ -f $name.install ] && cp $name.install $PKG/.pkginstall
+	[ -f install ] && cp install $PKG/.pkginstall
 	[ -f readme ] && cp readme $PKG/.pkgreadme
 	
 	pushd $PKG >/dev/null
