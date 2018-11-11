@@ -35,7 +35,8 @@ Usage:
   
 Options:
   -r, --rebuild                     rebuild & reinstall broken package
-  -e, --exclude <pkg1 pkg2 pkgN>    exclude package when rebuild (use with -r|--rebuild)
+  -e, --exclude <pkg1 pkg2 pkgN>    exclude package when rebuild (use with -r/--rebuild)
+  -n, --no-confirm                  dont ask user confirmation to rebuild package (use with -r/--rebuild)
   -h, --help                        print this help message
 
 EOF
@@ -45,6 +46,7 @@ parse_opt() {
 	while [ $1 ]; do
 		case $1 in
 			-r|--rebuild)	REBUILD=1 ;;
+			-n|--no-confirm) NOCONFIRM=1 ;;
 			-e|--exclude)	while [ "$2" ]; do
 								case $2 in
 									-*) break ;;
@@ -92,12 +94,14 @@ rebuild() {
 			fi
 		done
 	done
-	echo
-	echo "Package will be rebuild & reinstall by this order:"
-	echo $order
-	echo
-	echo "Press ENTER to continue"
-	read
+	if [ "$NOCONFIRM" = "" ]; then
+		echo
+		echo "Package will be rebuild & reinstall by this order:"
+		echo $order
+		echo
+		echo "Press ENTER to continue"
+		read
+	fi
 	for p in $order; do
 		scratch build -f $p && scratch install -r $p || exit 1
 	done

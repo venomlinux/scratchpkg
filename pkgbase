@@ -1,0 +1,26 @@
+#!/bin/bash
+
+keep=$(pkgdeplist -l base | awk '{print $2}')
+if [ "$1" ]; then
+	extrakeep=$(pkgdeplist -l $@ | awk '{print $2}')
+fi
+keep="$keep $extrakeep"
+
+allinstalled=$(scratch listinst | awk '{print $1}')
+
+for pkg in $allinstalled; do
+	echo $keep | tr ' ' '\n' | grep -qx $pkg
+	if [ "$?" != 0 ]; then
+		if [ "$remove" = "" ]; then
+			remove=$pkg
+		else
+			remove="$remove $pkg"
+		fi
+	fi
+done
+
+for i in $remove; do
+	pkgdel $i || exit 1
+done
+
+exit $?
