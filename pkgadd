@@ -315,7 +315,7 @@ installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --ex
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
 $installcmd | while IFS=' ' read line; do
 	count=$(( $count + 1 ))
-	[ "$SILENT_INSTALL" ] && echo -ne " $opr $name-$version-$release [ $(( 100*$count/$total ))% ]\r"
+	[ "$SILENT_INSTALL" ] && echo -ne "$opr $name-$version-$release [ $(( 100*$count/$total ))% ]\r"
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
