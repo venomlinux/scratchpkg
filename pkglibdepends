@@ -65,7 +65,7 @@ pushd / >/dev/null
 				fi
 			done
 		esac
-	done < <(tac $INDEX_DIR/$1/.files | grep -E ^"(bin/|lib/|libexec/|sbin/|usr/bin/|usr/lib/|usr/libexec/|usr/sbin/)" | grep -v "/$")
+	done < <(tac $INDEX_DIR/$1/.files | grep -E ^"(bin/|lib/|libexec/|sbin/|usr/bin/|usr/lib/|usr/lib32/|usr/libexec/|usr/sbin/)" | grep -v "/$")
 popd >/dev/null
 
 echo $deppkg | tr ' ' '\n'
