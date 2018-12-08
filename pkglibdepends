@@ -48,20 +48,21 @@ pushd / >/dev/null
 			*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
 			NEEDED_LIB=$(objdump -x "$LINE" | grep NEEDED | awk '{print $2}')
 			for i in ${NEEDED_LIB[@]}; do
-				if [ "$i" != "ld-linux-x86-64.so.2" ]; then
-					libpath=$(ldd "$LINE" | grep -v "not found" | grep -w "$i" | awk '{print $3}')
-					if [ "$libpath" ]; then
-						FILEPATH=$(readlink -f $(echo $libpath))
-						FILENAME=$(echo $FILEPATH | sed -e '1s/^.//')
-						PKG_NAME=$(basename $(dirname $(grep -Rx $FILENAME $INDEX_DIR | cut -d ':' -f1)))
-						if [ "$PKG_NAME" != $1 ]; then
-							if [ ! "$(echo "$deppkg" | grep -w "$PKG_NAME")" ]; then
-								deppkg="$deppkg $PKG_NAME "
-							fi
+				case $i in
+					ld-linux-x86-64.so.2|ld-linux.so.2) continue;;
+				esac
+				libpath=$(ldd "$LINE" | grep -v "not found" | grep -w "$i" | awk '{print $3}')
+				if [ "$libpath" ]; then
+					FILEPATH=$(readlink -f $(echo $libpath))
+					FILENAME=$(echo $FILEPATH | sed -e '1s/^.//')
+					PKG_NAME=$(basename $(dirname $(grep -Rx $FILENAME $INDEX_DIR | cut -d ':' -f1)))
+					if [ "$PKG_NAME" != $1 ]; then
+						if [ ! "$(echo "$deppkg" | grep -w "$PKG_NAME")" ]; then
+							deppkg="$deppkg $PKG_NAME "
 						fi
-					else
-						echo "$LINE (missing shared lib) => $i"
 					fi
+				else
+					echo "$LINE (missing shared lib) => $i"
 				fi
 			done
 		esac
