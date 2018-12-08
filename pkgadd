@@ -102,6 +102,7 @@ Options:
       --no-postupgrade       skip postupgrade script after upgrade package
       --no-backup            skip backup when upgrading package
       --no-color             disable colour for output
+      --no-hook              skip executing hook
       --root=<path>          install to custom root directory
 
 Example:
@@ -139,6 +140,7 @@ parse_opts() {
 				    --no-postupgrade) NO_POSTUPGRADE=yes ;;
 				         --no-backup) NO_BACKUP=yes ;;
 			   		      --no-color) NOCOLOR=yes ;;
+			   		       --no-hook) NOHOOK=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
 					      *.spkg.txz) PKGNAME="$1" ;;
 					               *) msg "Invalid option! ($1)"; exit 1 ;;
@@ -373,7 +375,7 @@ tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 )
 
 if [ "$ROOT" = "" ]; then
-	runhooks
+	[ "$NOHOOK" = "yes" ] || runhooks
 	[ $(type -p sysusers) ] && sysusers
 fi
 

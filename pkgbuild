@@ -233,7 +233,7 @@ run_build() {
 	[ "$MAKE_FLAGS" = 1 ]  && export MAKEFLAGS       || unset MAKEFLAGS
 	[ "$BUILD_FLAGS" = 1 ] && export CFLAGS CXXFLAGS || unset CFLAGS CXXFLAGS
 	
-	[ -f install ] && . install
+	[ -f $PWD/install ] && source $PWD/install
 	
 	pushd $SRC >/dev/null
 	
