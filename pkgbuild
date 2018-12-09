@@ -563,6 +563,7 @@ parse_opts() {
 		        --no-postinstall) OPTS+=($1) ;;
 		         --no-preupgrade) OPTS+=($1) ;;
 		        --no-postupgrade) OPTS+=($1) ;;
+		               --no-hook) OPTS+=($1) ;;
 		              --no-color) NOCOLOR=yes; OPTS+=($1) ;;
 		             --no-backup) OPTS+=($1) ;;
 		            --redownload) REDOWNLOAD_SOURCE=yes ;;

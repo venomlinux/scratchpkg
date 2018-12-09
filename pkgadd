@@ -69,7 +69,7 @@ runhooks() {
 		target=$(grep "^# target[[:blank:]]*:" $hook | sed 's/^# target[[:blank:]]*:[[:blank:]]*//')
 		if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
 			if [ "$(echo $operation | grep -w "$opr" )" ]; then
-				if [ "$(grep -E $target $INDEX_DIR/$name/.files)" ]; then
+				if [ "$(grep $target $INDEX_DIR/$name/.files)" ]; then
 					[ "$SILENT_INSTALL" ] || msg2 "$description"
 					. $hook
 					if [ "`type -t exechook`" = "function" ]; then

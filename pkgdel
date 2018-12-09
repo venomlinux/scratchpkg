@@ -63,7 +63,7 @@ runremovehooks() {
 			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
 			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
 			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
-				msg2 "$description"
+				[ "$SILENT_REMOVE" ] || msg2 "$description"
 				. $hook
 				if [ "`type -t exechook`" = "function" ]; then
 					exechook
@@ -99,9 +99,11 @@ Usage:
 Options:
   -v, --verbose         print removed files
   -h, --help            show this help message
+  -s, --silent          print remove message in simple format
       --no-preremove    don't run pre-remove script
       --no-postremove   don't run post-remove script
       --no-color        disable colour for output
+      --no-hook         skip executing hook
       --root=<path>     remove package from custom root directory
 
 Example:
@@ -130,9 +132,11 @@ parse_opts() {
 			case $1 in
 			-v |           --verbose) VERBOSE_REMOVE=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
+			-s |            --silent) SILENT_REMOVE=yes ;;
 			          --no-preremove) NO_PREREMOVE=yes ;;
 				     --no-postremove) NO_POSTREMOVE=yes ;;
 				          --no-color) NOCOLOR=yes ;;
+			   		     --no-hook) NOHOOK=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
 		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
 					               *) RMNAME=$1 ;;
@@ -195,8 +199,12 @@ name=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^name | cut -d " " -f3-)
 version=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^version | cut -d " " -f3-)
 release=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^release | cut -d " " -f3-)
 
-msg "Removing '$name-$version-$release'..."
-	
+if [ "$SILENT_REMOVE" ]; then
+	echo -ne "Removing $name-$version-$release "
+else
+	msg "Removing '$name-$version-$release'..."
+fi
+
 # source .install script
 if [ "$ROOT" = "" ]; then
 	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
@@ -206,23 +214,23 @@ fi
 	
 if [ ! "$NO_PREREMOVE" ]; then	
 	if [ "`type -t pre_remove`" = "function" ]; then
-		msg2 "Running preremove script..."
+		[ "$SILENT_REMOVE" ] || msg2 "Running preremove script..."
 		pre_remove "$version" &>/dev/null
 	fi
 fi
 
-if [ "$ROOT" = "" ]; then
+if [ "$ROOT" = "" ] && [ "$NOHOOK" != "yes" ]; then
 	runpreremovehooks $name
 fi
 
 if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
-	msg2 "Removing backup files..."
+	[ "$SILENT_REMOVE" ] || msg2 "Removing backup files..."
 	while IFS=' ' read -r line; do
 		[ -e "$ROOT/$line" ] && rm "$ROOT/$line"
 	done < <(tac $INDEX_DIR/$name/.bkpfiles)
 fi
 
-msg2 "Removing files & dirs..."
+[ "$SILENT_REMOVE" ] || msg2 "Removing files & dirs..."
 while IFS=' ' read -r line; do
 	rm "$ROOT/$line" &>/dev/null
 done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
@@ -235,18 +243,22 @@ done < <(tac $INDEX_DIR/$name/.files | grep '/$')
 	
 if [ ! "$NO_POSTREMOVE" ]; then
 	if [ "`type -t post_remove`" = "function" ]; then
-		msg2 "Running postremove script..."
+		[ "$SILENT_REMOVE" ] || msg2 "Running postremove script..."
 		post_remove "$version" &>/dev/null
 	fi
 fi
 	
 rm -rf $INDEX_DIR/$name
 
-if [ "$ROOT" = "" ]; then
+if [ "$ROOT" = "" ] && [ "$NOHOOK" != "yes" ]; then
 	runremovehooks
 fi
 
-msg "Package '$name-$version-$release' removed."
+if [ "$SILENT_REMOVE" ]; then
+	echo "[ done ]"
+else
+	msg "Package '$name-$version-$release' removed."
+fi
 
 # running ldconfig
 if [ "$ROOT" = "" ] && [ -x /sbin/ldconfig ]; then
