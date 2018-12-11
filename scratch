@@ -342,11 +342,13 @@ showdependent() {
 }
 
 checkowner() {
+	local arg
+	arg=$(echo $1 | sed 's:^/::')
 	for pkg in $(allinstalled); do
-		cat $INDEX_DIR/$pkg/.files | grep $1 | while read line; do
+		grep $arg $INDEX_DIR/$pkg/.files | while read line; do
 			echo -e "${CYAN}$pkg${CRESET} => ${PURPLE}$line${CRESET}"
 		done
-	done	
+	done
 }
 
 showtree() {	
