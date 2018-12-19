@@ -129,6 +129,10 @@ catport() {
 	fi
 }
 
+settermtitle() {
+	echo -en "\033]0;$@\a"
+}
+
 missingdep() {
 	local pkg d
 	
@@ -582,7 +586,7 @@ installpkg() {
 			if [ "$portpathh" ]; then
 				pushd $portpathh
 					. $BUILD_SCRIPT
-					echo -en "\033]0;($count/$total) $name-$version-$release \a"
+					settermtitle "[ $count/$total ] installing $name-$version-$release"
 					pkgbuild -is --no-hook ${OPTS[@]} #|| exit 1
 					if [ $? != 0 ]; then
 						error=1
@@ -594,8 +598,15 @@ installpkg() {
 			fi
 			unset portpathh
 		done
+		settermtitle "Triggering install hook"
 		srunhooks ${INST[@]}
-		[ "$error" = 1 ] && return 1 || return 0
+		if [ "$error" = 1 ]; then
+			settermtitle "Install process done with failure"
+			return 1
+		else
+			settermtitle "Install process done"
+			return 0
+		fi
 	fi
 }
 
@@ -698,14 +709,15 @@ sysup() {
 		count=$(( $count + 1 ))
 		pushd $(getportpath $inst)
 		. $BUILD_SCRIPT
-		echo -en "\033]0;($count/$total) $name-$version-$release \a"
 		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
+			settermtitle "[ $count/$total ] Installing $name-$version-$release"
 			pkgbuild -is --no-hook ${OPTS[@]} #|| exit 1
 			if [ $? != 0 ]; then
 				error=1
 				break
 			fi
 		else
+			settermtitle "[ $count/$total ] Upgrading $name-$version-$release"
 			pkgbuild -us --no-hook ${OPTS[@]} #|| exit 1
 			if [ $? != 0 ]; then
 				error=1
@@ -713,8 +725,15 @@ sysup() {
 			fi
 		fi
 	done
-	srunhooks ${WILLINSTALL[@]}
-	[ "$error" = 1 ] && return 1 || return 0
+	settermtitle "Triggering install hook"
+	srunhooks ${INST[@]}
+	if [ "$error" = 1 ]; then
+		settermtitle "Install process done with failure"
+		return 1
+	else
+		settermtitle "Install process done"
+		return 0
+	fi
 }
 
 srunremovehooks() {	
@@ -788,6 +807,7 @@ removepkg() {
 	fi
 	if [ "$IPKG" ]; then
 		pkgcount=0
+		count=0
 		for pkg in ${IPKG[@]}; do
 			pkgcount=$(( $pkgcount + 1 ))
 			echo -n "$pkgcount) $pkg  "
@@ -798,10 +818,14 @@ removepkg() {
 			echo
 		fi
 		for pkg in ${IPKG[@]}; do
+			count=$(( $count + 1 ))
 			srunpreremovehooks $pkg
+			settermtitle "[ $count/$pkgcount ] Removing $pkg"
 			pkgdel -s --no-hook $pkg ${OPTS[@]}
 		done
+		settermtitle "Triggering remove hook"
 		srunremovehooks
+		settermtitle "Remove process done"
 	fi
 }
 
@@ -868,7 +892,7 @@ upgradepkg() {
 		for newpkg in ${NEWPKG[@]}; do			
 			pushd $(getportpath $newpkg)
 				. $BUILD_SCRIPT
-				echo -en "\033]0;($count/$total) $name-$version-$release \a"
+				settermtitle "Installing $name-$version-$release"
 				pkgbuild -is --no-hook ${OPTS[@]} #|| exit 1
 				if [ $? != 0 ]; then
 					error=1
@@ -882,7 +906,7 @@ upgradepkg() {
 	for pkg in ${PKGNAME[@]}; do # upgrade all target packages
 		pushd $(getportpath $pkg)
 			. $BUILD_SCRIPT
-			echo -en "\033]0;($count/$total) $name-$version-$release \a"
+			settermtitle "Upgrading $name-$version-$release"
 			pkgbuild -us --no-hook ${OPTS[@]} #|| exit 1
 			if [ $? != 0 ]; then
 				error=1
@@ -890,8 +914,15 @@ upgradepkg() {
 			fi
 		popd
 	done
+	settermtitle "triggering upgrade hook"
 	srunhooks ${PKGNAME[@]}
-	[ "$error" = 1 ] && return 1 || return 0
+	if [ "$error" = 1 ]; then
+		settermtitle "Upgrade process done with failure"
+		return 1
+	else
+		settermtitle "Upgrade process done"
+		return 0
+	fi
 }
 
 outdate() {
@@ -1202,12 +1233,12 @@ main() {
 	
 	if [ "$mode" = "install" ]; then
 		installpkg $@
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "upgrade" ]; then
 		upgradepkg $@
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "remove" ]; then
@@ -1217,7 +1248,7 @@ main() {
 	
 	if [ "$mode" = "sysup" ]; then
 		sysup $@
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "outdate" ]; then
