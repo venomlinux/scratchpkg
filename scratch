@@ -456,7 +456,7 @@ buildpkg() {
 	local OPTS
 	if [ -z "$1" ]; then
 		echo "Please specify package to build."
-		exit 1
+		return 1
 	fi
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^-(f|v|w|m|o|x)$ ]]; then
@@ -467,7 +467,7 @@ buildpkg() {
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
-			exit 1
+			return 1
 		else
 			PKGNAME=$1
 		fi
@@ -475,10 +475,10 @@ buildpkg() {
 	done
 	pushd $(getportpath $PKGNAME)
 	if [ $? = 0 ]; then
-		pkgbuild ${OPTS[@]} || exit 1
+		pkgbuild ${OPTS[@]} || return 1
 	else
 		echo "Package '$PKGNAME' not found."
-		exit 1
+		return 1
 	fi
 }
 
@@ -489,7 +489,7 @@ installpkg() {
 	
 	if [ -z "$1" ]; then
 		echo "Please specify package(s) to install."
-		exit 1
+		return 1
 	fi
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^-(c|v|-verbose|-ignore-conflict)$ ]]; then
@@ -503,7 +503,7 @@ installpkg() {
 			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
-			exit 1
+			return 1
 		else
 			PKGNAME+=($1)
 		fi
@@ -518,7 +518,7 @@ installpkg() {
 				echo "Package '$ii' not found."
 			else
 				pushd $(getportpath $ii)
-					pkgbuild -s --no-hook ${OPTS[@]} #|| exit 1
+					pkgbuild -s --no-hook ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
 						break
@@ -535,10 +535,10 @@ installpkg() {
 				echo "Package '$ii' already installed."
 			elif [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
-				exit 1
+				return 1
 			else
 				pushd $(getportpath $ii)
-					pkgbuild -i --no-hook ${OPTS[@]} #|| exit 1
+					pkgbuild -i --no-hook ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
 						break
@@ -554,7 +554,7 @@ installpkg() {
 			echo "Package '$i' already installed."
 		elif [ ! $(getportpath $i) ]; then
 			echo "Package '$i' not found."
-			exit 1
+			return 1
 		else
 			IPKG+=($i)
 		fi
@@ -587,7 +587,7 @@ installpkg() {
 				pushd $portpathh
 					. $BUILD_SCRIPT
 					settermtitle "[ $count/$total ] installing $name-$version-$release"
-					pkgbuild -is --no-hook ${OPTS[@]} #|| exit 1
+					pkgbuild -is --no-hook ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
 						break
@@ -675,7 +675,7 @@ sysup() {
 	
 	if [ ! "$PKGOUTDATE" ]; then
 		msg "All package is up to date."
-		exit 0
+		return 0
 	fi
 	echo "Resolving dependencies..."
 	DEP=$(pkgdeplist ${PKGOUTDATE[@]} -l | awk '{print $2}')
@@ -711,14 +711,14 @@ sysup() {
 		. $BUILD_SCRIPT
 		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
 			settermtitle "[ $count/$total ] Installing $name-$version-$release"
-			pkgbuild -is --no-hook ${OPTS[@]} #|| exit 1
+			pkgbuild -is --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
 				break
 			fi
 		else
 			settermtitle "[ $count/$total ] Upgrading $name-$version-$release"
-			pkgbuild -us --no-hook ${OPTS[@]} #|| exit 1
+			pkgbuild -us --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
 				break
@@ -778,7 +778,7 @@ removepkg() {
 	
 	if [ -z "$1" ]; then
 		echo "Please specify package(s) to remove."
-		exit 1
+		return 1
 	fi
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^--(no-postremove|no-preremove)$ ]]; then
@@ -787,7 +787,7 @@ removepkg() {
 			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
-			exit 1
+			return 1
 		else
 			PKGNAME+=($1)
 		fi
@@ -821,7 +821,7 @@ removepkg() {
 			count=$(( $count + 1 ))
 			srunpreremovehooks $pkg
 			settermtitle "[ $count/$pkgcount ] Removing $pkg"
-			pkgdel -s --no-hook $pkg ${OPTS[@]}
+			pkgdel -s --no-hook $pkg ${OPTS[@]} || return 1
 		done
 		settermtitle "Triggering remove hook"
 		srunremovehooks
@@ -853,11 +853,11 @@ upgradepkg() {
 	for pkg in ${PKGNAME[@]}; do
 		if [ ! -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
 			msgerr "Package '$pkg' not installed."
-			exit 1
+			return 1
 		fi
 		if [ ! $(getportpath $pkg) ]; then
 			msgerr "Package '$pkg' not exist."
-			exit 1
+			return 1
 		fi
 	done
 	if [ -z "$NO_DEP" ]; then		
@@ -893,7 +893,7 @@ upgradepkg() {
 			pushd $(getportpath $newpkg)
 				. $BUILD_SCRIPT
 				settermtitle "Installing $name-$version-$release"
-				pkgbuild -is --no-hook ${OPTS[@]} #|| exit 1
+				pkgbuild -is --no-hook ${OPTS[@]}
 				if [ $? != 0 ]; then
 					error=1
 					break
@@ -907,7 +907,7 @@ upgradepkg() {
 		pushd $(getportpath $pkg)
 			. $BUILD_SCRIPT
 			settermtitle "Upgrading $name-$version-$release"
-			pkgbuild -us --no-hook ${OPTS[@]} #|| exit 1
+			pkgbuild -us --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
 				break
@@ -1228,7 +1228,7 @@ main() {
 	
 	if [ "$mode" = "build" ]; then
 		buildpkg $@
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "install" ]; then
@@ -1243,7 +1243,7 @@ main() {
 	
 	if [ "$mode" = "remove" ]; then
 		removepkg $@
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "sysup" ]; then
@@ -1253,118 +1253,118 @@ main() {
 	
 	if [ "$mode" = "outdate" ]; then
 		outdate
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "listorphan" ]; then
 		listorphan
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "search" ]; then
 		searchpkg $1
-		exit 0
+		exit $?
 	fi
 	
 	# search for foreign port (installed package with no port in repos)
 	if [ "$mode" = "foreignpkg" ]; then
 		foreignpkg
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "sync" ]; then
 		updports
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "listinstalled" ]; then
 		listinstalled
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "readme" ]; then
 		printreadme $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "pkgtree" ]; then
 		showtree $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "own" ]; then
 		checkowner $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "dependent" ]; then
 		showdependent $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "cat" ]; then
 		catport $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "depends" ]; then
 		showdepends $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "lock" ]; then
 		lockpkg $@
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "unlock" ]; then
 		unlockpkg $@
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "listlocked" ]; then
 		listlocked
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "listinst" ]; then
 		listinstalled
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "rmcache" ]; then
 		clearpkgcache
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "cache" ]; then
 		pkgcache
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "help" ]; then
 		usage $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "integrity" ]; then
 		checkintegrity $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "path" ]; then
 		showportpath $1
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "dup" ]; then
 		duplicateports
-		exit 0
+		exit $?
 	fi
 	
 	if [ "$mode" = "missingdep" ]; then
 		missingdep
-		exit 0
+		exit $?
 	fi
 
 	echo "Run 'scratch help' to see available mode and options"
