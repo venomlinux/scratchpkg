@@ -213,7 +213,7 @@ version=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 2 | rev)
 release=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 1 | rev)
 		
 # get package information if installed
-if [ -e $INDEX_DIR/$name/.pkginfo ]; then
+if [ -s $INDEX_DIR/$name/.pkginfo ] && [ -s $INDEX_DIR/$name/.files ]; then
 	iname=$(cat $INDEX_DIR/$name/.pkginfo | grep ^name | cut -d " " -f3-)
 	iversion=$(cat $INDEX_DIR/$name/.pkginfo | grep ^version | cut -d " " -f3-)
 	irelease=$(cat $INDEX_DIR/$name/.pkginfo | grep ^release | cut -d " " -f3-)

@@ -184,7 +184,7 @@ else
 	fi
 fi
 
-if [ ! -d $INDEX_DIR/$RMNAME ]; then
+if [ ! -s $INDEX_DIR/$RMNAME/.files ] && [ ! -s $INDEX_DIR/$RMNAME/.pkginfo ]; then
 	msgerr "Package '$RMNAME' not installed."
 	ret 1
 fi
@@ -198,6 +198,11 @@ fi
 name=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^name | cut -d " " -f3-)
 version=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^version | cut -d " " -f3-)
 release=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^release | cut -d " " -f3-)
+
+if [ -z $name ] && [ -z $version ] && [ -z $release ]; then
+	msgerr "Package '$RMNAME' not installed but exist in database."
+	ret 1
+fi
 
 if [ "$SILENT_REMOVE" ]; then
 	echo -ne "Removing $name-$version-$release "
