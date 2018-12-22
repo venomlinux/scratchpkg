@@ -160,7 +160,7 @@ parse_opts $(extract_opt $@)
 
 INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
 PKGADD_DIR="$ROOT/var/lib/scratchpkg"
-TMP_PKGADD="$PKGADD_DIR/$(basename $0)-$$"
+TMP_PKGADD="$PKGADD_DIR/$(basename $0)-tmp"
 LOCK_FILE="$PKGADD_DIR/spkg.lock"
 TMP_PKGINSTALL="$TMP_PKGADD/$(basename $0).install"
 TMP_PKGINSTALL_BKP="$TMP_PKGADD/$(basename $0).bkp.install"
@@ -177,7 +177,7 @@ if [ "$NOCOLOR" ]; then
 	nocolor
 fi
 
-mkdir -p $INDEX_DIR $PKGADD_DIR $TMP_PKGADD
+mkdir -p $PKGADD_DIR 
 
 # check for lock file
 if [ -f $LOCK_FILE ]; then
@@ -191,6 +191,8 @@ else
 		exit 1
 	fi
 fi
+
+mkdir -p $INDEX_DIR $TMP_PKGADD
 
 if [ -n "$PKGNAME" ]; then
 	BASEPKGNAME=$(basename $PKGNAME)

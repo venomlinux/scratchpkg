@@ -47,8 +47,8 @@ checkdep() {
 	local depends
 	PORT_PATH=$(getportpath "$1")
 	if [ "$PORT_PATH" ]; then
-		depends=$(grep "^# depends[[:blank:]]*:" $PORT_PATH/spkgbuild | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
-		source $PORT_PATH/spkgbuild
+		depends=$(grep "^# depends[[:blank:]]*:" $PORT_PATH/spkgbuild | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
+		#source $PORT_PATH/spkgbuild
 		for dep in ${depends[@]}; do
 			echo $dep
 		done

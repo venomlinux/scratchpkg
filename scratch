@@ -138,10 +138,7 @@ missingdep() {
 	
 	for pkg in $(allinstalled); do
 		if [ $(getportpath "$pkg") ]; then
-			pushd $(getportpath "$pkg")
-				depends=$(grep "^# depends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
-				. $BUILD_SCRIPT
-			popd
+			depends=$(grep "^# depends[[:blank:]]*:" $(getportpath "$pkg")/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
 		fi
 		if [ "$depends" ]; then
 			for d in ${depends[@]}; do
@@ -217,8 +214,7 @@ listorphan() {
 	
 	for pkg in $(allinstalled); do
 		if [ $(getportpath $pkg) ]; then
-			depends=$(grep "^# depends[[:blank:]]*:" $(getportpath $pkg)/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
-			. $(getportpath $pkg)/$BUILD_SCRIPT
+			depends=$(grep "^# depends[[:blank:]]*:" $(getportpath $pkg)/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
 		fi
 		for deps in ${depends[@]}; do
 			ALL_DEP+=($deps)
@@ -299,10 +295,7 @@ showdepends() {
 	local dep
 	
 	if [ $(getportpath "$1") ]; then
-		pushd $(getportpath "$1")
-			depends=$(grep "^# depends[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
-			. $BUILD_SCRIPT
-		popd
+		depends=$(grep "^# depends[[:blank:]]*:" $(getportpath "$1")/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
 	else
 		msgerr "Port '$1' not exist."
 		exit 1
@@ -402,6 +395,11 @@ printreadme() {
 
 searchpkg() {
 	needarg $@
+	
+	case $1 in
+		-*) msgerr "Invalid pattern '$1'"
+			return 1 ;;
+	esac
 	
 	local port found OUTPUT
 	

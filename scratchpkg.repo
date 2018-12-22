@@ -8,10 +8,10 @@
 /usr/ports/multilib https://raw.githubusercontent.com/emmett1/ports/master/multilib
 /usr/ports/core     https://raw.githubusercontent.com/emmett1/ports/master/core
 /usr/ports/xorg     https://raw.githubusercontent.com/emmett1/ports/master/xorg
+/usr/ports/extra    https://raw.githubusercontent.com/emmett1/ports/master/extra
 /usr/ports/xfce4    https://raw.githubusercontent.com/emmett1/ports/master/xfce4
 /usr/ports/kf5      https://raw.githubusercontent.com/emmett1/ports/master/kf5
 /usr/ports/mate     https://raw.githubusercontent.com/emmett1/ports/master/mate
 /usr/ports/lxde     https://raw.githubusercontent.com/emmett1/ports/master/lxde
-/usr/ports/extra    https://raw.githubusercontent.com/emmett1/ports/master/extra
 /usr/ports/git      https://raw.githubusercontent.com/emmett1/ports/master/git
 /usr/ports/wip      https://raw.githubusercontent.com/emmett1/ports/master/wip
