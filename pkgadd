@@ -63,7 +63,8 @@ runhooks() {
 		opr=install
 	fi
 	
-	for hook in $(ls $HOOK_DIR/*.hook 2>/dev/null); do
+	for hook in $HOOK_DIR/*.hook; do
+		[ -f $hook ] || continue
 		description=$(grep "^# description[[:blank:]]*:" $hook | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 		operation=$(grep "^# operation[[:blank:]]*:" $hook | sed 's/^# operation[[:blank:]]*:[[:blank:]]*//')
 		target=$(grep "^# target[[:blank:]]*:" $hook | sed 's/^# target[[:blank:]]*:[[:blank:]]*//')

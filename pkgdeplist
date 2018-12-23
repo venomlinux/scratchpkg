@@ -40,7 +40,7 @@ msgmiss() {
 }
 
 msgnoinst() {
-	echo -e "[${RED}x${CRESET}] $1"
+	echo -e "[${RED}-${CRESET}] $1"
 }
 
 checkdep() {

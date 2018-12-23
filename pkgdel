@@ -78,14 +78,15 @@ runremovehooks() {
 
 runpreremovehooks() {
 	
-	for hook in $(ls $HOOK_DIR/*.hook 2>/dev/null); do
+	for hook in $HOOK_DIR/*.hook; do
+		[ -f $hook ] || continue
 		operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
 		target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
-			if [ "$(echo $operation | grep -w "remove" )" ]; then
-				if [ "$(grep -E $target $INDEX_DIR/$1/.files)" ]; then
-					runthishook+=($hook)
-				fi
+		if [ "$(echo $operation | grep -w "remove" )" ]; then
+			if [ "$(grep $target $INDEX_DIR/$1/.files)" ]; then
+				runthishook+=($hook)
 			fi
+		fi
 		unset operation target
 	done
 	
