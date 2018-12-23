@@ -89,14 +89,14 @@ vercomp() {
 }
 
 installed_pkg_info() {	
-	if [ -s $INDEX_DIR/$2/.pkginfo ]; then
+	if isinstalled $2; then
 		echo $(cat $INDEX_DIR/$2/.pkginfo | grep ^$1 | cut -d " " -f3-)
 	fi
 }
 
 allinstalled() {	
 	for i in $INDEX_DIR/*; do
-		if [ -s $i/.pkginfo ] && [ -s $i/.files ]; then
+		if isinstalled ${i##*/}; then
 			echo ${i##*/}
 		fi
 	done
@@ -133,6 +133,14 @@ catport() {
 	fi
 }
 
+isinstalled() {
+	if [ -s $INDEX_DIR/$1/.pkginfo ] && [[ $(grep $1 $INDEX_DIR/$1/.pkginfo) ]]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 settermtitle() {
 	echo -en "\033]0;$@\a"
 }
@@ -146,7 +154,7 @@ missingdep() {
 		fi
 		if [ "$depends" ]; then
 			for d in ${depends[@]}; do
-				if [ ! -f "$INDEX_DIR"/$d/.pkginfo ]; then
+				if ! isinstalled $d; then
 					msd+=($d)
 				fi
 			done
@@ -250,7 +258,7 @@ lockpkg() {
 	needroot "Locking package"
 	
 	for pkg in "$@"; do
-		if [ ! -s $INDEX_DIR/$pkg/.pkginfo ] && [ ! -s $INDEX_DIR/$pkg/.files ]; then
+		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' is not installed."
 		elif [ -f $INDEX_DIR/$pkg/.lock ]; then
 			msgerr "Package '$pkg' already locked."
@@ -266,7 +274,7 @@ unlockpkg() {
 	needroot "Unlocking package"
 	
 	for pkg in "$@"; do
-		if [ ! -s $INDEX_DIR/$pkg/.pkginfo ] && [ ! -s $INDEX_DIR/$pkg/.files ]; then
+		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' is not installed."
 		elif [ ! -f $INDEX_DIR/$pkg/.lock ]; then
 			msgerr "Package '$pkg' is not locked."
@@ -295,9 +303,9 @@ showdepends() {
 		msgerr "Port '$1' not exist."
 		exit 1
 	fi
-			
+			#isinstalled ${depends[0]}
 	for dep in ${depends[@]}; do
-		if [ -d $INDEX_DIR/$dep ]; then
+		if isinstalled $dep; then
 			msginst "$dep"
 		elif getportpath $dep >/dev/null; then
 			msgnoinst "$dep"
@@ -319,7 +327,7 @@ showdependent() {
 						GDP=yes
 						pname=$(dirname $all)
 						pname=$(echo ${pname##*/})
-						if [ -s $INDEX_DIR/$pname/.pkginfo ]; then
+						if isinstalled $pname; then
 							msginst "$pname"
 						else
 							msgnoinst "$pname"
@@ -344,7 +352,7 @@ checkowner() {
 }
 
 showtree() {	
-	if [ ! -s $INDEX_DIR/$1/.pkginfo ] && [ ! -s $INDEX_DIR/$1/.files ]; then
+	if ! isinstalled $1; then
 		msg "Package'$1' not installed."
 	else
 		while IFS=' ' read -r line; do
@@ -414,7 +422,7 @@ searchpkg() {
 						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
 							portname=$(basename $port)
 							search_result="${PURPLE}($portname)${CRESET} $name ${CYAN}$version-$release${CRESET} $description"
-							if [ -e $INDEX_DIR/$name/.pkginfo ]; then
+							if isinstalled $name; then
 								echo -e "[${GREEN}*${CRESET}] $search_result"
 							else
 								echo -e "[ ] $search_result"
@@ -576,10 +584,10 @@ installpkg() {
 	# if reinstall, dont calculate dep, just reinstall it then exit
 	if [ "$REINSTALL" = 1 ]; then
 		for ii in ${PKGNAME[@]}; do
-			if [ ! -f $INDEX_DIR/$ii/.pkginfo ]; then
-				echo "Package '$ii' not installed."
-			elif [ ! $(getportpath $ii) ]; then
+			if [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
+			elif ! isinstalled $ii; then
+				echo "Package '$ii' not installed."
 			else
 				pushd $(getportpath $ii)
 					pkgbuild -s --no-hook ${OPTS[@]}
@@ -595,10 +603,10 @@ installpkg() {
 	fi
 	if [ "$NO_DEP" = 1 ]; then
 		for ii in ${PKGNAME[@]}; do
-			if [ -f $INDEX_DIR/$ii/.pkginfo ]; then
-				echo "Package '$ii' already installed."
-			elif [ ! $(getportpath $ii) ]; then
+			if [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
+			elif ! isinstalled $ii; then
+				echo "Package '$ii' not installed."
 				return 1
 			else
 				pushd $(getportpath $ii)
@@ -614,10 +622,10 @@ installpkg() {
 		[ "$error" = 1 ] && return 1 || return 0
 	fi
 	for i in ${PKGNAME[@]}; do
-		if [ -f $INDEX_DIR/$i/.pkginfo ]; then
-			echo "Package '$i' already installed."
-		elif [ ! $(getportpath $i) ]; then
+		if [ ! $(getportpath $i) ]; then
 			echo "Package '$i' not found."
+		elif isinstalled $ii; then
+			echo "Package '$i' already installed."
 			return 1
 		else
 			IPKG+=($i)
@@ -714,7 +722,7 @@ removepkg() {
 	done
 	
 	for i in ${PKGNAME[@]}; do
-		if [ ! -f $INDEX_DIR/$i/.pkginfo ]; then
+		if ! isinstalled $i; then
 			echo "Package '$i' not installed."
 		else
 			IPKG+=($i)
@@ -779,7 +787,7 @@ sysup() {
 			echo -ne "[${GREEN}u${CRESET}] $d  "
 			WILLINSTALL+=($d)
 			UPGPKG=$(( $UPGPKG + 1 ))
-		elif [ ! -e "$INDEX_DIR/$d/.pkginfo" ] && [ $(getportpath "$d") ]; then
+		elif ! isinstalled $d && [ $(getportpath "$d") ]; then
 			echo -ne "[${CYAN}n${CRESET}] $d  "
 			WILLINSTALL+=($d)
 			NEWPKG=$(( $NEWPKG + 1 ))
@@ -799,7 +807,7 @@ sysup() {
 		count=$(( $count + 1 ))
 		pushd $(getportpath $inst)
 		. $BUILD_SCRIPT
-		if [ ! -e "$INDEX_DIR/$inst/.pkginfo" ]; then
+		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $name-$version-$release"
 			pkgbuild -is --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
@@ -816,7 +824,7 @@ sysup() {
 		fi
 	done
 	settermtitle "Triggering install hook"
-	srunhooks ${INST[@]}
+	srunhooks ${WILLINSTALL[@]}
 	if [ "$error" = 1 ]; then
 		settermtitle "Install process done with failure"
 		return 1
@@ -848,7 +856,7 @@ upgradepkg() {
 		shift
 	done
 	for pkg in ${PKGNAME[@]}; do
-		if [ ! -e "$INDEX_DIR/$pkg/.pkginfo" ]; then
+		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' not installed."
 			return 1
 		fi
@@ -861,7 +869,7 @@ upgradepkg() {
 		echo "Resolving dependencies..."
 		DEP=$(pkgdeplist -l -n ${PKGNAME[@]} | awk '{print $2}')
 		for dep in $DEP; do
-			if [ ! -e "$INDEX_DIR/$dep/.pkginfo" ]; then
+			if ! isinstalled $dep; then
 				if [ $(getportpath $dep) ]; then
 					NEWPKG+=($dep)
 				fi

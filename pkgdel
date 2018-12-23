@@ -153,6 +153,14 @@ ret() {
 	rm -f $LOCK_FILE
 	exit $1
 }
+
+isinstalled() {
+	if [ -s $INDEX_DIR/$1/.pkginfo ] && [[ $(grep $1 $INDEX_DIR/$1/.pkginfo) ]]; then
+		return 0
+	else
+		return 1
+	fi
+}
 	
 parse_opts $(extract_opt $@)
 
@@ -185,7 +193,7 @@ else
 	fi
 fi
 
-if [ ! -s $INDEX_DIR/$RMNAME/.files ] && [ ! -s $INDEX_DIR/$RMNAME/.pkginfo ]; then
+if ! isinstalled $RMNAME; then
 	msgerr "Package '$RMNAME' not installed."
 	ret 1
 fi

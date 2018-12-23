@@ -157,6 +157,14 @@ ret() {
 	exit $1
 }
 
+isinstalled() {
+	if [ -s $INDEX_DIR/$1/.pkginfo ] && [[ $(grep $1 $INDEX_DIR/$1/.pkginfo) ]]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 parse_opts $(extract_opt $@)
 
 INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
@@ -216,7 +224,7 @@ version=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 2 | rev)
 release=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 1 | rev)
 		
 # get package information if installed
-if [ -s $INDEX_DIR/$name/.pkginfo ] && [ -s $INDEX_DIR/$name/.files ]; then
+if isinstalled $name; then
 	iname=$(cat $INDEX_DIR/$name/.pkginfo | grep ^name | cut -d " " -f3-)
 	iversion=$(cat $INDEX_DIR/$name/.pkginfo | grep ^version | cut -d " " -f3-)
 	irelease=$(cat $INDEX_DIR/$name/.pkginfo | grep ^release | cut -d " " -f3-)
