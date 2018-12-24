@@ -547,11 +547,15 @@ buildpkg() {
 	done
 	pushd $(getportpath $PKGNAME)
 	if [ $? = 0 ]; then
+		. $BUILD_SCRIPT
+		settermtitle "Building $name-$version-$release"
 		pkgbuild ${OPTS[@]} || return 1
+		settermtitle "Building $name-$version-$release done"
 	else
 		echo "Package '$PKGNAME' not found."
 		return 1
 	fi
+	return 0
 }
 
 installpkg() {
@@ -624,9 +628,8 @@ installpkg() {
 	for i in ${PKGNAME[@]}; do
 		if [ ! $(getportpath $i) ]; then
 			echo "Package '$i' not found."
-		elif isinstalled $ii; then
+		elif isinstalled $i; then
 			echo "Package '$i' already installed."
-			return 1
 		else
 			IPKG+=($i)
 		fi
@@ -643,13 +646,16 @@ installpkg() {
 		pkgcount=0
 		for pkg in $INST; do
 			pkgcount=$(( $pkgcount + 1 ))
-			echo -n "$pkgcount) $pkg  "
+			echo -en "[${GREEN}i${CRESET}] $pkg  "
 		done
 		echo; echo
+		echo "( $pkgcount install )"
+		echo
 		if [ ! "$NOCONFIRM" ]; then
 			confirm "Continue install package(s)?" "Package installation cancelled."
 			echo
 		fi
+		error=0
 		count=0
 		total=$(echo $INST | wc -w)
 		for int in ${INST[@]}; do
@@ -672,13 +678,8 @@ installpkg() {
 		done
 		settermtitle "Triggering install hook"
 		srunhooks ${INST[@]}
-		if [ "$error" = 1 ]; then
-			settermtitle "Install process done with failure"
-			return 1
-		else
-			settermtitle "Install process done"
-			return 0
-		fi
+		settermtitle "$count/$total package(s) installed"
+		return "$error"
 	fi
 }
 
@@ -733,13 +734,17 @@ removepkg() {
 		return 0
 	fi
 	if [ "$IPKG" ]; then
+		echo "Removing packages..."
+		echo
 		pkgcount=0
 		count=0
 		for pkg in ${IPKG[@]}; do
 			pkgcount=$(( $pkgcount + 1 ))
-			echo -n "$pkgcount) $pkg  "
+			echo -en "[${RED}x${CRESET}] $pkg  "
 		done
 		echo; echo
+		echo "( $pkgcount remove )"
+		echo
 		if [ ! "$NOCONFIRM" ]; then
 			confirm "Continue remove package(s)?" "Package removing cancelled."
 			echo
@@ -752,7 +757,7 @@ removepkg() {
 		done
 		settermtitle "Triggering remove hook"
 		srunremovehooks
-		settermtitle "Remove process done"
+		settermtitle "$pkgcount package(s) removed"
 	fi
 }
 
@@ -801,6 +806,7 @@ sysup() {
 		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
 		echo
 	fi
+	error=0
 	count=0
 	total=$(echo ${WILLINSTALL[@]} | wc -w)
 	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
@@ -825,13 +831,8 @@ sysup() {
 	done
 	settermtitle "Triggering install hook"
 	srunhooks ${WILLINSTALL[@]}
-	if [ "$error" = 1 ]; then
-		settermtitle "Install process done with failure"
-		return 1
-	else
-		settermtitle "Install process done"
-		return 0
-	fi
+	settermtitle "$count/$total package(s) upgraded"
+	return $error
 }
 
 upgradepkg() {
@@ -878,24 +879,30 @@ upgradepkg() {
 	fi
 	echo
 	count=0
-	for i in ${NEWPKG[@]} ${PKGNAME[@]}; do
+	for i in ${NEWPKG[@]}; do
 		count=$(( $count + 1 ))
-		echo -n "$count) $i  "
+		echo -en "[${CYAN}n${CRESET}] $i  "
+	done
+	for i in ${PKGNAME[@]}; do
+		count=$(( $count + 1 ))
+		echo -en "[${GREEN}u${CRESET}] $i  "
 	done
 	echo
 	echo
 	echo "( ${#PKGNAME[@]} upgrade, ${#NEWPKG[@]} new install )"
 	echo
-
+	total=$count
+	count=0
 	if [ ! "$NOCONFIRM" ]; then
 		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
 		echo
 	fi
 	if [ ${#NEWPKG[@]} -gt 0 ]; then
-		for newpkg in ${NEWPKG[@]}; do			
+		for newpkg in ${NEWPKG[@]}; do	
+			count=$(( $count + 1 ))		
 			pushd $(getportpath $newpkg)
 				. $BUILD_SCRIPT
-				settermtitle "Installing $name-$version-$release"
+				settermtitle "[ $count/$total ] Installing $name-$version-$release"
 				pkgbuild -is --no-hook ${OPTS[@]}
 				if [ $? != 0 ]; then
 					error=1
@@ -905,9 +912,10 @@ upgradepkg() {
 		done
 	fi
 	for pkg in ${PKGNAME[@]}; do # upgrade all target packages
+		count=$(( $count + 1 ))
 		pushd $(getportpath $pkg)
 			. $BUILD_SCRIPT
-			settermtitle "Upgrading $name-$version-$release"
+			settermtitle "[ $count/$total ] Upgrading $name-$version-$release"
 			pkgbuild -us --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
@@ -917,13 +925,8 @@ upgradepkg() {
 	done
 	settermtitle "triggering upgrade hook"
 	srunhooks ${NEWPKG[@]} ${PKGNAME[@]}
-	if [ "$error" = 1 ]; then
-		settermtitle "Upgrade process done with failure"
-		return 1
-	else
-		settermtitle "Upgrade process done"
-		return 0
-	fi
+	settermtitle "$count/$total package(s) upgraded"
+	return $error
 }
 
 outdate() {
