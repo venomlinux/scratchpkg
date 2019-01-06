@@ -775,10 +775,11 @@ sysup() {
 		shift
 	done
 	
+	echo "Checking for outdate packages..."
 	PKGOUTDATE=$(outdatepkg)
 	
 	if [ ! "$PKGOUTDATE" ]; then
-		msg "All package is up to date."
+		echo "All package is up to date."
 		return 0
 	fi
 	echo "Resolving dependencies..."
@@ -864,6 +865,11 @@ upgradepkg() {
 		if [ ! $(getportpath $pkg) ]; then
 			msgerr "Package '$pkg' not exist."
 			return 1
+		fi
+		. $(getportpath $pkg)/$BUILD_SCRIPT
+		if [ "$(installed_pkg_info version $pkg)-$(installed_pkg_info release $pkg)" = "$version-$release" ]; then
+			msg "Package '$pkg' is up-to-date."
+			return 0
 		fi
 	done
 	if [ -z "$NO_DEP" ]; then		
