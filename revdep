@@ -34,6 +34,7 @@ Usage:
   $(basename $0) [option] [arg]
   
 Options:
+  -a, --all                         print all affected files
   -r, --rebuild                     rebuild & reinstall broken package
   -e, --exclude <pkg1 pkg2 pkgN>    exclude package when rebuild (use with -r/--rebuild)
   -n, --no-confirm                  dont ask user confirmation to rebuild package (use with -r/--rebuild)
@@ -45,7 +46,8 @@ EOF
 parse_opt() {
 	while [ $1 ]; do
 		case $1 in
-			-r|--rebuild)	REBUILD=1 ;;
+			-a|--all)        PRINTALL=1 ;;
+			-r|--rebuild)    REBUILD=1 ;;
 			-n|--no-confirm) NOCONFIRM=1 ;;
 			-e|--exclude)	while [ "$2" ]; do
 								case $2 in
@@ -97,7 +99,7 @@ rebuild() {
 	if [ "$NOCONFIRM" = "" ]; then
 		echo
 		echo "Package will be rebuild & reinstall by this order:"
-		echo $order
+		echo " $order"
 		echo
 		echo "Press ENTER to continue"
 		read
@@ -149,15 +151,18 @@ for f in $EXCLUDE_FILES; do
 done
 
 # search dirs
-SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
+TARGET_SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
 INDEX_DIR="/var/lib/scratchpkg/index"
 
 FILE_LIST=/tmp/$(basename $0)-$$
 touch $FILE_LIST || { echo "Can't create temporary file .Aborting..."; exit 1; }
 
 echo "SEARCH DIRS:"
-for d in $SEARCH_DIRS; do
-	echo " $d"
+for d in $TARGET_SEARCH_DIRS; do
+	if [ -d $d ]; then
+		SEARCH_DIRS+=" $d"
+		echo " $d"
+	fi
 done
 echo
 
@@ -199,8 +204,9 @@ while IFS=' ' read -r line; do
 				REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
 				LIB=$(echo $LIB_NAME | tr '\n' ' ')
 				for i in $LIB_NAME; do
-					echo -e " $PKG_NAME -> $line (requires $i)"
+					[ "$PRINTALL" = 1 ] && echo -e " $PKG_NAME -> $line (requires $i)"
 					if echo $REQ_LIB | tr ' ' '\n' | grep -qx $i; then
+						[ "$PRINTALL" = 1 ] || echo -e " $PKG_NAME -> $line (requires $i)"
 						if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -x "$PKG_NAME")" ]]; then
 							continue
 						else
@@ -219,7 +225,7 @@ if [ "$ALLPKG" ]; then
 	echo
 	echo "This package(s) requires rebuild:"
 	for rebuild in $ALLPKG; do
-		echo -e "$rebuild"
+		echo -e " $rebuild"
 	done
 	if [ "$REBUILD" = 1 ]; then
 		rebuild
