@@ -1,13 +1,17 @@
 #!/bin/bash
 
+echo "Calculate keep packages..."
 keep=$(pkgdeplist -l base | awk '{print $2}')
 if [ "$1" ]; then
+	echo "Calculate extrakeep packages..."
 	extrakeep=$(pkgdeplist -l $@ | awk '{print $2}')
 fi
 keep="$keep $extrakeep"
 
+echo "Get all installed packages..."
 allinstalled=$(scratch listinst | awk '{print $1}')
 
+echo "Calculate selected packages to remove..."
 for pkg in $allinstalled; do
 	echo $keep | tr ' ' '\n' | grep -qx $pkg
 	if [ "$?" != 0 ]; then
@@ -19,8 +23,6 @@ for pkg in $allinstalled; do
 	fi
 done
 
-for i in $remove; do
-	pkgdel $i || exit 1
-done
+scratch remove $remove
 
 exit $?
