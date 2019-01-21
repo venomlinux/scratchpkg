@@ -338,7 +338,7 @@ showdependent() {
 		fi
 	done
 	
-	[ "$GDP" ] || msg "No package depends on '$1'."
+	[ "$GDP" ] && return 0 || return 1
 }
 
 checkowner() {

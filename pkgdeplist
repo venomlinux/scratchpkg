@@ -163,12 +163,12 @@ if [ ! "$INSTALLED" ] && [ ! "$NOT_INSTALLED" ] && [ ! "$MISSING" ]; then
 fi
 
 # check for ports existence
-for pkg in ${PKG[@]}; do
-	if [ ! $(getportpath $pkg) ]; then
-		msgerr "Package '$pkg' not found."
-		exit 1
-	fi
-done
+#for pkg in ${PKG[@]}; do
+	#if [ ! $(getportpath $pkg) ]; then
+		#msgerr "Package '$pkg' not found."
+		#exit 1
+	#fi
+#done
 
 # calculate dependencies
 for pkg in ${PKG[@]}; do
