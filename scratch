@@ -223,33 +223,17 @@ listinstalled() {
 }
 
 listorphan() {
-	local pkg all depends deps
-	
-	for pkg in $(allinstalled); do
-		if [ $(getportpath $pkg) ]; then
-			depends=$(grep "^# depends[[:blank:]]*:" $(getportpath $pkg)/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
-		fi
-		for deps in ${depends[@]}; do
-			ALL_DEP+=($deps)
-		done
+	local pkg dep
+	tmpallpkg=$(mktemp)
+	tmpalldep=$(mktemp)
+	for pkg in $INDEX_DIR/*/.pkginfo; do
+		pkg=$(basename $(dirname $pkg))
+		echo $pkg >> $tmpallpkg
+		dep="$dep $(grep "^# depends[[:blank:]]*:" $(getportpath $pkg)/$BUILD_SCRIPT 2>/dev/null | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')"
 	done
-	
-	# find orphan package
-	for all in $(allinstalled); do
-		ORPHAN=yes
-		for depended in ${ALL_DEP[@]}; do
-			if [ $depended = $all ]; then
-				ORPHAN=no
-				break
-			fi
-		done
-		if [ "$ORPHAN" = yes ]; then
-			iname=$(installed_pkg_info name $all)
-			iversion=$(installed_pkg_info version $all)
-			irelease=$(installed_pkg_info release $all)
-			echo -e "$iname ${GREEN}$iversion${CRESET}-${BLUE}$irelease${CRESET}"
-		fi
-	done	
+	echo $dep | tr ' ' '\n' | sort | uniq > $tmpalldep
+	grep -xvF -f $tmpalldep $tmpallpkg
+	rm $tmpalldep $tmpallpkg
 }
 
 lockpkg() {
