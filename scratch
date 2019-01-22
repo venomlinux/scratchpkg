@@ -321,6 +321,7 @@ showdependent() {
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
 			for all in $port/*/$BUILD_SCRIPT; do
+				[ -f $all ] || continue
 				depend=$(grep "^# depends[[:blank:]]*:" $all | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
 				for dep in ${depend[@]}; do
 					if [ $dep = $1 ]; then
