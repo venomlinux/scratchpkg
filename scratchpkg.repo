@@ -14,4 +14,4 @@
 /usr/ports/mate     https://raw.githubusercontent.com/emmett1/ports/master/mate
 /usr/ports/lxde     https://raw.githubusercontent.com/emmett1/ports/master/lxde
 /usr/ports/git      https://raw.githubusercontent.com/emmett1/ports/master/git
-/usr/ports/wip      https://raw.githubusercontent.com/emmett1/ports/master/wip
+#/usr/ports/wip      https://raw.githubusercontent.com/emmett1/ports/master/wip

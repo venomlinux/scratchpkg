@@ -121,7 +121,7 @@ parse_opts() {
 			   		      --no-color) NOCOLOR=yes ;;
 			   		       --no-hook) NOHOOK=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
-					      *.spkg.txz) PKGNAME="$1" ;;
+					      *.spkg.*) PKGNAME="$1" ;;
 					               *) msg "Invalid option! ($1)"; exit 1 ;;
 			esac
 			shift
@@ -190,9 +190,11 @@ if [ "$UID" != "0" ]; then
 	ret 1
 fi
 
-name=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 3- | rev)
-version=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 2 | rev)
-release=$(echo $BASEPKGNAME | sed 's/.spkg.txz//' | rev | cut -d - -f 1 | rev)
+noextname=${BASEPKGNAME%*.spkg.*}
+name=${noextname%%-*}
+noextname=${noextname#*-}
+version=${noextname%%-*}
+release=${noextname##*-}
 		
 # get package information if installed
 if isinstalled $name; then

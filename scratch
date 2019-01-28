@@ -976,6 +976,7 @@ clearpkgcache() {
 }
 
 getpkgcache() {
+	COMPRESSION_MODE="xz"
 	
 	[ -f /etc/scratchpkg.conf ] && . /etc/scratchpkg.conf
 	
@@ -991,7 +992,7 @@ getpkgcache() {
 		for port in $(ls $repo); do
 			if [ -f $repo/$port/$BUILD_SCRIPT ]; then
 				. $repo/$port/$BUILD_SCRIPT
-				PORT_PACKAGES+=($name-$version-$release.spkg.txz)
+				PORT_PACKAGES+=($name-$version-$release.spkg.tar.$COMPRESSION_MODE)
 				if [ ! -z $source ]; then
 					for src in ${source[@]}; do
 						if [ $(echo $src | grep -E "(ftp|http|https)://") ]; then

@@ -358,7 +358,13 @@ packaging() {
 	
 	[ "$FORCE_REBUILD" ] && rm -f "$PACKAGE_DIR/$PKGNAME"
 	
-	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
+	case $COMPRESSION_MODE in
+		xz) COMPRESS="-J" ;;
+		gz) COMPRESS="-z" ;;
+		bz2) COMPRESS="-j" ;;
+	esac
+	
+	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
 	if [ $? != 0 ]; then
 		rm -f $PACKAGE_DIR/$PKGNAME
 		msgerr "Packaging '$PKGNAME' failed."
@@ -571,8 +577,12 @@ main() {
 	
 	check_buildscript
 	set_options
-	
-	PKGNAME="$name-$version-$release.spkg.txz"
+
+	case $COMPRESSION_MODE in
+		gz|bz2|xz) PKGNAME="$name-$version-$release.spkg.tar.$COMPRESSION_MODE" ;;
+		*) msgerr "Invalid compression mode. ($COMPRESSION_MODE)"
+			exit 1 ;;
+	esac
 
 	LOCK_FILE="/tmp/pkgbuild.$name.lock"
 	
@@ -643,6 +653,7 @@ SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
 WORK_DIR="/tmp"
 DOWNLOAD_PROG="wget"
+COMPRESSION_MODE="xz"
 
 OPTIONS=(!libtool emptydirs strip zipman buildflags makeflags)
 
