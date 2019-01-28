@@ -105,7 +105,7 @@ rebuild() {
 		read
 	fi
 	for p in $order; do
-		scratch build -f $p && scratch install -r $p || exit 1
+		scratch build -f $p && scratch install -r $p || { cleanup; exit 1; }
 	done
 }
 
@@ -154,8 +154,7 @@ done
 TARGET_SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
 INDEX_DIR="/var/lib/scratchpkg/index"
 
-FILE_LIST=/tmp/$(basename $0)-$$
-touch $FILE_LIST || { echo "Can't create temporary file .Aborting..."; exit 1; }
+FILE_LIST=$(mktemp) || { echo "Can't create temporary file .Aborting..."; exit 1; }
 
 echo "SEARCH DIRS:"
 for d in $TARGET_SEARCH_DIRS; do
@@ -233,5 +232,7 @@ if [ "$ALLPKG" ]; then
 else
 	echo "All packages is doing fine."
 fi
+
+cleanup
 
 exit 0

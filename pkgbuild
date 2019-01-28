@@ -18,26 +18,20 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[0;33m'
-CYAN='\e[0;36m'
-CRESET='\e[0m'
-
 msg() {
-	echo -e "${GREEN}==>${CRESET} $1"
+	echo -e "==> $1"
 }
 
 msg2() {
-	echo -e " ${CYAN}*${CRESET} $1"
+	echo -e " -> $1"
 }
 
 msgerr() {
-	echo -e "${RED}==> ERROR:${CRESET} $1"
+	echo -e "==> ERROR: $1"
 }
 
 msgwarn() {
-	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+	echo -e "==> WARNING: $1"
 }
 
 updatemdsum() {
@@ -127,7 +121,10 @@ download_src() {
 			FILENAME=$(basename $FILE)
 			SRCURL=$FILE
 		fi
-		WGETCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial"
+		case $DOWNLOAD_PROG in
+			curl) DLCMD="curl -C - --fail --ftp-pasv --retry 3 --retry-delay 3 -o $SOURCE_DIR/$FILENAME.partial $CURL_OPTS" ;;
+			wget) DLCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial $WGET_OPTS" ;;
+		esac
 		if [ "$FILENAME" != "$FILE" ]; then
 			if [ -f "$SOURCE_DIR/$FILENAME" ] && [ -z "$REDOWNLOAD_SOURCE" ]; then
 				msg "Source '$FILENAME' found."
@@ -138,7 +135,7 @@ download_src() {
 				else
 					msg "Downloading '$SRCURL'."
 				fi
-				$WGETCMD $SRCURL
+				$DLCMD $SRCURL
 				if [ $? = 0 ]; then
 					[ "$REDOWNLOAD_SOURCE" ] && rm -f "$SOURCE_DIR/$FILENAME"
 					mv $SOURCE_DIR/$FILENAME.partial $SOURCE_DIR/$FILENAME
@@ -218,7 +215,7 @@ prepare_src() {
 
 runprebuildscript() {	
 	if [ "`type -t pre_build`" = "function" ]; then
-		pre_build && PREBUILD_STATUS=OK || PREBUILD_STATUS=KO
+		pre_build
 	fi
 }
 
@@ -255,7 +252,6 @@ run_build() {
 purgefiles() {
 	local OPTIONS
 	[ "${#PURGE_FILES[@]}" -gt 0 ] || return 0
-	msg2 "Purging unwanted files..."
 	for OPTIONS in ${PURGE_FILES[@]}; do
 		if [ -e $OPTIONS ]; then
 			rm -fr $OPTIONS
@@ -264,26 +260,14 @@ purgefiles() {
 }
 
 removeemptydirs() {	
-	msg2 "Removing empty directories..."
 	find . -type d -empty -delete	
 }
 
-removedocs() {
-	local OPTIONS
-	[ "${#DOC_DIRS[@]}" -gt 0 ] || return 0
-	msg2 "Removing docs..."
-	for OPTIONS in ${DOC_DIRS[@]}; do
-		[ -d $OPTIONS ] && rm -fr $OPTIONS
-	done	
-}
-
 removelibtool() {	
-	msg2 "Removing libtool files..."
 	find . ! -type d -name "*.la" -delete
 }
 
-strip_files() {	
-	msg2 "Stripping binaries & libraries..."	
+strip_files() {
 	find . -type f 2>/dev/null | while read -r binary ; do
 		case "$(file -bi "$binary")" in
 			*application/x-sharedlib*)  # Libraries (.so)
@@ -307,30 +291,23 @@ strip_files() {
 	done
 }
 
-compressinfomanpages() {	
-	msg2 "Compressing man & info pages..."
-	for mandir in ${MAN_DIRS[@]}; do
-		if [ -d $mandir ]; then
-			(cd $mandir
-				for file in $(find . -type f); do
-					if [ "$file" = "${file%%.gz}" ]; then
-						gzip -9 -f "$file"
-					fi
-				done
-				for i in $(find . -type l) ; do
-					FILE="${i%%.gz}.gz"
-					TARGET="$(readlink $i)"
-					TARGET="${TARGET##*/}"
-					TARGET="${TARGET%%.gz}.gz"
-					DIR=$(dirname "$FILE")
-					rm -f $i
-					if [ -e "$DIR/$TARGET" ]; then
-						ln -sf $TARGET $FILE
-					fi
-				done
-			)
+compressinfomanpages() {
+	find . -type f -path "*/man/man*/*" | while read file; do
+		if [ "$file" = "${file%%.gz}" ]; then
+			gzip -9 -f "$file"
 		fi
-	done	
+	done
+	find . -type l -path "*/man/man*/*" | while read file; do
+		FILE="${file%%.gz}.gz"
+		TARGET="$(readlink $file)"
+		TARGET="${TARGET##*/}"
+		TARGET="${TARGET%%.gz}.gz"
+		DIR=$(dirname "$FILE")
+		rm -f $file
+		if [ -e "$DIR/$TARGET" ]; then
+			ln -sf $TARGET $FILE
+		fi
+	done
 	if [ -d usr/share/info ]; then
 		(cd usr/share/info
 			for file in $(find . -type f); do
@@ -357,14 +334,14 @@ backupconf() {
 packaging() {
 	local FILE
 	
-	[ -f install ] && cp install $PKG/.pkginstall
-	[ -f readme ] && cp readme $PKG/.pkgreadme
+	[ -f install ] && install -m644 install $PKG/.pkginstall
+	[ -f readme ] && install -m644 readme $PKG/.pkgreadme
 	
 	pushd $PKG >/dev/null
 	
-	[ "$PURGE_FILE" = 1 ]    && purgefiles
+	rm -f usr/{,share/}info/dir
+	
 	[ "$KEEP_EMPTYDIR" = 0 ] && removeemptydirs
-	[ "$KEEP_DOC" = 0 ]      && removedocs
 	[ "$KEEP_LIBTOOL" = 0 ]  && removelibtool
 	[ "$STRIP_BINARY" = 1 ]  && strip_files
 	[ "$ZIP_MAN" = 1 ]       && compressinfomanpages
@@ -373,7 +350,6 @@ packaging() {
 		backupconf
 	fi
 	
-	msg2 "Compressing package..."	
 	for FILE in .pkginstall .pkgreadme; do
 		if [ -f $FILE ]; then
 			addtotar+=($FILE)
@@ -384,23 +360,14 @@ packaging() {
 	
 	tar -c -J -p -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
 	if [ $? != 0 ]; then
-		msgerr "Packaging failed."
-		if [ -f $PACKAGE_DIR/$PKGNAME ]; then
-			rm $PACKAGE_DIR/$PKGNAME
-		fi
+		rm -f $PACKAGE_DIR/$PKGNAME
+		msgerr "Packaging '$PKGNAME' failed."
 		abort 1
 	fi
+	tar -tvf $PACKAGE_DIR/$PKGNAME
 	
 	pkgsize="$(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}')"
-	if [ "$VERBOSE" ]; then
-		tar -t -v -f $PACKAGE_DIR/$PKGNAME
-	fi
 	msg "Successfully created package '$PKGNAME'. (${pkgsize})"
-	
-	case $PREBUILD_STATUS in
-		OK) msg2 "prebuild	: ${GREEN}OK${CRESET}" ;;
-		KO) msg2 "prebuild	: ${RED}FAIL${CRESET}" ;;
-	esac
 	
 	popd >/dev/null
 }
@@ -445,10 +412,6 @@ set_options() {
 			!emptydirs)  KEEP_EMPTYDIR=0;;
 			strip)       STRIP_BINARY=1 ;;
 			!strip)      STRIP_BINARY=0 ;;
-			docs)        KEEP_DOC=1 ;;
-			!docs)       KEEP_DOC=0 ;;
-			purge)       PURGE_FILE=1 ;;
-			!purge)      PURGE_FILE=0 ;;
 			zipman)      ZIP_MAN=1 ;;
 			!zipman)     ZIP_MAN=0 ;;
 			buildflags)  BUILD_FLAGS=1 ;;
@@ -504,13 +467,6 @@ Options:
       --no-color            disable color
       --no-backup           skip backup configuration file when upgrading package
       --redownload          re-download source file
-
-Example:
-  $(basename $0) -irw	        this will force rebuild, install package and keep working directory
-
-Note:
-  * use $(basename $0) without any options will only download source and build package by using other default options
-  * $(basename $0) need to run inside port directory
 EOF
 }
 
@@ -542,8 +498,7 @@ extract_opt() {
 	echo ${BOPTS[@]}
 }
 
-parse_opts() {
-	
+parse_opts() {	
 	while [ "$1" ]; do
 		case $1 in
 		-i |           --install) INSTALL_PKG=yes ;;
@@ -573,8 +528,7 @@ parse_opts() {
 		                       *) msg "Invalid $(basename $0) option! ($1)"; exit 1 ;;
 		esac
 		shift
-	done
-	
+	done	
 }
 
 main() {
@@ -658,7 +612,7 @@ main() {
 	# build package
 	if [ -f "$PACKAGE_DIR/$PKGNAME" ] && [ ! "$FORCE_REBUILD" ]; then
 		if [ ! "$INSTALL_PKG" ] && [ ! "$REINSTALL_PKG" ] && [ ! "$UPGRADE_PKG" ]; then
-			msg "Package '$PKGNAME' is up-to-date."
+			echo "Package '$PKGNAME' is up-to-date."
 			abort 0
 		fi
 	else
@@ -680,16 +634,16 @@ main() {
 
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
 
+export LC_ALL=C
+
 PKGBUILD_CONF="/etc/scratchpkg.conf"
 PKGBUILD_BSCRIPT="spkgbuild"
 
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
 WORK_DIR="/tmp"
+DOWNLOAD_PROG="wget"
 
-OPTIONS=(!libtool emptydirs strip docs purge zipman buildflags makeflags)
-DOC_DIRS=(usr/{,local/}{,share/}{doc,gtk-doc} opt/*/{doc,gtk-doc})
-MAN_DIRS=({usr{,/local}{,/share},opt/*}/man)
-PURGE_FILES=(usr/{,share/}info/dir)
+OPTIONS=(!libtool emptydirs strip zipman buildflags makeflags)
 
 main "$@"

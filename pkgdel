@@ -18,52 +18,38 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[0;33m'
-CYAN='\e[0;36m'
-CRESET='\e[0m'
-
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+
+export LC_ALL=C
 
 interrupted() {
 	echo
 	ret 1
 }
 
-nocolor() {
-	RED=
-	GREEN=
-	YELLOW=
-	CYAN=
-	CRESET=
-}
-
 msg() {
-	echo -e "${GREEN}==>${CRESET} $1"
+	echo -e "==> $1"
 }
 
 msg2() {
-	echo -e " ${CYAN}*${CRESET} $1"
+	echo -e " -> $1"
 }
 
 msgerr() {
-	echo -e "${RED}==> ERROR:${CRESET} $1"
+	echo -e "==> ERROR: $1"
 }
 
 msgwarn() {
-	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+	echo -e "==> WARNING: $1"
 }
 
-runremovehooks() {
-	
+runremovehooks() {	
 	if [ "${#runthishook[@]}" -gt 0 ]; then
 		for hook in ${runthishook[@]}; do
 			description=$(cat "$hook" | grep ^"# description" | sed 's/\://' | cut -d ' ' -f 3-)
 			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
 			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
 			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
-				[ "$SILENT_REMOVE" ] || msg2 "$description"
 				. $hook
 				if [ "`type -t exechook`" = "function" ]; then
 					exechook
@@ -72,12 +58,10 @@ runremovehooks() {
 			unset description operation target
 			unset -f exechook
 		done
-	fi
-	
+	fi	
 }
 
-runpreremovehooks() {
-	
+runpreremovehooks() {	
 	for hook in $HOOK_DIR/*.hook; do
 		[ -f $hook ] || continue
 		operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
@@ -88,8 +72,7 @@ runpreremovehooks() {
 			fi
 		fi
 		unset operation target
-	done
-	
+	done	
 }
 
 help() {	
@@ -98,18 +81,11 @@ Usage:
   $(basename $0) [ <options> <package name> ]
 
 Options:
-  -v, --verbose         print removed files
   -h, --help            show this help message
-  -s, --silent          print remove message in simple format
       --no-preremove    don't run pre-remove script
       --no-postremove   don't run post-remove script
-      --no-color        disable colour for output
       --no-hook         skip executing hook
       --root=<path>     remove package from custom root directory
-
-Example:
-  $(basename $0) firefox -dv --no-preremove       remove package firefox, skipping dependency check,
-                                             print deleted files and skipp pre-remove script
 EOF
 }
 
@@ -124,28 +100,24 @@ extract_opt() {
 	echo ${OPTS[@]}
 }
 
-parse_opts() {
-	
+parse_opts() {	
 	if [ -z "$1" ]; then
 		SHOWHELP=yes
 	else
 		while [ "$1" ]; do
 			case $1 in
-			-v |           --verbose) VERBOSE_REMOVE=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
-			-s |            --silent) SILENT_REMOVE=yes ;;
+			-v |           --verbose) VERBOSE_REMOVE=yes ;;
 			          --no-preremove) NO_PREREMOVE=yes ;;
 				     --no-postremove) NO_POSTREMOVE=yes ;;
-				          --no-color) NOCOLOR=yes ;;
-			   		     --no-hook) NOHOOK=yes ;;
+			   		       --no-hook) NOHOOK=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
 		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
 					               *) RMNAME=$1 ;;
 			esac
 			shift
 		done
-	fi
-	
+	fi	
 }
 
 ret() {
@@ -173,11 +145,6 @@ HOOK_DIR="/etc/hooks"
 if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
 	help
 	ret 0
-fi
-	
-# disable color for output
-if [ "$NOCOLOR" ]; then
-	nocolor
 fi
 
 # check for lock file
@@ -213,11 +180,7 @@ if [ -z $name ] && [ -z $version ] && [ -z $release ]; then
 	ret 1
 fi
 
-if [ "$SILENT_REMOVE" ]; then
-	echo -ne "Removing $name-$version-$release "
-else
-	msg "Removing '$name-$version-$release'..."
-fi
+echo "Removing '$name-$version-$release'..."
 
 # source .install script
 if [ "$ROOT" = "" ]; then
@@ -228,36 +191,41 @@ fi
 	
 if [ ! "$NO_PREREMOVE" ]; then	
 	if [ "`type -t pre_remove`" = "function" ]; then
-		[ "$SILENT_REMOVE" ] || msg2 "Running preremove script..."
 		pre_remove "$version" &>/dev/null
 	fi
 fi
 
 if [ "$ROOT" = "" ] && [ "$NOHOOK" != "yes" ]; then
-	runpreremovehooks $name
+	runpreremovehooks $name &>/dev/null
 fi
 
 if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
-	[ "$SILENT_REMOVE" ] || msg2 "Removing backup files..."
 	while IFS=' ' read -r line; do
-		[ -e "$ROOT/$line" ] && rm "$ROOT/$line"
+		if [ -e "$ROOT/$line" ]; then
+			[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
+			rm "$ROOT/$line"
+		fi
 	done < <(tac $INDEX_DIR/$name/.bkpfiles)
 fi
 
-[ "$SILENT_REMOVE" ] || msg2 "Removing files & dirs..."
 while IFS=' ' read -r line; do
-	rm "$ROOT/$line" &>/dev/null
+	if [ -e $ROOT/$line ]; then
+		[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
+		rm "$ROOT/$line"
+	fi
 done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
 
 while IFS=' ' read -r line; do
 	if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
-		rmdir "$ROOT/$line" &>/dev/null
+		if [ -d $ROOT/$line ]; then
+			[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
+			rmdir "$ROOT/$line"
+		fi
 	fi
 done < <(tac $INDEX_DIR/$name/.files | grep '/$')
 	
 if [ ! "$NO_POSTREMOVE" ]; then
 	if [ "`type -t post_remove`" = "function" ]; then
-		[ "$SILENT_REMOVE" ] || msg2 "Running postremove script..."
 		post_remove "$version" &>/dev/null
 	fi
 fi
@@ -268,15 +236,9 @@ if [ "$ROOT" = "" ] && [ "$NOHOOK" != "yes" ]; then
 	runremovehooks
 fi
 
-if [ "$SILENT_REMOVE" ]; then
-	echo "[ done ]"
-else
-	msg "Package '$name-$version-$release' removed."
-fi
-
 # running ldconfig
-if [ "$ROOT" = "" ] && [ -x /sbin/ldconfig ]; then
-	/sbin/ldconfig
+if [ -x /sbin/ldconfig ]; then
+	/sbin/ldconfig -r $ROOT/
 fi
 
 ret 0

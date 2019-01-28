@@ -18,45 +18,32 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[0;33m'
-CYAN='\e[0;36m'
-CRESET='\e[0m'
-
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+
+export LC_ALL=C
 
 interrupted() {
 	echo
 	ret 1
 }
 
-nocolor() {
-	RED=
-	GREEN=
-	YELLOW=
-	CYAN=
-	CRESET=
-}
-
 msg() {
-	echo -e "${GREEN}==>${CRESET} $1"
+	echo -e "==> $1"
 }
 
 msg2() {
-	echo -e " ${CYAN}*${CRESET} $1"
+	echo -e " -> $1"
 }
 
 msgerr() {
-	echo -e "${RED}==> ERROR:${CRESET} $1"
+	echo -e "==> ERROR: $1"
 }
 
 msgwarn() {
-	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+	echo -e "==> WARNING: $1"
 }
 
-runhooks() {
-	
+runhooks() {	
 	if [ "$UPGRADE_PKG" ]; then
 		opr=upgrade
 	else
@@ -71,7 +58,6 @@ runhooks() {
 		if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
 			if [ "$(echo $operation | grep -w "$opr" )" ]; then
 				if [ "$(grep $target $INDEX_DIR/$name/.files)" ]; then
-					[ "$SILENT_INSTALL" ] || msg2 "$description"
 					. $hook
 					if [ "`type -t exechook`" = "function" ]; then
 						exechook
@@ -81,34 +67,27 @@ runhooks() {
 		fi
 		unset description operation target
 		unset -f exechook
-	done
-	
+	done	
 }
 
 help() {	
 	cat << EOF
 Usage:
-  $(basename $0) package.spkg.txz <options>
+  $(basename $0) [ <options> <package.spkg.txz> ]
 
 Options:
   -u, --upgrade              upgrade package
   -r, --reinstall            reinstall package
   -c, --ignore-conflict      ignore conflict when installing package
   -v, --verbose              print files installed
-  -s, --silent               print install message in simple format
   -h, --help                 show this help message
       --no-preinstall        skip preinstall script before build/install package
       --no-postinstall       skip postinstall script after install package
       --no-preupgrade        skip preupgrade script before upgrade package
       --no-postupgrade       skip postupgrade script after upgrade package
       --no-backup            skip backup when upgrading package
-      --no-color             disable colour for output
       --no-hook              skip executing hook
       --root=<path>          install to custom root directory
-
-Example:
-  $(basename $0) foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
-                                                         old configuration files and skip conflict check
 EOF
 }
 
@@ -133,7 +112,6 @@ parse_opts() {
 			-r |         --reinstall) REINSTALL_PKG=yes ;;
 			-c |   --ignore-conflict) IGNORE_CONFLICT=yes ;;
 			-v |           --verbose) VERBOSE_INSTALL=yes ;;
-			-s |            --silent) SILENT_INSTALL=yes ;;
 			-h |              --help) SHOWHELP=yes ;;
 			         --no-preinstall) NO_PREINSTALL=yes ;;
 			        --no-postinstall) NO_POSTINSTALL=yes ;;
@@ -152,8 +130,8 @@ parse_opts() {
 }
 
 ret() {
-	# remove lock file on exit
-	rm -fr $LOCK_FILE $TMP_PKGADD
+	# remove lock and all tmp files on exit
+	rm -f $LOCK_FILE $TMP_PKGADD $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP $TMP_PKGADD_RMLIST
 	exit $1
 }
 
@@ -169,10 +147,7 @@ parse_opts $(extract_opt $@)
 
 INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
 PKGADD_DIR="$ROOT/var/lib/scratchpkg"
-TMP_PKGADD="$PKGADD_DIR/$(basename $0)-tmp"
 LOCK_FILE="$PKGADD_DIR/spkg.lock"
-TMP_PKGINSTALL="$TMP_PKGADD/$(basename $0).install"
-TMP_PKGINSTALL_BKP="$TMP_PKGADD/$(basename $0).bkp.install"
 HOOK_DIR=/etc/hooks
 
 # show help page
@@ -180,13 +155,11 @@ if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
 	help
 	ret 0
 fi
-	
-# disable color for output
-if [ "$NOCOLOR" ]; then
-	nocolor
-fi
 
-mkdir -p $PKGADD_DIR 
+if [ ! -d $INDEX_DIR ]; then
+	msgerr "Package's database directory not exist! ($INDEX_DIR)"
+	ret 1
+fi
 
 # check for lock file
 if [ -f $LOCK_FILE ]; then
@@ -200,8 +173,6 @@ else
 		exit 1
 	fi
 fi
-
-mkdir -p $INDEX_DIR $TMP_PKGADD
 
 if [ -n "$PKGNAME" ]; then
 	BASEPKGNAME=$(basename $PKGNAME)
@@ -232,14 +203,19 @@ if isinstalled $name; then
 fi
 
 if [ "$ALREADYINSTALLED" = "yes" ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PKG" ]; then
-	msg "Package '$name' already installed. ($iversion-$irelease)"
+	echo "Package '$name' already installed. ($iversion-$irelease)"
 	ret 0
 fi
 
 echo -ne "Loading $BASEPKGNAME...\033[0K\r"
 
+TMP_PKGADD="$(mktemp)" || exit 1
+TMP_PKGINSTALL="$(mktemp)" || exit 1
+TMP_PKGINSTALL_BKP="$(mktemp)" || exit 1
+TMP_PKGADD_RMLIST="$(mktemp)" || exit 1
+
 # check integrity of package
-tar -tf $PKGNAME > $TMP_PKGADD/files 2>/dev/null
+tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null
 if [ $? != 0 ]; then
 	msgerr "Package '$1' is corrupted!"
 	ret 1
@@ -254,21 +230,20 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	fi
 	if [ "$UPGRADE_PKG" ]; then	
 		if [ "$version-$release" = "$iversion-$irelease" ]; then
-			msg "Package '$name' is up-to-date. ($iversion-$irelease)"
+			echo "Package '$name' is up-to-date. ($iversion-$irelease)"
 			ret 0
 		fi
 	fi
 fi
 
 ### INSTALL PACKAGE INTO SYSTEM ###
-opr=Installing; oprdone=installed
-[ "$UPGRADE_PKG" ] && { opr=Upgrading; oprdone=upgraded; }
-[ "$REINSTALL_PKG" ] && { opr=Reinstalling; oprdone=reinstalled; }
-[ "$SILENT_INSTALL" ] || msg "$opr '$name-$version-$release'..."
+opr=Installing
+[ "$UPGRADE_PKG" ] && opr=Upgrading
+[ "$REINSTALL_PKG" ] && opr=Reinstalling
+echo "$opr '$name-$version-$release'..."
 
 #ignore conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
-	[ "$SILENT_INSTALL" ] || msg2 "Checking file conflict..."
 	while IFS=' ' read -r line; do
 			if [ "$line" = "${line%.*}.spkgnew" ]; then
 				line=${line%.*}
@@ -282,19 +257,18 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 					fileconflict+=(${line})
 				fi
 			fi
-	done < <(cat $TMP_PKGADD/files | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | grep -v '/$')
+	done < <(cat $TMP_PKGADD | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | grep -v '/$')
 		
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
-		[ "$SILENT_INSTALL" ] && echo
 		msgerr "File conflict found:"
 		for fc in ${fileconflict[@]}; do
-			msg2 "$fc"
+			echo "$fc"
 		done
 		ret 1
 	fi
 fi
 
-if [ $(grep -x .pkginstall $TMP_PKGADD/files) ]; then
+if [ $(grep -x .pkginstall $TMP_PKGADD) ]; then
 	source <(tar -xf "$PKGNAME" .pkginstall -O)
 fi
 
@@ -302,7 +276,6 @@ fi
 ( cd $ROOT/
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		if [ "`type -t pre_install`" = "function" ]; then
-			[ "$SILENT_INSTALL" ] || msg2 "Running preinstall script..."
 			pre_install "$version" &>/dev/null
 		fi
 	fi
@@ -312,23 +285,15 @@ fi
 ( cd $ROOT/
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
 		if [ "`type -t pre_upgrade`" = "function" ]; then
-			[ "$SILENT_INSTALL" ] || msg2 "Running preupgrade script..."
 			pre_upgrade "$version" "$iversion" &>/dev/null
 		fi
 	fi
 )
 
-#installing package into system
-total=$(cat $TMP_PKGADD/files | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | wc -l)
-count=0
-
-[ "$SILENT_INSTALL" ] || msg2 "Extracting package..."
 installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme"
 
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
 $installcmd | while IFS=' ' read line; do
-	count=$(( $count + 1 ))
-	[ "$SILENT_INSTALL" ] && echo -ne "$opr $name-$version-$release [ $(( 100*$count/$total ))% ]\r"
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
@@ -340,17 +305,17 @@ $installcmd | while IFS=' ' read line; do
 			mv "$ROOT/$line".spkgnew "$ROOT/$line"
 		fi
 	fi
+	[ "$VERBOSE_INSTALL" = yes ] && echo ">>> $line"
 	echo "$line" >> $TMP_PKGINSTALL
 done
 
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-	[ "$SILENT_INSTALL" ] || msg2 "Removing old files..."
-	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $TMP_PKGADD/$name.rmlist
-	grep -v '/$' $TMP_PKGADD/$name.rmlist | while IFS=' ' read line; do
+	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $TMP_PKGADD_RMLIST
+	grep -v '/$' $TMP_PKGADD_RMLIST | while IFS=' ' read line; do
 		rm "$ROOT/$line" &>/dev/null
 	done
-	grep '/$' $TMP_PKGADD/$name.rmlist | tac | while IFS=' ' read line; do
+	grep '/$' $TMP_PKGADD_RMLIST | tac | while IFS=' ' read line; do
 		if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
 			rmdir "$ROOT/$line" &>/dev/null
 		fi
@@ -363,14 +328,13 @@ mkdir $INDEX_DIR/$name
 echo "name = $name" > $INDEX_DIR/$name/.pkginfo
 echo "version = $version" >> $INDEX_DIR/$name/.pkginfo
 echo "release = $release" >> $INDEX_DIR/$name/.pkginfo
-mv $TMP_PKGINSTALL $INDEX_DIR/$name/.files
-[ -f $TMP_PKGINSTALL_BKP ] && mv $TMP_PKGINSTALL_BKP $INDEX_DIR/$name/.bkpfiles
+install -m644 $TMP_PKGINSTALL $INDEX_DIR/$name/.files
+[ -f $TMP_PKGINSTALL_BKP ] && install -m644 $TMP_PKGINSTALL_BKP $INDEX_DIR/$name/.bkpfiles
 tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 
 ( cd $ROOT/
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		if [ "`type -t post_install`" = "function" ]; then
-			[ "$SILENT_INSTALL" ] || msg2 "Running postinstall script..."
 			post_install "$version" &>/dev/null
 		fi
 	fi
@@ -379,7 +343,6 @@ tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 ( cd $ROOT/
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
 		if [ "`type -t post_upgrade`" = "function" ]; then
-			[ "$SILENT_INSTALL" ] || msg2 "Running postupgrade script..."
 			post_upgrade "$version" "$iversion" &>/dev/null
 		fi
 	fi
@@ -388,12 +351,6 @@ tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 if [ "$ROOT" = "" ]; then
 	[ "$NOHOOK" = "yes" ] || runhooks
 	[ $(type -p sysusers) ] && sysusers
-fi
-
-if [ "$SILENT_INSTALL" ]; then
-	echo
-else
-	msg "Package '$name-$version-$release' $oprdone."
 fi
 
 # running ldconfig

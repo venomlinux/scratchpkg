@@ -18,29 +18,23 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[0;33m'
-CYAN='\e[0;36m'
-CRESET='\e[0m'
-
 INDEX_DIR="/var/lib/scratchpkg/index"
 REPO_FILE="/etc/scratchpkg.repo"
 
 msgerr() {
-	echo -e "${RED}==> ERROR:${CRESET} $1"
+	echo -e "==> ERROR: $1"
 }
 
 msginst() {
-	echo -e "[${GREEN}i${CRESET}] $1"
+	echo -e "[i] $1"
 }
 
 msgmiss() {
-	echo -e "[${YELLOW}m${CRESET}] $1"
+	echo -e "[m] $1"
 }
 
 msgnoinst() {
-	echo -e "[${RED}-${CRESET}] $1"
+	echo -e "[-] $1"
 }
 
 checkdep() {
@@ -48,7 +42,6 @@ checkdep() {
 	PORT_PATH=$(getportpath "$1")
 	if [ "$PORT_PATH" ]; then
 		depends=$(grep "^# depends[[:blank:]]*:" $PORT_PATH/spkgbuild | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
-		#source $PORT_PATH/spkgbuild
 		for dep in ${depends[@]}; do
 			echo $dep
 		done
@@ -128,6 +121,7 @@ while [ "$1" ]; do
 		-m|--missing)       MISSING=1 ;;
 		-l|--loop)          IGNORE_LOOP=1 ;;
 		-h|--help)          USAGE=1 ;;
+		-*)                 msgerr "Invalid option. ($1)"; exit 1 ;;
 		*)                  PKG+=($1) ;;
 	esac
 	shift
@@ -161,14 +155,6 @@ if [ ! "$INSTALLED" ] && [ ! "$NOT_INSTALLED" ] && [ ! "$MISSING" ]; then
 	NOT_INSTALLED=1
 	MISSING=1
 fi
-
-# check for ports existence
-#for pkg in ${PKG[@]}; do
-	#if [ ! $(getportpath $pkg) ]; then
-		#msgerr "Package '$pkg' not found."
-		#exit 1
-	#fi
-#done
 
 # calculate dependencies
 for pkg in ${PKG[@]}; do
