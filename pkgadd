@@ -121,7 +121,7 @@ parse_opts() {
 			   		      --no-color) NOCOLOR=yes ;;
 			   		       --no-hook) NOHOOK=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
-					      *.spkg.*) PKGNAME="$1" ;;
+					    *.spkg.tar.*) PKGNAME="$1" ;;
 					               *) msg "Invalid option! ($1)"; exit 1 ;;
 			esac
 			shift
