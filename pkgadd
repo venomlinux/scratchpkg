@@ -190,11 +190,11 @@ if [ "$UID" != "0" ]; then
 	ret 1
 fi
 
-noextname=${BASEPKGNAME%*.spkg.*}
-name=${noextname%%-*}
-noextname=${noextname#*-}
-version=${noextname%%-*}
+noextname=${BASEPKGNAME%*.spkg.tar.*}
 release=${noextname##*-}
+noextname=${noextname%-*}
+version=${noextname##*-}
+name=${noextname%-*}
 		
 # get package information if installed
 if isinstalled $name; then
