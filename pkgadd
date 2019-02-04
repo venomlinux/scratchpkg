@@ -262,10 +262,10 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 	done < <(cat $TMP_PKGADD | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | grep -v '/$')
 		
 	if [ "${#fileconflict[@]}" -gt 0 ]; then
-		msgerr "File conflict found:"
 		for fc in ${fileconflict[@]}; do
 			echo "$fc"
 		done
+		msgerr "File conflict found!"
 		ret 1
 	fi
 fi
