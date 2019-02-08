@@ -209,7 +209,7 @@ if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
 fi
 
 while IFS=' ' read -r line; do
-	if [ -e $ROOT/$line ]; then
+	if [ -e "$ROOT/$line" ]; then
 		[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
 		rm "$ROOT/$line"
 	fi
@@ -217,7 +217,7 @@ done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
 
 while IFS=' ' read -r line; do
 	if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
-		if [ -d $ROOT/$line ]; then
+		if [ -d "$ROOT/$line" ]; then
 			[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
 			rmdir "$ROOT/$line"
 		fi

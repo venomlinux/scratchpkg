@@ -253,18 +253,17 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 			if [ -e "$ROOT/$line" ]; then
 				if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 					if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
-						fileconflict+=(${line})
+						echo "$line"
+						conflictedfile=yes
 					fi
 				else
-					fileconflict+=(${line})
+					echo "$line"
+					conflictedfile=yes
 				fi
 			fi
 	done < <(cat $TMP_PKGADD | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | grep -v '/$')
-		
-	if [ "${#fileconflict[@]}" -gt 0 ]; then
-		for fc in ${fileconflict[@]}; do
-			echo "$fc"
-		done
+	
+	if [ "$conflictedfile" = "yes" ]; then
 		msgerr "File conflict found!"
 		ret 1
 	fi

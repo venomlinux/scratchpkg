@@ -84,7 +84,7 @@ rebuild() {
 		needrebuild=$ALLPKG
 	fi
 	
-	for allpkg in $(pkgdeplist $needrebuild | cut -d ' ' -f2); do
+	for allpkg in $(pkgdeplist -l $needrebuild | cut -d ' ' -f2); do
 		for pkg in $needrebuild; do
 			if [ $pkg = $allpkg ]; then
 				if [ -z "$order" ]; then

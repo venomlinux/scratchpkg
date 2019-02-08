@@ -23,6 +23,8 @@ for pkg in $allinstalled; do
 	fi
 done
 
-scratch remove $remove
+if [ -n "$remove" ]; then
+	scratch remove $remove
+fi
 
 exit $?
