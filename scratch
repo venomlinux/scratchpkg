@@ -362,6 +362,10 @@ updports() {
 		esac
 		if [ -n "$repodir" ] && [ -n "$repourl" ]; then
 			httpup sync $repourl $repodir
+			if [ $? != 0 ]; then
+				msgerr "Failed sync from $repourl"
+				exit 1
+			fi
 		fi
 	done < "$REPO_FILE"
 }

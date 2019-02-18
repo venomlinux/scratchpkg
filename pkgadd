@@ -250,7 +250,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 			if [ "$line" = "${line%.*}.spkgnew" ]; then
 				line=${line%.*}
 			fi
-			if [ -e "$ROOT/$line" ]; then
+			if [ -e "$ROOT/$line" ] || [ -L "$ROOT/$line" ]; then
 				if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 					if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
 						echo "$line"
