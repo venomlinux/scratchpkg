@@ -25,6 +25,15 @@ CYAN='\e[0;36m'
 PURPLE='\e[0;35m'
 CRESET='\e[0m'
 
+nocolor() {
+	RED=
+	GREEN=
+	YELLOW=
+	CYAN=
+	PURPLE=
+	CRESET=
+}
+
 msg() {
 	echo -e "${GREEN}==>${CRESET} $1"
 }
@@ -1212,18 +1221,6 @@ usage() {
 	fi
 }
 
-extract_opt() {
-	local opt OPTS
-	for opt in $@; do
-		case $opt in
-			  --*) OPTS+=($opt) ;;
-			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
-			    *) OPTS+=($opt) ;;
-		esac
-	done
-	echo ${OPTS[@]}
-}
-
 main() {
 	
 	if [ "$mode" = "build" ]; then
@@ -1393,5 +1390,14 @@ fi
 
 mode=$1
 shift
-	
-main $(extract_opt $@)
+
+for opt in $@; do
+	case $opt in
+		--nocolor) nocolor ;;
+		      --*) OPTS+=($opt) ;;
+		       -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
+		        *) OPTS+=($opt) ;;
+	esac
+done
+
+main ${OPTS[@]}
