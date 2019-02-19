@@ -1394,10 +1394,10 @@ shift
 for opt in $@; do
 	case $opt in
 		--nocolor) nocolor ;;
-		      --*) OPTS+=($opt) ;;
-		       -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
-		        *) OPTS+=($opt) ;;
+		      --*) MAINOPTS+=($opt) ;;
+		       -*) for (( i=1; i<${#opt}; i++ )); do MAINOPTS+=(-${opt:$i:1}); done ;;
+		        *) MAINOPTS+=($opt) ;;
 	esac
 done
 
-main ${OPTS[@]}
+main ${MAINOPTS[@]}
