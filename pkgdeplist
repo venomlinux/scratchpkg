@@ -33,6 +33,10 @@ msgmiss() {
 	echo -e "[m] $1"
 }
 
+msgforeign() {
+	echo -e "[f] $1"
+}
+
 msgnoinst() {
 	echo -e "[-] $1"
 }
@@ -107,6 +111,7 @@ Options:
   -i, --installed          print only installed package/dependency
   -n, --not-installed      print only not-installed package/dependency
   -m, --missing            print only missing package/dependency
+  -f, --foreign            print foreign package/dependency
   -l, --loop               ignore loop dependencies
   -h, --help               print this help message
    
@@ -119,6 +124,7 @@ while [ "$1" ]; do
 		-i|--installed)     INSTALLED=1 ;;
 		-n|--not-installed) NOT_INSTALLED=1 ;;
 		-m|--missing)       MISSING=1 ;;
+		-f|--foreign)       FOREIGN=1 ;;
 		-l|--loop)          IGNORE_LOOP=1 ;;
 		-h|--help)          USAGE=1 ;;
 		-*)                 msgerr "Invalid option. ($1)"; exit 1 ;;
@@ -150,10 +156,11 @@ while read repodir repourl junk; do
 done < "$REPO_FILE"
 
 # set all to 1 (all) if not use any of it
-if [ ! "$INSTALLED" ] && [ ! "$NOT_INSTALLED" ] && [ ! "$MISSING" ]; then
+if [ ! "$INSTALLED" ] && [ ! "$NOT_INSTALLED" ] && [ ! "$MISSING" ] && [ ! "$FOREIGN" ]; then
 	INSTALLED=1
 	NOT_INSTALLED=1
 	MISSING=1
+	FOREIGN=1
 fi
 
 # calculate dependencies
@@ -163,7 +170,11 @@ done
 
 for deps in ${DEP[@]}; do
 	if [ -e $INDEX_DIR/$deps/.pkginfo ]; then
-		[ "$INSTALLED" ] && msginst "$deps"       # print installed
+		if [ ! $(getportpath "$deps") ]; then
+			[ "$FOREIGN" ] && msgforeign "$deps"  # print foreign pkg
+		else
+			[ "$INSTALLED" ] && msginst "$deps"   # print installed
+		fi
 	elif [ ! $(getportpath "$deps") ]; then
 		[ "$MISSING" ] && msgmiss "$deps"         # print missing port
 	else

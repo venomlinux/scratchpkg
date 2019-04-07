@@ -545,10 +545,9 @@ buildpkg() {
 	done
 	pushd $(getportpath $PKGNAME)
 	if [ $? = 0 ]; then
-		. $BUILD_SCRIPT
-		settermtitle "Building $name-$version-$release"
+		settermtitle "Building $PKGNAME..."
 		pkgbuild ${OPTS[@]} || return 1
-		settermtitle "Building $name-$version-$release done"
+		settermtitle "Building $PKGNAME done"
 	else
 		echo "Package '$PKGNAME' not found."
 		return 1
@@ -557,7 +556,7 @@ buildpkg() {
 }
 
 installpkg() {
-	local pkg i int pkgcount count IPKG OPTS REINSTALL
+	local pkg i int pkgcount count IPKG OPTS REINSTALL done_pkg
 	
 	needroot "Installing package"
 	
@@ -573,7 +572,7 @@ installpkg() {
 			REINSTALL=1
 		elif [[ "$1" =~ ^-(d|-no-dep)$ ]]; then
 			NO_DEP=1
-		elif [[ "$1" = "--no-confirm" ]]; then
+		elif [[ "$1" = "--yes" ]] || [[ "$1" = "-y" ]]; then
 			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
@@ -597,10 +596,11 @@ installpkg() {
 						error=1
 						break
 					fi
+					done_pkg+=($ii)
 				popd
 			fi
 		done
-		srunhooks ${PKGNAME[@]}
+		srunhooks ${done_pkg[@]}
 		[ "$error" = 1 ] && return 1 || return 0
 	fi
 	if [ "$NO_DEP" = 1 ]; then
@@ -617,10 +617,11 @@ installpkg() {
 						error=1
 						break
 					fi
+					done_pkg+=($ii)
 				popd
 			fi
 		done
-		srunhooks ${PKGNAME[@]}
+		srunhooks ${done_pkg[@]}
 		[ "$error" = 1 ] && return 1 || return 0
 	fi
 	for i in ${PKGNAME[@]}; do
@@ -661,13 +662,14 @@ installpkg() {
 			portpathh=$(getportpath $int)
 			if [ "$portpathh" ]; then
 				pushd $portpathh
-					. $BUILD_SCRIPT
-					settermtitle "[ $count/$total ] installing $name-$version-$release"
+					settermtitle "[ $count/$total ] installing $int..."
 					pkgbuild -i --no-hook ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
+						count=$(( $count - 1 ))
 						break
 					fi
+					done_pkg+=($int)
 				popd
 			else
 				msgwarn "Skipping missing package: $int"
@@ -675,7 +677,7 @@ installpkg() {
 			unset portpathh
 		done
 		settermtitle "Triggering install hook"
-		srunhooks ${INST[@]}
+		srunhooks ${done_pkg[@]}
 		settermtitle "$count/$total package(s) installed"
 		return "$error"
 	fi
@@ -709,7 +711,7 @@ removepkg() {
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^--(no-postremove|no-preremove)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" = "--no-confirm" ]]; then
+		elif [[ "$1" = "--yes" ]] || [[ "$1" = "-y" ]]; then
 			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
@@ -750,7 +752,7 @@ removepkg() {
 		for pkg in ${IPKG[@]}; do
 			count=$(( $count + 1 ))
 			srunpreremovehooks $pkg
-			settermtitle "[ $count/$pkgcount ] Removing $pkg"
+			settermtitle "[ $count/$pkgcount ] Removing $pkg..."
 			pkgdel --no-hook $pkg ${OPTS[@]} || return 1
 		done
 		settermtitle "Triggering remove hook"
@@ -760,12 +762,12 @@ removepkg() {
 }
 
 sysup() {
-	local d UPGPKG NEWPKG PKGOUTDATE OPTS
+	local d UPGPKG NEWPKG PKGOUTDATE OPTS done_pkg
 	
 	needroot "Upgrading package"
 	
 	while [ "$1" ]; do
-		if [ "$1" = "--no-confirm" ]; then
+		if [ "$1" = "--yes" ] || [ "$1" = "-y" ]; then
 			NOCONFIRM=1
 		elif [ "$1" = "--no-backup" ]; then
 			OPTS+=($1)
@@ -811,31 +813,33 @@ sysup() {
 	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
 		count=$(( $count + 1 ))
 		pushd $(getportpath $inst)
-		. $BUILD_SCRIPT
 		if ! isinstalled $inst; then
-			settermtitle "[ $count/$total ] Installing $name-$version-$release"
+			settermtitle "[ $count/$total ] Installing $inst..."
 			pkgbuild -i --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
+				count=$(( $count - 1 ))
 				break
 			fi
 		else
-			settermtitle "[ $count/$total ] Upgrading $name-$version-$release"
+			settermtitle "[ $count/$total ] Upgrading $inst..."
 			pkgbuild -u --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
+				count=$(( $count - 1 ))
 				break
 			fi
 		fi
+		done_pkg+=($inst)
 	done
 	settermtitle "Triggering install hook"
-	srunhooks ${WILLINSTALL[@]}
+	srunhooks ${done_pkg[@]}
 	settermtitle "$count/$total package(s) upgraded"
 	return $error
 }
 
 upgradepkg() {
-	local pkg
+	local pkg done_pkg
 	
 	needroot "Upgrading package"
 	
@@ -845,7 +849,7 @@ upgradepkg() {
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(-no-dep|d)$ ]]; then
 			NO_DEP=1
-		elif [[ "$1" = "--no-confirm" ]]; then
+		elif [[ "$1" = "--yes" ]] || [[ "$1" = "-y" ]]; then
 			NOCONFIRM=1
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
@@ -905,30 +909,32 @@ upgradepkg() {
 		for newpkg in ${NEWPKG[@]}; do	
 			count=$(( $count + 1 ))		
 			pushd $(getportpath $newpkg)
-				. $BUILD_SCRIPT
-				settermtitle "[ $count/$total ] Installing $name-$version-$release"
+				settermtitle "[ $count/$total ] Installing $newpkg..."
 				pkgbuild -i --no-hook ${OPTS[@]}
 				if [ $? != 0 ]; then
 					error=1
+					count=$(( $count - 1 ))
 					break
 				fi
+				done_pkg+=($newpkg)
 			popd
 		done
 	fi
 	for pkg in ${PKGNAME[@]}; do # upgrade all target packages
 		count=$(( $count + 1 ))
 		pushd $(getportpath $pkg)
-			. $BUILD_SCRIPT
-			settermtitle "[ $count/$total ] Upgrading $name-$version-$release"
+			settermtitle "[ $count/$total ] Upgrading $pkg..."
 			pkgbuild -u --no-hook ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
+				count=$(( $count - 1 ))
 				break
 			fi
+			done_pkg+=($pkg)
 		popd
 	done
 	settermtitle "triggering upgrade hook"
-	srunhooks ${NEWPKG[@]} ${PKGNAME[@]}
+	srunhooks ${done_pkg[@]}
 	settermtitle "$count/$total package(s) upgraded"
 	return $error
 }
@@ -1156,7 +1162,7 @@ Options:
     --no-backup            skip backup configuration file
     --no-preupgrade        skip pre-upgrade script
     --no-postupgrade       skip post-upgrade script
-    --no-confirm           dont ask confirmation
+    -y, --yes              dont ask confirmation
     
 EOF
 }
@@ -1171,7 +1177,7 @@ Options:
     -v, --verbose          print removed files
     --no-preremove         skip pre-remove script
     --no-postremove        skip post-remove script
-    --no-confirm           dont ask confirmation
+    -y, --yes              dont ask confirmation
     
 EOF
 }
@@ -1187,7 +1193,7 @@ Options:
     -r, --reinstall        reinstall installed package
     --no-preinstall        skip pre-install script
     --no-postinstall       skip post-install script
-    --no-confirm           dont ask confirmation
+    -y, --yes              dont ask confirmation
     
 EOF
 }
