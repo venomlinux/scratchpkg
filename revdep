@@ -104,16 +104,18 @@ rebuild() {
 			fi
 		done
 	done
-	if [ "$NOCONFIRM" = "" ]; then
-		echo
-		echo "Package will be rebuild & reinstall by this order:"
-		echo " $order"
-		echo
-		confirm "Continue rebuild & reinstall broken packages?" "Operation cancelled."
+	if [ -n "$order" ]; then
+		if [ "$NOCONFIRM" = "" ]; then
+			echo
+			echo "Package will be rebuild & reinstall by this order:"
+			echo " $order"
+			echo
+			confirm "Continue rebuild & reinstall broken packages?" "Operation cancelled."
+		fi
+		for p in $order; do
+			scratch build -f $p && scratch install -r $p || { cleanup; exit 1; }
+		done
 	fi
-	for p in $order; do
-		scratch build -f $p && scratch install -r $p || { cleanup; exit 1; }
-	done
 }
 
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
@@ -229,7 +231,7 @@ echo -ne "\033[0K"
 	
 if [ "$ALLPKG" ]; then
 	echo
-	echo "This package(s) requires rebuild:"
+	echo "Broken package(s):"
 	for rebuild in $ALLPKG; do
 		echo -e " $rebuild"
 	done
