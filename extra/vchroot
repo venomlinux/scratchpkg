@@ -42,12 +42,19 @@ if [ -z $2 ]; then
 	CMD="/bin/bash --login"
 fi
 
+if [ -e /sys/firmware/efi/systab ]; then
+	EFI_SYSTEM=1
+fi
+
 pushd $LFS &>/dev/null
 
 mount --bind /dev $LFS/dev
 mount -t devpts devpts $LFS/dev/pts -o gid=5,mode=620
 mount -t proc proc $LFS/proc
 mount -t sysfs sysfs $LFS/sys
+if [ -n "$EFI_SYSTEM" ]; then
+	mount --bind /sys/firmware/efi/efivars $LFS/sys/firmware/efi/efivars
+fi
 mount -t tmpfs tmpfs $LFS/run
 
 if [ -h $LFS/dev/shm ]; then
@@ -70,6 +77,9 @@ umount $LFS/dev/pts
 umount $LFS/dev
 umount $LFS/run
 umount $LFS/proc
+if [ -n "$EFI_SYSTEM" ]; then
+	umount $LFS/sys/firmware/efi/efivars
+fi
 umount $LFS/sys
 
 exit $retval
