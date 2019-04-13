@@ -977,10 +977,6 @@ outdate() {
 }
 
 clearpkgcache() {	
-	needroot "Removing package & source cache"
-	
-	getpkgcache
-	
 	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
 		for pkg in ${ALL_PACKAGES[@]}; do
 			rm -v $PACKAGE_DIR/$pkg
@@ -999,18 +995,18 @@ getpkgcache() {
 	
 	[ -f /etc/scratchpkg.conf ] && . /etc/scratchpkg.conf
 	
-	for list in $(ls "$PACKAGE_DIR"); do
-		[ -f "$PACKAGE_DIR"/$list ] && ALL_PACKAGES+=($list)
+	for list in "$PACKAGE_DIR"/*; do
+		[ -f "$list" ] && ALL_PACKAGES+=($(basename $list))
 	done
 	
-	for list in $(ls "$SOURCE_DIR"); do
-		[ -f "$SOURCE_DIR"/$list ] && ALL_SOURCES+=($list)
+	for list in "$SOURCE_DIR"/*; do
+		[ -f "$list" ] && ALL_SOURCES+=($(basename $list))
 	done
 	
 	for repo in ${PORT_REPO[@]}; do
-		for port in $(ls $repo); do
-			if [ -f $repo/$port/$BUILD_SCRIPT ]; then
-				. $repo/$port/$BUILD_SCRIPT
+		if [ "$(find $repo/*/ -mindepth 1 -print -quit 2>/dev/null)" ]; then # check directory if its not empty
+			for port in $repo/*/$BUILD_SCRIPT; do
+				. $port
 				PORT_PACKAGES+=($name-$version-$release.spkg.tar.$COMPRESSION_MODE)
 				if [ ! -z $source ]; then
 					for src in ${source[@]}; do
@@ -1024,8 +1020,8 @@ getpkgcache() {
 						fi
 					done
 				fi
-			fi
-		done
+			done
+		fi
 	done
 	
 	for i in ${PORT_PACKAGES[@]}; do
@@ -1062,12 +1058,19 @@ pkgcache() {
 		ALL_SOURCES_SIZE=0M
 	fi
 	
-	msg "${CYAN}Package cache ($ALL_PACKAGES_SIZE):${CRESET}"
-	[ ${#ALL_PACKAGES[@]} -gt 0 ] && (echo ${ALL_PACKAGES[@]} | tr ' ' '\n') || echo "(none)"
+	[ ${#ALL_PACKAGES[@]} -gt 0 ] && (echo ${ALL_PACKAGES[@]} | tr ' ' '\n')
+	[ ${#ALL_SOURCES[@]} -gt 0 ] && (echo ${ALL_SOURCES[@]} | tr ' ' '\n')
 	
-	echo ""
-	msg "${CYAN}Source cache ($ALL_SOURCES_SIZE):${CRESET}"
-	[ ${#ALL_SOURCES[@]} -gt 0 ] && (echo ${ALL_SOURCES[@]} | tr ' ' '\n') || echo "(none)"
+	echo
+	echo -e "Package caches ($ALL_PACKAGES_SIZE)"
+	echo -e "Source caches ($ALL_SOURCES_SIZE)"
+	echo
+	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ] || [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		confirm "Clear old caches?" "Old caches is keep."
+		needroot "Clear old caches"
+		clearpkgcache
+	fi
 }
 
 showportpath() {
@@ -1121,7 +1124,6 @@ Operation:
     integrity                 check integrity of package's files
     outdate                   check for outdate packages
     cache                     print leftover cache
-    rmcache                   remove leftover cache
     missingdep                check for mising dependency of installed package
     foreignpkg                print package installed without port in repo
     listlocked                print locked packages
@@ -1332,11 +1334,6 @@ main() {
 	
 	if [ "$mode" = "listinst" ]; then
 		listinstalled
-		exit $?
-	fi
-	
-	if [ "$mode" = "rmcache" ]; then
-		clearpkgcache
 		exit $?
 	fi
 	
