@@ -236,8 +236,14 @@ run_build() {
 	
 	runprebuildscript
 	
-	(set -e -x; build)
-	#(exec &> >(tee -i $LOG_DIR/$name.log); echo "$name-$version"; echo $(date); set -e -x; build)
+	if [ "$LOGGING" = yes ]; then	
+		(
+			set -e -x; build 2>&1 | tee $LOG_DIR/$name-$version-$release.log
+			exit $PIPESTATUS
+		)
+	else
+		(set -e -x; build)
+	fi
 		
 	if [ $? != 0 ]; then
 		msgerr "Build '$name-$version-$release' failed."
@@ -519,6 +525,7 @@ parse_opts() {
 		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
 		-s |            --silent) INST_OPT=$1 ;;
+		-l |               --log) LOGGING=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
 		         --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
@@ -574,6 +581,11 @@ main() {
 		exit 1
 	fi
 	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR"
+	
+	if [ -f $LOG_DIR/$name-$version-$release.log ] && [ ! -w $LOG_DIR/$name-$version-$release.log ]; then
+		msgerr "You dont have write permission for '$LOG_DIR/$name-$version-$release.log'!"
+		abort 1
+	fi
 	
 	check_buildscript
 	set_options
@@ -651,6 +663,7 @@ PKGBUILD_BSCRIPT="spkgbuild"
 
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
+LOG_DIR="/var/cache/scratchpkg/log"
 WORK_DIR="/tmp"
 DOWNLOAD_PROG="wget"
 COMPRESSION_MODE="xz"

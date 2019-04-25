@@ -338,11 +338,7 @@ showdependent() {
 checkowner() {
 	local arg
 	arg=$(echo $1 | sed 's:^/::')
-	for pkg in $(allinstalled); do
-		grep $arg $INDEX_DIR/$pkg/.files | while read line; do
-			echo -e "${CYAN}$pkg${CRESET} => ${PURPLE}$line${CRESET}"
-		done
-	done
+	grep -R $arg $INDEX_DIR/*/.files | sed "s:$INDEX_DIR/::" | sed "s:/.files::" | tr : " " | column -t
 }
 
 showtree() {	
@@ -529,9 +525,9 @@ buildpkg() {
 		return 1
 	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(f|v|w|m|o|x)$ ]]; then
+		if [[ "$1" =~ ^-(f|v|w|m|o|x|l)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(no-prebuild|force-rebuild|skip-mdsum|download|extract|keep-work)$ ]]; then
+		elif [[ "$1" =~ ^--(no-prebuild|force-rebuild|skip-mdsum|download|extract|keep-work|log)$ ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(pkgdir|srcdir)= ]]; then
 			OPTS+=($1)
@@ -565,7 +561,7 @@ installpkg() {
 		return 1
 	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(c|v|-verbose|-ignore-conflict)$ ]]; then
+		if [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict|-log)$ ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
 			OPTS+=($1)
@@ -775,7 +771,7 @@ sysup() {
 		shift
 	done
 	
-	echo "Checking for outdate packages..."
+	echo "Checking for outdated packages..."
 	PKGOUTDATE=$(outdatepkg)
 	
 	if [ ! "$PKGOUTDATE" ]; then
