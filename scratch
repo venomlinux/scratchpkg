@@ -221,22 +221,17 @@ checkintegrity() {
 }
 
 listinstalled() {
-	local pkg	
+	local pkg
 	for pkg in $(allinstalled); do
-		iname=$(installed_pkg_info name $pkg)
-		iversion=$(installed_pkg_info version $pkg)
-		irelease=$(installed_pkg_info release $pkg)
-		echo -e "$iname ${GREEN}$iversion${CRESET}-${BLUE}$irelease${CRESET}"
-		unset iname iversion irelease
-	done	
+		echo $pkg
+	done
 }
 
 listorphan() {
 	local pkg dep
 	tmpallpkg=$(mktemp)
 	tmpalldep=$(mktemp)
-	for pkg in $INDEX_DIR/*/.pkginfo; do
-		pkg=$(basename $(dirname $pkg))
+	for pkg in $(allinstalled); do
 		echo $pkg >> $tmpallpkg
 		dep="$dep $(grep "^# depends[[:blank:]]*:" $(getportpath $pkg)/$BUILD_SCRIPT 2>/dev/null | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')"
 	done
@@ -278,8 +273,7 @@ unlockpkg() {
 }
 
 listlocked() {
-	local pkg
-	
+	local pkg	
 	for pkg in $(allinstalled); do
 		if [ -f "$INDEX_DIR"/$pkg/.lock ]; then
 			echo -e "$pkg"
@@ -434,7 +428,6 @@ searchpkg() {
 }
 
 foreignpkg() {
-	
 	for pkg in $(allinstalled); do
 		if ! getportpath $pkg >/dev/null; then
 			iname=$(installed_pkg_info name $pkg)
@@ -443,12 +436,11 @@ foreignpkg() {
 			echo -e "$iname ${GREEN}$iversion${CRESET}-${CYAN}$irelease${CRESET}"
 		fi
 		unset iname iversion irelease
-	done
-	
+	done	
 }
 
 srunhooks() {
-	local hook
+	local hooks
 	if [ "$mode" = "upgrade" ] || [ "$mode" = "sysup" ]; then
 		opr=upgrade
 	else
@@ -525,11 +517,11 @@ buildpkg() {
 		return 1
 	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(f|v|w|m|o|x|l)$ ]]; then
+		if [[ "$1" =~ ^-(f|w|m|o|x|l)$ ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(no-prebuild|force-rebuild|skip-mdsum|download|extract|keep-work|log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(pkgdir|srcdir)= ]]; then
+		elif [[ "$1" =~ ^--(pkgdir|srcdir|logdir)= ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
@@ -561,7 +553,9 @@ installpkg() {
 		return 1
 	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict|-log)$ ]]; then
+		if [[ "$1" =~ ^-(c|v|-verbose|-ignore-conflict)$ ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^--(no-preinstall|no-postinstall) ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
 			OPTS+=($1)
@@ -587,6 +581,7 @@ installpkg() {
 				echo "Package '$ii' not installed."
 			else
 				pushd $(getportpath $ii)
+					settermtitle "Reinstalling $ii..."
 					pkgbuild --no-hook ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
@@ -596,7 +591,9 @@ installpkg() {
 				popd
 			fi
 		done
+		settermtitle "Triggering install hook"
 		srunhooks ${done_pkg[@]}
+		settermtitle "Reinstalling done"
 		[ "$error" = 1 ] && return 1 || return 0
 	fi
 	if [ "$NO_DEP" = 1 ]; then
@@ -608,6 +605,7 @@ installpkg() {
 				return 0
 			else
 				pushd $(getportpath $ii)
+					settermtitle "Installing $ii..."
 					pkgbuild -i --no-hook ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
@@ -617,7 +615,9 @@ installpkg() {
 				popd
 			fi
 		done
+		settermtitle "Triggering install hook"
 		srunhooks ${done_pkg[@]}
+		settermtitle "Installing done"
 		[ "$error" = 1 ] && return 1 || return 0
 	fi
 	for i in ${PKGNAME[@]}; do
@@ -763,13 +763,26 @@ sysup() {
 	needroot "Upgrading package"
 	
 	while [ "$1" ]; do
-		if [ "$1" = "--yes" ] || [ "$1" = "-y" ]; then
-			NOCONFIRM=1
-		elif [ "$1" = "--no-backup" ]; then
+		if  [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup)$ ]]; then
 			OPTS+=($1)
+		elif [[ "$1" =~ ^-(c|v|-verbose|-ignore-conflict)$ ]]; then
+			OPTS+=($1)
+		elif [ "$1" = "--yes" ] || [ "$1" = "-y" ]; then
+			NOCONFIRM=1
+		elif [ "$1" = "--np-dep" ] || [ "$1" = "-d" ]; then
+			NODEP=1
+		elif [ "$1" = "--sync" ] || [ "$1" = "-s" ]; then
+			SYNC=1
+		elif [[ "$1" =~ ^-. ]]; then
+			echo "Unrecognize option. ($1)"
+			exit 1
 		fi
 		shift
 	done
+	
+	if [ "$SYNC" = 1 ]; then
+		updports
+	fi
 	
 	echo "Checking for outdated packages..."
 	PKGOUTDATE=$(outdatepkg)
@@ -778,23 +791,33 @@ sysup() {
 		echo "All package is up to date."
 		return 0
 	fi
-	echo "Resolving dependencies..."
-	DEP=$(pkgdeplist ${PKGOUTDATE[@]} -l | awk '{print $2}')
-	echo
-	
+		
 	UPGPKG=0
 	NEWPKG=0
-	for d in $DEP; do
-		if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
-			echo -ne "[${GREEN}u${CRESET}] $d  "
-			WILLINSTALL+=($d)
+	
+	if [ "$NODEP" != 1 ]; then
+		echo "Resolving dependencies..."
+		DEP=$(pkgdeplist ${PKGOUTDATE[@]} -l | awk '{print $2}')
+		echo
+		for d in $DEP; do
+			if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
+				echo -ne "[${GREEN}u${CRESET}] $d  "
+				WILLINSTALL+=($d)
+				UPGPKG=$(( $UPGPKG + 1 ))
+			elif ! isinstalled $d && [ $(getportpath "$d") ]; then
+				echo -ne "[${CYAN}n${CRESET}] $d  "
+				WILLINSTALL+=($d)
+				NEWPKG=$(( $NEWPKG + 1 ))
+			fi
+		done
+	else
+		echo
+		for dd in ${PKGOUTDATE[@]}; do
+			echo -ne "[${GREEN}u${CRESET}] $dd  "
+			WILLINSTALL+=($dd)
 			UPGPKG=$(( $UPGPKG + 1 ))
-		elif ! isinstalled $d && [ $(getportpath "$d") ]; then
-			echo -ne "[${CYAN}n${CRESET}] $d  "
-			WILLINSTALL+=($d)
-			NEWPKG=$(( $NEWPKG + 1 ))
-		fi
-	done
+		done
+	fi
 	echo		
 	echo
 	echo "( $UPGPKG upgrade, $NEWPKG new install )"
@@ -841,7 +864,9 @@ upgradepkg() {
 	
 	needarg "$@"
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade)$ ]]; then
+		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup)$ ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^-(c|v|-ignore-conflict|-verbose) ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(-no-dep|d)$ ]]; then
 			NO_DEP=1
@@ -1099,30 +1124,29 @@ duplicateports() {
 usage_extra() {
 	cat << EOF
 Usage:
-    $(basename $0) <operation> [ <pkgname/pattern/file> ]
+    $(basename $0) <operation> [ <port/pattern/file> ]
     
 Operation:
-    depends   <package>       show depends of a package
-    search    <pattern>       search packages in port's repos
-    lock      <packages>      lock packages from upgrade
-    unlock    <packages>      unlock packages from upgrade
-    cat       <package>       view a package build scripts
-    dependent <package>       show package's dependent
-    own       <file>          show package's owner of file
-    pkgtree   <package>       show list files of installed package
-    path      <package>       show package's buildscripts path
-    sync                      update port's repo
-    sysup                     full system update
-    dup                       print duplicate ports in repo
-    readme                    print readme file if exist
-    listinst                  list installed package in system
-    listorphan                list orphan package
-    integrity                 check integrity of package's files
-    outdate                   check for outdate packages
-    cache                     print leftover cache
-    missingdep                check for mising dependency of installed package
-    foreignpkg                print package installed without port in repo
-    listlocked                print locked packages
+    depends   <port>       show depends of a package
+    search    <pattern>    search packages in port's repos
+    lock      <port>       lock packages from upgrade
+    unlock    <port>       unlock packages from upgrade
+    cat       <port>       view a package build scripts
+    dependent <port>       show package's dependent
+    own       <file>       show package's owner of file
+    files     <port>       show list files of installed package
+    path      <port>       show package's buildscripts path
+    readme    <port>       print readme file if exist
+    sync                   update port's repo
+    dup                    print duplicate ports in repo
+    listinst               list installed package in system
+    listorphan             list orphan package
+    integrity              check integrity of package's files
+    outdate                check for outdated packages
+    cache                  print leftover cache
+    missingdep             check for mising dependency of installed package
+    foreignpkg             print package installed without port in repo
+    listlocked             print locked packages
     
 EOF
 }
@@ -1135,15 +1159,15 @@ Usage:
 Options:
     -f, --force-rebuild    force rebuild
     -m, --skip-mdsum       skip md5sum check for sources
-    -d, --no-dep           skip dependency check
-    -e, --extract          extract only
+    -x, --extract          extract only
     -w, --keep-work        keep woring directory
     -o, --download         download source files only
-    -v, --verbose          be verbose
+    -l, --log              log build process
     --redownload           re-download source files
     --srcdir=<path>        override default SOURCE_DIR
     --pkgdir=<path>        override default PACKAGE_DIR
-    --no-preinstall        skip pre-install script
+    --logdir=<path>        override default LOG_DIR
+    --no-prebuild          skip pre-build script
     
 EOF
 }
@@ -1157,10 +1181,28 @@ Options:
     -d, --no-dep           skip installing dependencies (new dependencies)
     -c, --ignore-conflict  skip file conflict check
     -v, --verbose          print install process
+    -y, --yes              dont ask confirmation
     --no-backup            skip backup configuration file
     --no-preupgrade        skip pre-upgrade script
     --no-postupgrade       skip post-upgrade script
+    
+EOF
+}
+
+usage_sysup() {
+	cat << EOF
+Usage:
+    $(basename $0) sysup <options>
+    
+Options:
+    -d, --no-dep           skip installing dependencies (new dependencies)
+    -c, --ignore-conflict  skip file conflict check
+    -v, --verbose          print install process
+    -s, --sync             sync ports before upgrades
     -y, --yes              dont ask confirmation
+    --no-backup            skip backup configuration file
+    --no-preupgrade        skip pre-upgrade script
+    --no-postupgrade       skip post-upgrade script
     
 EOF
 }
@@ -1171,11 +1213,10 @@ Usage:
     $(basename $0) remove [ <pkgname> <options> ]
     
 Options:
-    -d, --no-dep           skip dependency check
     -v, --verbose          print removed files
+    -y, --yes              dont ask confirmation
     --no-preremove         skip pre-remove script
     --no-postremove        skip post-remove script
-    -y, --yes              dont ask confirmation
     
 EOF
 }
@@ -1189,9 +1230,10 @@ Options:
     -d, --no-dep           skip installing dependencies
     -c, --ignore-conflict  skip file conflict check
     -r, --reinstall        reinstall installed package
+    -v, --verbose          print install files
+    -y, --yes              dont ask confirmation
     --no-preinstall        skip pre-install script
     --no-postinstall       skip post-install script
-    -y, --yes              dont ask confirmation
     
 EOF
 }
@@ -1202,10 +1244,11 @@ Usage:
     $(basename $0) help <operation>
     
 Operation:
-    build           build only packages
+    build           build package
     install         install packages
-    remove          remove packages in system
-    upgrade         upgrade packages and install new dependencies (if any)
+    upgrade         upgrade packages
+    sysup           full system upgrades
+    remove          remove packages
     extra           various extra options
     
 EOF
@@ -1220,6 +1263,7 @@ usage() {
 			remove)  usage_remove ;;
 			upgrade) usage_upgrade ;;
 			build)   usage_build ;;
+			sysup)   usage_sysup ;;
 			extra)   usage_extra ;;
 		esac
 	fi
@@ -1288,7 +1332,7 @@ main() {
 		exit $?
 	fi
 	
-	if [ "$mode" = "pkgtree" ]; then
+	if [ "$mode" = "files" ]; then
 		showtree $1
 		exit $?
 	fi
@@ -1363,7 +1407,7 @@ main() {
 		exit $?
 	fi
 
-	echo "Run 'scratch help' to see available mode and options"
+	echo "Run 'scratch help' to see available operations and options"
 	exit 5
 }
 

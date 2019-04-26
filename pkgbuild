@@ -234,7 +234,9 @@ run_build() {
 	
 	pushd $SRC >/dev/null
 	
-	runprebuildscript
+	if [ "$NO_PREBUILD" != yes ]; then
+		runprebuildscript
+	fi
 	
 	if [ "$LOGGING" = yes ]; then	
 		(
@@ -450,38 +452,6 @@ checkdir() {
 	done
 }
 
-help() {	
-	cat << EOF
-Usage:
-  $(basename $0) [ <options> <arguments> ]
-
-Options:
-  -i, --install             install package into system
-  -u, --upgrade             upgrade package
-  -r, --reinstall           reinstall package
-  -c, --ignore-conflict     ignore conflict when installing package
-  -v, --verbose             verbose install process
-  -f, --force-rebuild       rebuild package
-  -m, --skip-mdsum          skip md5sum checking
-  -g, --genmdsum            generate md5sum
-  -o, --download            download only source file
-  -x, --extract             extract only source file
-  -w, --keep-work           keep working directory
-  -s, --silent              print install message in simple format
-  -h, --help                show this help message
-      --srcdir=<path>       override directory path for sources
-      --pkgdir=<path>       override directory path for compiled package
-      --no-prebuild         skip prebuild script before build package
-      --no-preinstall       skip preinstall script before install package
-      --no-postinstall      skip postinstall script after install package
-      --no-preupgrade       skip preupgrade script before upgrade package
-      --no-postupgrade      skip postupgrade script after upgrade package
-      --no-color            disable color
-      --no-backup           skip backup configuration file when upgrading package
-      --redownload          re-download source file
-EOF
-}
-
 clearworkdir() {
 	if [ ! "$KEEP_WORK" ]; then
 		rm -fr $WORK_DIR/$name
@@ -524,24 +494,57 @@ parse_opts() {
 		-o |          --download) DOWNLOAD_ONLY=yes ;;
 		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
-		-s |            --silent) INST_OPT=$1 ;;
 		-l |               --log) LOGGING=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
+		           --no-prebuild) NO_PREBUILD=yes ;;
 		         --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
 		         --no-preupgrade) OPTS+=($1) ;;
 		        --no-postupgrade) OPTS+=($1) ;;
 		               --no-hook) OPTS+=($1) ;;
-		              --no-color) NOCOLOR=yes; OPTS+=($1) ;;
 		             --no-backup) OPTS+=($1) ;;
 		            --redownload) REDOWNLOAD_SOURCE=yes ;;
-		          --check-source) SOURCE_CHECK=yes ;;
 		              --srcdir=*) SOURCE_DIR="${1#*=}" ;;
 		              --pkgdir=*) PACKAGE_DIR="${1#*=}" ;;
+		              --logdir=*) LOG_DIR="${1#*=}" ;;
 		                       *) msg "Invalid $(basename $0) option! ($1)"; exit 1 ;;
 		esac
 		shift
 	done	
+}
+
+help() {	
+	cat << EOF
+Usage:
+  $(basename $0) [ <options> <arguments> ]
+
+Options:
+  -i, --install             install package into system
+  -u, --upgrade             upgrade package
+  -r, --reinstall           reinstall package
+  -c, --ignore-conflict     ignore conflict when installing package
+  -v, --verbose             verbose install process
+  -f, --force-rebuild       rebuild package
+  -m, --skip-mdsum          skip md5sum checking
+  -g, --genmdsum            generate md5sum
+  -o, --download            download only source file
+  -x, --extract             extract only source file
+  -w, --keep-work           keep working directory
+  -l, --log                 log build process
+  -h, --help                show this help message
+      --srcdir=<path>       override directory path for sources
+      --pkgdir=<path>       override directory path for compiled package
+      --logdir=<path>       override directory path for build logs
+      --no-prebuild         skip prebuild script before build package
+      --no-preinstall       skip preinstall script before install package
+      --no-postinstall      skip postinstall script after install package
+      --no-preupgrade       skip preupgrade script before upgrade package
+      --no-postupgrade      skip postupgrade script after upgrade package
+      --no-hook             skip trigger hook
+      --no-backup           skip backup configuration file when upgrading package
+      --redownload          re-download source file
+      
+EOF
 }
 
 main() {
@@ -580,10 +583,10 @@ main() {
 		msgerr "Option '--pkgdir=' need argument (path)"
 		exit 1
 	fi
-	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR"
+	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR" "$LOG_DIR"
 	
-	if [ -f $LOG_DIR/$name-$version-$release.log ] && [ ! -w $LOG_DIR/$name-$version-$release.log ]; then
-		msgerr "You dont have write permission for '$LOG_DIR/$name-$version-$release.log'!"
+	if [ "$LOGGING" = yes ] && [ -f $LOG_DIR/$name-$version-$release.log ] && [ ! -w $LOG_DIR/$name-$version-$release.log ]; then
+		msgerr "You dont have write permission for '$LOG_DIR/$name-$version-$release.log'."
 		abort 1
 	fi
 	

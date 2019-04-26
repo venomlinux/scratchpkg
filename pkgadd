@@ -86,8 +86,9 @@ Options:
       --no-preupgrade        skip preupgrade script before upgrade package
       --no-postupgrade       skip postupgrade script after upgrade package
       --no-backup            skip backup when upgrading package
-      --no-hook              skip executing hook
+      --no-hook              skip trigger hook
       --root=<path>          install to custom root directory
+      
 EOF
 }
 

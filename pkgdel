@@ -86,6 +86,7 @@ Options:
       --no-postremove   don't run post-remove script
       --no-hook         skip executing hook
       --root=<path>     remove package from custom root directory
+      
 EOF
 }
 
