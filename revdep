@@ -144,8 +144,8 @@ if [ -d /etc/ld.so.conf.d/ ]; then
 fi
 
 # excluded dirs
-EXCLUDE_DIR="$(cat /etc/revdep.conf 2>/dev/null | grep /$ | sed 's/\/*$//g')"
-EXCLUDE_DIR+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep /$ | sed 's/\/*$//g')"
+EXCLUDE_DIR="$(cat /etc/revdep.conf 2>/dev/null | grep -v ^# | grep /$ | sed 's/\/*$//g')"
+EXCLUDE_DIR+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v ^# | grep /$ | sed 's/\/*$//g')"
 
 EXCLUDE_DIRS=$(echo $EXCLUDE_DIR | tr ' ' '\n' | sort | uniq)
 
@@ -154,8 +154,8 @@ for d in $EXCLUDE_DIRS; do
 done
 
 # excluded files
-EXCLUDE_FILES="$(cat /etc/revdep.conf 2>/dev/null | grep -v /$)"
-EXCLUDE_FILES+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v /$)"
+EXCLUDE_FILES="$(cat /etc/revdep.conf 2>/dev/null | grep -v ^# | grep -v /$)"
+EXCLUDE_FILES+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v ^# | grep -v /$)"
 
 for ff in $EXCLUDE_FILES; do
 	if [ -f $ff ]; then
@@ -169,8 +169,8 @@ for f in $EXCLUDE_FILES; do
 done
 
 # excluded libraries
-EXCLUDE_LIBS="$(cat /etc/revdep.conf 2>/dev/null | grep -v ^/ | grep ".*.so.*")"
-EXCLUDE_LIBS+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v ^/ | grep ".*.so.*")"
+EXCLUDE_LIBS="$(cat /etc/revdep.conf 2>/dev/null | grep -v ^# | grep -v ^/ | grep ".*.so.*")"
+EXCLUDE_LIBS+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v ^# | grep -v ^/ | grep ".*.so.*")"
 
 EXCLUDED_LIBS=$(echo $EXCLUDE_LIBS | tr ' ' '\n' | sort | uniq)
 

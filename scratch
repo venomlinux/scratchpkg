@@ -397,7 +397,7 @@ searchpkg() {
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
 			pushd $port
-				OUTPUT=$(grep -R description | grep "$BUILD_SCRIPT:# description[[:blank:]]*:" | sed "s/$BUILD_SCRIPT:# description[[:blank:]]*://" | grep -i "$1" | cut -d '/' -f1)
+				OUTPUT=$(grep -R description | grep "$BUILD_SCRIPT:# description[[:blank:]]*:" | sed "s/$BUILD_SCRIPT:# description[[:blank:]]*://" | grep -i "$1" | cut -d '/' -f1 | sort)
 			popd
 			if [ -n "$OUTPUT" ]; then
 				found=yes
