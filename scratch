@@ -300,10 +300,31 @@ showdepends() {
 			msgmiss "$dep"
 		fi
 	done
-}	
+}
+
+isorphan() {	
+	needarg $1
+	
+	for pkg in $(allinstalled); do
+		pkgpath=$(getportpath $pkg)
+		#echo $pkgpath
+		if [ $pkgpath ]; then
+			depend=$(grep "^# depends[[:blank:]]*:" $pkgpath/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
+			for dep in ${depend[@]}; do
+				if [ $dep = $1 ]; then
+					return 1
+				fi
+			done
+		fi
+		unset depend dep
+	done
+	return 0
+}
 
 showdependent() {
 	local port all dep pname
+	
+	needarg $1
 	
 	for port in ${PORT_REPO[@]}; do
 		if [ -d $port ]; then
@@ -1404,6 +1425,11 @@ main() {
 	
 	if [ "$mode" = "missingdep" ]; then
 		missingdep
+		exit $?
+	fi
+	
+	if [ "$mode" = "isorphan" ]; then
+		isorphan $1
 		exit $?
 	fi
 
