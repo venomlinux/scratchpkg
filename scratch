@@ -133,7 +133,7 @@ needarg() {
 	fi
 }
 
-catport() {	
+scratch_cat() {	
 	if PPATH=$(getportpath "$1"); then
 		cat "$PPATH/$BUILD_SCRIPT"
 	else
@@ -154,7 +154,7 @@ settermtitle() {
 	echo -en "\033]0;$@\a"
 }
 
-missingdep() {
+scratch_missingdep() {
 	local pkg d
 	
 	for pkg in $(allinstalled); do
@@ -175,7 +175,7 @@ missingdep() {
 	done
 }
 
-checkintegrity() {
+scratch_integrity() {
 	if [ "$1" ]; then
 		pushd /
 			if [ -f $INDEX_DIR/$1/.files ]; then
@@ -220,14 +220,14 @@ checkintegrity() {
 	[ ! "$MISSING_FILE" ] && msg "$p files is consistent with package tree."
 }
 
-listinstalled() {
+scratch_listinst() {
 	local pkg
 	for pkg in $(allinstalled); do
 		echo $pkg
 	done
 }
 
-listorphan() {
+scratch_listorphan() {
 	local pkg dep
 	tmpallpkg=$(mktemp)
 	tmpalldep=$(mktemp)
@@ -240,7 +240,7 @@ listorphan() {
 	rm $tmpalldep $tmpallpkg
 }
 
-lockpkg() {
+scratch_lock() {
 	local pkg
 	
 	needroot "Locking package"
@@ -256,7 +256,7 @@ lockpkg() {
 	done	
 }
 
-unlockpkg() {
+scratch_unlock() {
 	local pkg
 	
 	needroot "Unlocking package"
@@ -272,7 +272,7 @@ unlockpkg() {
 	done	
 }
 
-listlocked() {
+scratch_listlocked() {
 	local pkg	
 	for pkg in $(allinstalled); do
 		if [ -f "$INDEX_DIR"/$pkg/.lock ]; then
@@ -281,7 +281,7 @@ listlocked() {
 	done
 }
 
-showdepends() {
+scratch_depends() {
 	local dep
 	
 	if [ $(getportpath "$1") ]; then
@@ -302,7 +302,7 @@ showdepends() {
 	done
 }
 
-isorphan() {	
+scratch_isorphan() {	
 	needarg $1
 	
 	for pkg in $(allinstalled); do
@@ -321,7 +321,7 @@ isorphan() {
 	return 0
 }
 
-showdependent() {
+scratch_dependent() {
 	local port all dep pname
 	
 	needarg $1
@@ -350,13 +350,13 @@ showdependent() {
 	[ "$GDP" ] && return 0 || return 1
 }
 
-checkowner() {
+scratch_own() {
 	local arg
 	arg=$(echo $1 | sed 's:^/::')
 	grep -R $arg $INDEX_DIR/*/.files | sed "s:$INDEX_DIR/::" | sed "s:/.files::" | tr : " " | column -t
 }
 
-showtree() {	
+scratch_files() {	
 	if ! isinstalled $1; then
 		msg "Package'$1' not installed."
 	else
@@ -366,7 +366,7 @@ showtree() {
 	fi	
 }
 
-updports() {	
+scratch_sync() {	
 	checktool httpup
 	
 	needroot "Updating ports"
@@ -390,7 +390,7 @@ updports() {
 	done < "$REPO_FILE"
 }
 
-printreadme() {
+scratch_readme() {
 	needarg $@
 	
 	if PPATH=$(getportpath "$1"); then
@@ -405,7 +405,7 @@ printreadme() {
 	fi
 }
 
-searchpkg() {
+scratch_search() {
 	needarg $@
 	
 	case $1 in
@@ -448,7 +448,7 @@ searchpkg() {
 	fi
 }
 
-foreignpkg() {
+scratch_foreignpkg() {
 	for pkg in $(allinstalled); do
 		if ! getportpath $pkg >/dev/null; then
 			iname=$(installed_pkg_info name $pkg)
@@ -531,7 +531,7 @@ srunpreremovehooks() {
 	done	
 }
 
-buildpkg() {
+scratch_build() {
 	local OPTS
 	if [ -z "$1" ]; then
 		echo "Please specify package to build."
@@ -564,7 +564,7 @@ buildpkg() {
 	return 0
 }
 
-installpkg() {
+scratch_install() {
 	local pkg i int pkgcount count IPKG OPTS REINSTALL done_pkg
 	
 	needroot "Installing package"
@@ -716,7 +716,7 @@ outdatepkg() {
 	done
 }
 
-removepkg() {
+scratch_remove() {
 	local pkg i IPKG OPTS
 	
 	needroot "Removing package"
@@ -778,7 +778,7 @@ removepkg() {
 	fi
 }
 
-sysup() {
+scratch_sysup() {
 	local d UPGPKG NEWPKG PKGOUTDATE OPTS done_pkg
 	
 	needroot "Upgrading package"
@@ -802,7 +802,7 @@ sysup() {
 	done
 	
 	if [ "$SYNC" = 1 ]; then
-		updports
+		scratch_sync
 	fi
 	
 	echo "Checking for outdated packages..."
@@ -878,7 +878,7 @@ sysup() {
 	return $error
 }
 
-upgradepkg() {
+scratch_upgrade() {
 	local pkg done_pkg
 	
 	needroot "Upgrading package"
@@ -981,7 +981,7 @@ upgradepkg() {
 	return $error
 }
 
-outdate() {
+scratch_outdate() {
 	local pkg
 	
 	for pkg in $(allinstalled); do
@@ -1085,7 +1085,7 @@ getpkgcache() {
 	done
 }
 
-pkgcache() {	
+scratch_cache() {	
 	getpkgcache
 	
 	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
@@ -1115,7 +1115,7 @@ pkgcache() {
 	fi
 }
 
-showportpath() {
+scratch_path() {
 	needarg $@
 	
 	if PPATH=$(getportpath "$1"); then
@@ -1126,7 +1126,7 @@ showportpath() {
 	fi	
 }
 
-duplicateports() {	
+scratch_dup() {	
 	dup=$(find ${PORT_REPO[@]} -type d -print | egrep -xv "($(echo ${PORT_REPO[@]} | tr ' ' '|'))" | \
 		rev | cut -d '/' -f1 | rev | sort | uniq -d)
 	
@@ -1275,166 +1275,28 @@ Operation:
 EOF
 }
 
-usage() {
-	if [ -z "$1" ];then
+scratch_help() {
+	if [ -z "$1" ]; then
 		usage_help
+		return 0
 	else
-		case "$1" in
-			install) usage_install ;;
-			remove)  usage_remove ;;
-			upgrade) usage_upgrade ;;
-			build)   usage_build ;;
-			sysup)   usage_sysup ;;
-			extra)   usage_extra ;;
-		esac
+		if [ "$(type -t usage_$1)" ]; then
+			usage_$1
+		else
+			usage_help
+		fi
 	fi
+	return 0
 }
 
 main() {
-	
-	if [ "$mode" = "build" ]; then
-		buildpkg $@
-		exit $?
+	if [ "$(type -t scratch_$mode)" = "function" ]; then
+		scratch_$mode $@
+	else
+		echo "Run 'scratch help' to see available operations and options"
+		return 5
 	fi
-	
-	if [ "$mode" = "install" ]; then
-		installpkg $@
-		exit $?
-	fi
-	
-	if [ "$mode" = "upgrade" ]; then
-		upgradepkg $@
-		exit $?
-	fi
-	
-	if [ "$mode" = "remove" ]; then
-		removepkg $@
-		exit $?
-	fi
-	
-	if [ "$mode" = "sysup" ]; then
-		sysup $@
-		exit $?
-	fi
-	
-	if [ "$mode" = "outdate" ]; then
-		outdate
-		exit $?
-	fi
-	
-	if [ "$mode" = "listorphan" ]; then
-		listorphan
-		exit $?
-	fi
-	
-	if [ "$mode" = "search" ]; then
-		searchpkg $1
-		exit $?
-	fi
-	
-	# search for foreign port (installed package with no port in repos)
-	if [ "$mode" = "foreignpkg" ]; then
-		foreignpkg
-		exit $?
-	fi
-	
-	if [ "$mode" = "sync" ]; then
-		updports
-		exit $?
-	fi
-	
-	if [ "$mode" = "listinstalled" ]; then
-		listinstalled
-		exit $?
-	fi
-	
-	if [ "$mode" = "readme" ]; then
-		printreadme $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "files" ]; then
-		showtree $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "own" ]; then
-		checkowner $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "dependent" ]; then
-		showdependent $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "cat" ]; then
-		catport $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "depends" ]; then
-		showdepends $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "lock" ]; then
-		lockpkg $@
-		exit $?
-	fi
-	
-	if [ "$mode" = "unlock" ]; then
-		unlockpkg $@
-		exit $?
-	fi
-	
-	if [ "$mode" = "listlocked" ]; then
-		listlocked
-		exit $?
-	fi
-	
-	if [ "$mode" = "listinst" ]; then
-		listinstalled
-		exit $?
-	fi
-	
-	if [ "$mode" = "cache" ]; then
-		pkgcache
-		exit $?
-	fi
-	
-	if [ "$mode" = "help" ]; then
-		usage $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "integrity" ]; then
-		checkintegrity $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "path" ]; then
-		showportpath $1
-		exit $?
-	fi
-	
-	if [ "$mode" = "dup" ]; then
-		duplicateports
-		exit $?
-	fi
-	
-	if [ "$mode" = "missingdep" ]; then
-		missingdep
-		exit $?
-	fi
-	
-	if [ "$mode" = "isorphan" ]; then
-		isorphan $1
-		exit $?
-	fi
-
-	echo "Run 'scratch help' to see available operations and options"
-	exit 5
+	return $?
 }
 
 BUILD_SCRIPT="spkgbuild"
@@ -1470,3 +1332,5 @@ for opt in $@; do
 done
 
 main ${MAINOPTS[@]}
+
+exit $?
