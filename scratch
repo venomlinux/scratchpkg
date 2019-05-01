@@ -477,21 +477,22 @@ post_triggers() {
 			case "$dir" in
 				""|\#*) continue ;;
 			esac
-			mkdir -p "$dir"
-			if [ "$uid" != '-' ]; then
-				getent passwd $uid >/dev/null
-				if [[ "$?" = 0 ]]; then
-					chown "$uid" "$dir"
+			if [ -e "$dir" ]; then
+				if [ "$uid" != '-' ]; then
+					getent passwd $uid >/dev/null
+					if [[ "$?" = 0 ]]; then
+						chown "$uid" "$dir"
+					fi
 				fi
-			fi
-			if [ "$gid" != '-' ]; then
-				getent group $gid >/dev/null
-				if [[ "$?" = 0 ]]; then
-					chgrp "$gid" "$dir"
+				if [ "$gid" != '-' ]; then
+					getent group $gid >/dev/null
+					if [[ "$?" = 0 ]]; then
+						chgrp "$gid" "$dir"
+					fi
 				fi
-			fi
-			if [ "$mode" != '-' ]; then
-				chmod "$mode" "$dir"
+				if [ "$mode" != '-' ]; then
+					chmod "$mode" "$dir"
+				fi
 			fi
 		done < "$mkd"
 	done
