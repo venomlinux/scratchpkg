@@ -43,38 +43,6 @@ msgwarn() {
 	echo -e "==> WARNING: $1"
 }
 
-runremovehooks() {	
-	if [ "${#runthishook[@]}" -gt 0 ]; then
-		for hook in ${runthishook[@]}; do
-			description=$(cat "$hook" | grep ^"# description" | sed 's/\://' | cut -d ' ' -f 3-)
-			operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
-			target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
-			if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
-				. $hook
-				if [ "`type -t exechook`" = "function" ]; then
-					exechook
-				fi
-			fi
-			unset description operation target
-			unset -f exechook
-		done
-	fi	
-}
-
-runpreremovehooks() {	
-	for hook in $HOOK_DIR/*.hook; do
-		[ -f $hook ] || continue
-		operation=$(cat "$hook" | grep ^"# operation" | sed 's/\://' | cut -d ' ' -f 3-)
-		target=$(cat "$hook" | grep ^"# target" | sed 's/\://' | cut -d ' ' -f 3-)
-		if [ "$(echo $operation | grep -w "remove" )" ]; then
-			if [ "$(grep $target $INDEX_DIR/$1/.files)" ]; then
-				runthishook+=($hook)
-			fi
-		fi
-		unset operation target
-	done	
-}
-
 help() {	
 	cat << EOF	
 Usage:
@@ -140,7 +108,6 @@ parse_opts $(extract_opt $@)
 INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
 PKGDEL_DIR="$ROOT/var/lib/scratchpkg"
 LOCK_FILE="$PKGDEL_DIR/spkg.lock"
-HOOK_DIR="/etc/hooks"
 	
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
@@ -181,7 +148,7 @@ if [ -z $name ] && [ -z $version ] && [ -z $release ]; then
 	ret 1
 fi
 
-echo "Removing '$name-$version-$release'..."
+echo "remove: $name-$version-$release..."
 
 # source .install script
 if [ "$ROOT" = "" ]; then
@@ -194,10 +161,6 @@ if [ ! "$NO_PREREMOVE" ]; then
 	if [ "`type -t pre_remove`" = "function" ]; then
 		pre_remove "$version" &>/dev/null
 	fi
-fi
-
-if [ "$ROOT" = "" ] && [ "$NOHOOK" != "yes" ]; then
-	runpreremovehooks $name &>/dev/null
 fi
 
 if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
@@ -232,10 +195,6 @@ if [ ! "$NO_POSTREMOVE" ]; then
 fi
 	
 rm -rf $INDEX_DIR/$name
-
-if [ "$ROOT" = "" ] && [ "$NOHOOK" != "yes" ]; then
-	runremovehooks
-fi
 
 # running ldconfig
 if [ -x /sbin/ldconfig ]; then

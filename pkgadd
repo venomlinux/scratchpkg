@@ -43,33 +43,6 @@ msgwarn() {
 	echo -e "==> WARNING: $1"
 }
 
-runhooks() {	
-	if [ "$UPGRADE_PKG" ]; then
-		opr=upgrade
-	else
-		opr=install
-	fi
-	
-	for hook in $HOOK_DIR/*.hook; do
-		[ -f $hook ] || continue
-		description=$(grep "^# description[[:blank:]]*:" $hook | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-		operation=$(grep "^# operation[[:blank:]]*:" $hook | sed 's/^# operation[[:blank:]]*:[[:blank:]]*//')
-		target=$(grep "^# target[[:blank:]]*:" $hook | sed 's/^# target[[:blank:]]*:[[:blank:]]*//')
-		if [ -n "$description" ] && [ -n "$operation" ] && [ -n "$target" ]; then
-			if [ "$(echo $operation | grep -w "$opr" )" ]; then
-				if [ "$(grep $target $INDEX_DIR/$name/.files)" ]; then
-					. $hook
-					if [ "`type -t exechook`" = "function" ]; then
-						exechook
-					fi
-				fi
-			fi
-		fi
-		unset description operation target
-		unset -f exechook
-	done	
-}
-
 help() {	
 	cat << EOF
 Usage:
@@ -149,7 +122,6 @@ parse_opts $(extract_opt $@)
 INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
 PKGADD_DIR="$ROOT/var/lib/scratchpkg"
 LOCK_FILE="$PKGADD_DIR/spkg.lock"
-HOOK_DIR=/etc/hooks
 
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
@@ -240,10 +212,10 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 fi
 
 ### INSTALL PACKAGE INTO SYSTEM ###
-opr=Installing
-[ "$UPGRADE_PKG" ] && opr=Upgrading
-[ "$REINSTALL_PKG" ] && opr=Reinstalling
-echo "$opr '$name-$version-$release'..."
+opr=install
+[ "$UPGRADE_PKG" ] && opr=upgrade
+[ "$REINSTALL_PKG" ] && opr=reinstall
+echo "$opr: $name-$version-$release..."
 
 #ignore conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
@@ -292,7 +264,7 @@ fi
 	fi
 )
 
-installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme"
+installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme --exclude=.pkgmkdirs"
 
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
 $installcmd | while IFS=' ' read line; do
@@ -332,7 +304,7 @@ echo "version = $version" >> $INDEX_DIR/$name/.pkginfo
 echo "release = $release" >> $INDEX_DIR/$name/.pkginfo
 install -m644 $TMP_PKGINSTALL $INDEX_DIR/$name/.files
 [ -f $TMP_PKGINSTALL_BKP ] && install -m644 $TMP_PKGINSTALL_BKP $INDEX_DIR/$name/.bkpfiles
-tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
+tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme .pkgmkdirs >/dev/null 2>&1
 
 ( cd $ROOT/
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
@@ -349,11 +321,6 @@ tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme >/dev/null 2>&1
 		fi
 	fi
 )
-
-if [ "$ROOT" = "" ]; then
-	[ "$NOHOOK" = "yes" ] || runhooks
-	[ $(type -p sysusers) ] && sysusers
-fi
 
 # running ldconfig
 if [ -x /sbin/ldconfig ]; then

@@ -344,6 +344,7 @@ packaging() {
 	
 	[ -f install ] && install -m644 install $PKG/.pkginstall
 	[ -f readme ] && install -m644 readme $PKG/.pkgreadme
+	[ -f mkdirs ] && install -m644 mkdirs $PKG/.pkgmkdirs
 	
 	pushd $PKG >/dev/null
 	
@@ -358,7 +359,7 @@ packaging() {
 		backupconf
 	fi
 	
-	for FILE in .pkginstall .pkgreadme; do
+	for FILE in .pkginstall .pkgreadme .pkgmkdirs; do
 		if [ -f $FILE ]; then
 			addtotar+=($FILE)
 		fi
