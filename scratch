@@ -462,7 +462,7 @@ scratch_foreignpkg() {
 
 scratch_trigger() {
 	needroot "Run trigger"
-	if [ -z "$@" ]; then
+	if [[ -z "$@" ]]; then
 		for i in trig_{1..12}; do
 			eval $i=1
 		done
