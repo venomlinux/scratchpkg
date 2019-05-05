@@ -803,7 +803,9 @@ scratch_install() {
 			fi
 		done
 		settermtitle "Triggering install hook"
-		scratch_trigger ${done_pkg[@]}
+		if [ ${#done_pkg[@]} -gt 0 ]; then
+			scratch_trigger ${done_pkg[@]}
+		fi
 		settermtitle "Installing done"
 		[ "$error" = 1 ] && return 1 || return 0
 	fi
@@ -817,7 +819,6 @@ scratch_install() {
 		fi
 	done
 	if [ "${#IPKG[@]}" = 0 ]; then
-		echo "Nothing to do. Exiting..."
 		return 0
 	fi
 	echo "Resolving dependencies..."
@@ -860,7 +861,9 @@ scratch_install() {
 			unset portpathh
 		done
 		settermtitle "Triggering install hook"
-		scratch_trigger ${done_pkg[@]}
+		if [ ${#done_pkg[@]} -gt 0 ]; then
+			scratch_trigger ${done_pkg[@]}
+		fi
 		settermtitle "$count/$total package(s) installed"
 		return "$error"
 	fi
@@ -913,7 +916,6 @@ scratch_remove() {
 		fi
 	done
 	if [ "${#IPKG[@]}" = 0 ]; then
-		echo "Nothing to do. Exiting..."
 		return 0
 	fi
 	if [ "$IPKG" ]; then
@@ -1039,7 +1041,9 @@ scratch_sysup() {
 		done_pkg+=($inst)
 	done
 	settermtitle "Triggering install hook"
-	scratch_trigger ${done_pkg[@]}
+	if [ ${#done_pkg[@]} -gt 0 ]; then
+		scratch_trigger ${done_pkg[@]}
+	fi
 	settermtitle "$count/$total package(s) upgraded"
 	return $error
 }
@@ -1142,7 +1146,9 @@ scratch_upgrade() {
 		popd
 	done
 	settermtitle "triggering upgrade hook"
-	scratch_trigger ${done_pkg[@]}
+	if [ ${#done_pkg[@]} -gt 0 ]; then
+		scratch_trigger ${done_pkg[@]}
+	fi
 	settermtitle "$count/$total package(s) upgraded"
 	return $error
 }
