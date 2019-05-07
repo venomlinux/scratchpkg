@@ -502,7 +502,6 @@ parse_opts() {
 		        --no-postinstall) OPTS+=($1) ;;
 		         --no-preupgrade) OPTS+=($1) ;;
 		        --no-postupgrade) OPTS+=($1) ;;
-		               --no-hook) OPTS+=($1) ;;
 		             --no-backup) OPTS+=($1) ;;
 		            --redownload) REDOWNLOAD_SOURCE=yes ;;
 		              --srcdir=*) SOURCE_DIR="${1#*=}" ;;
@@ -541,7 +540,6 @@ Options:
       --no-postinstall      skip postinstall script after install package
       --no-preupgrade       skip preupgrade script before upgrade package
       --no-postupgrade      skip postupgrade script after upgrade package
-      --no-hook             skip trigger hook
       --no-backup           skip backup configuration file when upgrading package
       --redownload          re-download source file
       

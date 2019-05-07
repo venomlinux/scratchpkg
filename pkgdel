@@ -52,7 +52,6 @@ Options:
   -h, --help            show this help message
       --no-preremove    don't run pre-remove script
       --no-postremove   don't run post-remove script
-      --no-hook         skip executing hook
       --root=<path>     remove package from custom root directory
       
 EOF
@@ -79,7 +78,6 @@ parse_opts() {
 			-v |           --verbose) VERBOSE_REMOVE=yes ;;
 			          --no-preremove) NO_PREREMOVE=yes ;;
 				     --no-postremove) NO_POSTREMOVE=yes ;;
-			   		       --no-hook) NOHOOK=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
 		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
 					               *) RMNAME=$1 ;;

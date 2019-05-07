@@ -59,7 +59,6 @@ Options:
       --no-preupgrade        skip preupgrade script before upgrade package
       --no-postupgrade       skip postupgrade script after upgrade package
       --no-backup            skip backup when upgrading package
-      --no-hook              skip trigger hook
       --root=<path>          install to custom root directory
       
 EOF
@@ -93,7 +92,6 @@ parse_opts() {
 				    --no-postupgrade) NO_POSTUPGRADE=yes ;;
 				         --no-backup) NO_BACKUP=yes ;;
 			   		      --no-color) NOCOLOR=yes ;;
-			   		       --no-hook) NOHOOK=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
 					    *.spkg.tar.*) PKGNAME="$1" ;;
 					               *) msg "Invalid option! ($1)"; exit 1 ;;

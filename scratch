@@ -769,7 +769,7 @@ scratch_install() {
 			else
 				pushd $(getportpath $ii)
 					settermtitle "Reinstalling $ii..."
-					pkgbuild --no-hook ${OPTS[@]}
+					pkgbuild ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
 						break
@@ -793,7 +793,7 @@ scratch_install() {
 			else
 				pushd $(getportpath $ii)
 					settermtitle "Installing $ii..."
-					pkgbuild -i --no-hook ${OPTS[@]}
+					pkgbuild -i ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
 						break
@@ -847,7 +847,7 @@ scratch_install() {
 			if [ "$portpathh" ]; then
 				pushd $portpathh
 					settermtitle "[ $count/$total ] installing $int..."
-					pkgbuild -i --no-hook ${OPTS[@]}
+					pkgbuild -i ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
 						count=$(( $count - 1 ))
@@ -938,7 +938,7 @@ scratch_remove() {
 			count=$(( $count + 1 ))
 			pre_triggers $pkg
 			settermtitle "[ $count/$pkgcount ] Removing $pkg..."
-			pkgdel --no-hook $pkg ${OPTS[@]} || return 1
+			pkgdel $pkg ${OPTS[@]} || return 1
 		done
 		settermtitle "Triggering remove hook"
 		post_triggers
@@ -1023,7 +1023,7 @@ scratch_sysup() {
 		pushd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
-			pkgbuild -i --no-hook ${OPTS[@]}
+			pkgbuild -i ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
 				count=$(( $count - 1 ))
@@ -1031,7 +1031,7 @@ scratch_sysup() {
 			fi
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
-			pkgbuild -u --no-hook ${OPTS[@]}
+			pkgbuild -u ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
 				count=$(( $count - 1 ))
@@ -1122,7 +1122,7 @@ scratch_upgrade() {
 			count=$(( $count + 1 ))		
 			pushd $(getportpath $newpkg)
 				settermtitle "[ $count/$total ] Installing $newpkg..."
-				pkgbuild -i --no-hook ${OPTS[@]}
+				pkgbuild -i ${OPTS[@]}
 				if [ $? != 0 ]; then
 					error=1
 					count=$(( $count - 1 ))
@@ -1136,7 +1136,7 @@ scratch_upgrade() {
 		count=$(( $count + 1 ))
 		pushd $(getportpath $pkg)
 			settermtitle "[ $count/$total ] Upgrading $pkg..."
-			pkgbuild -u --no-hook ${OPTS[@]}
+			pkgbuild -u ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
 				count=$(( $count - 1 ))
