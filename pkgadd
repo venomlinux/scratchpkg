@@ -117,10 +117,10 @@ isinstalled() {
 
 parse_opts $(extract_opt $@)
 
-INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
-PKGADD_DIR="$ROOT/var/lib/scratchpkg"
-LOCK_FILE="$PKGADD_DIR/spkg.lock"
 ROOT_DIR=${ROOT:-/}
+INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
+PKGADD_DIR="$ROOT_DIR/var/lib/scratchpkg"
+LOCK_FILE="$PKGADD_DIR/spkg.lock"
 
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
@@ -242,26 +242,25 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 fi
 
 if [ $(grep -x .pkginstall $TMP_PKGADD) ]; then
-	source <(tar -xf "$PKGNAME" .pkginstall -O)
-fi
-
-# run preinstall script if no --no-preinstall flag and not upgrade package
-( cd $ROOT_DIR
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		if [ "`type -t pre_install`" = "function" ]; then
-			pre_install "$version" &>/dev/null
+		if [ "$ROOT_DIR" = "/" ]; then
+			source <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version"
+		else
+			tar -xf "$PKGNAME" -C "$ROOT_DIR"/tmp .pkginstall
+			chroot "$ROOT_DIR" bash /tmp/.pkginstall pre-install "$version"
+			rm -f "$ROOT_DIR"/tmp/.pkginstall
 		fi
 	fi
-)
-
-# run preupgrade script if package upgrade
-( cd $ROOT_DIR
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		if [ "`type -t pre_upgrade`" = "function" ]; then
-			pre_upgrade "$version" "$iversion" &>/dev/null
+		if [ "$ROOT_DIR" = "/" ]; then
+			source <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version"
+		else
+			tar -xf "$PKGNAME" -C "$ROOT_DIR"/tmp .pkginstall
+			chroot "$ROOT_DIR" bash /tmp/.pkginstall pre-upgrade "$version"
+			rm -f "$ROOT_DIR"/tmp/.pkginstall
 		fi
 	fi
-)
+fi
 
 for i in $(grep ^.pkg* $TMP_PKGADD); do
 	excludefile="$excludefile --exclude=$i"
@@ -314,21 +313,17 @@ done
 
 tar -x -f $PKGNAME -C $INDEX_DIR/$name $pkgfiles >/dev/null 2>&1
 
-( cd $ROOT_DIR
-	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		if [ "`type -t post_install`" = "function" ]; then
-			post_install "$version" &>/dev/null
-		fi
+if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
+	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
+		bash $INDEX_DIR/$name/.pkginstall post-install "$version"
 	fi
-)
+fi
 
-( cd $ROOT_DIR
-	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-		if [ "`type -t post_upgrade`" = "function" ]; then
-			post_upgrade "$version" "$iversion" &>/dev/null
-		fi
+if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
+	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
+		bash $INDEX_DIR/$name/.pkginstall post-upgrade "$version"
 	fi
-)
+fi
 
 # running ldconfig
 if [ -x /sbin/ldconfig ]; then
