@@ -120,6 +120,7 @@ parse_opts $(extract_opt $@)
 INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
 PKGADD_DIR="$ROOT/var/lib/scratchpkg"
 LOCK_FILE="$PKGADD_DIR/spkg.lock"
+ROOT_DIR=${ROOT:-/}
 
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
@@ -221,7 +222,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 			if [ "$line" = "${line%.*}.spkgnew" ]; then
 				line=${line%.*}
 			fi
-			if [ -e "$ROOT/$line" ] || [ -L "$ROOT/$line" ]; then
+			if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 				if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 					if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
 						echo "$line"
@@ -245,7 +246,7 @@ if [ $(grep -x .pkginstall $TMP_PKGADD) ]; then
 fi
 
 # run preinstall script if no --no-preinstall flag and not upgrade package
-( cd $ROOT/
+( cd $ROOT_DIR
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		if [ "`type -t pre_install`" = "function" ]; then
 			pre_install "$version" &>/dev/null
@@ -254,7 +255,7 @@ fi
 )
 
 # run preupgrade script if package upgrade
-( cd $ROOT/
+( cd $ROOT_DIR
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
 		if [ "`type -t pre_upgrade`" = "function" ]; then
 			pre_upgrade "$version" "$iversion" &>/dev/null
@@ -266,7 +267,7 @@ for i in $(grep ^.pkg* $TMP_PKGADD); do
 	excludefile="$excludefile --exclude=$i"
 done
 
-installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} $excludefile"
+installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C $ROOT_DIR $excludefile"
 
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
 $installcmd | while IFS=' ' read line; do
@@ -274,11 +275,11 @@ $installcmd | while IFS=' ' read line; do
 		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-			if [ ! -e "$ROOT/$line" ] || [ "$NO_BACKUP" = yes ]; then
-				mv "$ROOT/$line".spkgnew "$ROOT/$line"
+			if [ ! -e "$ROOT_DIR/$line" ] || [ "$NO_BACKUP" = yes ]; then
+				mv "$ROOT_DIR/$line".spkgnew "$ROOT_DIR/$line"
 			fi
 		else
-			mv "$ROOT/$line".spkgnew "$ROOT/$line"
+			mv "$ROOT_DIR/$line".spkgnew "$ROOT_DIR/$line"
 		fi
 	fi
 	[ "$VERBOSE_INSTALL" = yes ] && echo ">>> $line"
@@ -289,11 +290,11 @@ done
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $TMP_PKGADD_RMLIST
 	grep -v '/$' $TMP_PKGADD_RMLIST | while IFS=' ' read line; do
-		rm "$ROOT/$line" &>/dev/null
+		rm "$ROOT_DIR/$line" &>/dev/null
 	done
 	grep '/$' $TMP_PKGADD_RMLIST | tac | while IFS=' ' read line; do
 		if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
-			rmdir "$ROOT/$line" &>/dev/null
+			rmdir "$ROOT_DIR/$line" &>/dev/null
 		fi
 	done
 fi
@@ -311,9 +312,9 @@ for ii in $(grep ^.pkg* $TMP_PKGADD); do
 	pkgfiles="$pkgfiles $ii"
 done
 
-tar -x -f $PKGNAME -C $INDEX_DIR/$name ${INCLUDEINPKG[@]} >/dev/null 2>&1
+tar -x -f $PKGNAME -C $INDEX_DIR/$name $pkgfiles >/dev/null 2>&1
 
-( cd $ROOT/
+( cd $ROOT_DIR
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		if [ "`type -t post_install`" = "function" ]; then
 			post_install "$version" &>/dev/null
@@ -321,7 +322,7 @@ tar -x -f $PKGNAME -C $INDEX_DIR/$name ${INCLUDEINPKG[@]} >/dev/null 2>&1
 	fi
 )
 
-( cd $ROOT/
+( cd $ROOT_DIR
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
 		if [ "`type -t post_upgrade`" = "function" ]; then
 			post_upgrade "$version" "$iversion" &>/dev/null
@@ -331,7 +332,7 @@ tar -x -f $PKGNAME -C $INDEX_DIR/$name ${INCLUDEINPKG[@]} >/dev/null 2>&1
 
 # running ldconfig
 if [ -x /sbin/ldconfig ]; then
-	/sbin/ldconfig -r $ROOT/
+	/sbin/ldconfig -r $ROOT_DIR
 fi
 
 ret 0
