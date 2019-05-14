@@ -232,7 +232,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 					conflictedfile=yes
 				fi
 			fi
-	done < <(cat $TMP_PKGADD | grep -Ev '(.pkginfo|.pkginstall|.pkgreadme)' | grep -v '/$')
+	done < <(cat $TMP_PKGADD | grep -Ev ^.pkg* | grep -v '/$')
 	
 	if [ "$conflictedfile" = "yes" ]; then
 		msgerr "File conflict found!"
@@ -262,7 +262,11 @@ fi
 	fi
 )
 
-installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} --exclude=.pkginfo --exclude=.pkginstall --exclude=.pkgreadme --exclude=.pkgmkdirs"
+for i in $(grep ^.pkg* $TMP_PKGADD); do
+	excludefile="$excludefile --exclude=$i"
+done
+
+installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C ${ROOT:-/} $excludefile"
 
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
 $installcmd | while IFS=' ' read line; do
@@ -302,7 +306,12 @@ echo "version = $version" >> $INDEX_DIR/$name/.pkginfo
 echo "release = $release" >> $INDEX_DIR/$name/.pkginfo
 install -m644 $TMP_PKGINSTALL $INDEX_DIR/$name/.files
 [ -f $TMP_PKGINSTALL_BKP ] && install -m644 $TMP_PKGINSTALL_BKP $INDEX_DIR/$name/.bkpfiles
-tar -x -f $PKGNAME -C $INDEX_DIR/$name .pkginstall .pkgreadme .pkgmkdirs >/dev/null 2>&1
+
+for ii in $(grep ^.pkg* $TMP_PKGADD); do
+	pkgfiles="$pkgfiles $ii"
+done
+
+tar -x -f $PKGNAME -C $INDEX_DIR/$name ${INCLUDEINPKG[@]} >/dev/null 2>&1
 
 ( cd $ROOT/
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then

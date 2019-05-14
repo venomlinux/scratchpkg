@@ -340,11 +340,15 @@ backupconf() {
 }
 
 packaging() {
-	local FILE
+	local FILE f
 	
-	[ -f install ] && install -m644 install $PKG/.pkginstall
-	[ -f readme ] && install -m644 readme $PKG/.pkgreadme
-	[ -f mkdirs ] && install -m644 mkdirs $PKG/.pkgmkdirs
+	for f in ${INCLUDEINPKG[@]}; do
+		[ -f $f ] && install -m644 $f $PKG/.pkg$f
+	done
+	
+	#[ -f install ] && install -m644 install $PKG/.pkginstall
+	#[ -f readme ] && install -m644 readme $PKG/.pkgreadme
+	#[ -f mkdirs ] && install -m644 mkdirs $PKG/.pkgmkdirs
 	
 	pushd $PKG >/dev/null
 	
@@ -359,9 +363,9 @@ packaging() {
 		backupconf
 	fi
 	
-	for FILE in .pkginstall .pkgreadme .pkgmkdirs; do
-		if [ -f $FILE ]; then
-			addtotar+=($FILE)
+	for FILE in ${INCLUDEINPKG[@]}; do
+		if [ -f .pkg$FILE ]; then
+			addtotar+=(.pkg$FILE)
 		fi
 	done
 	
@@ -671,5 +675,7 @@ DOWNLOAD_PROG="wget"
 COMPRESSION_MODE="xz"
 
 OPTIONS=(!libtool emptydirs strip zipman buildflags makeflags)
+
+INCLUDEINPKG=(install readme mkdirs)
 
 main "$@"

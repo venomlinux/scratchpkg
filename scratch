@@ -460,6 +460,33 @@ scratch_foreignpkg() {
 	done	
 }
 
+scratch_info() {
+	[ $1 ] || return 0
+	version="-"
+	release="-"
+	iver="-"
+	irel="-"
+	if $(isinstalled $1); then
+		iver=$(installed_pkg_info version $1)
+		irel=$(installed_pkg_info release $1)
+		INSTALLED=1
+	fi
+	portpath=$(getportpath $1)
+	if [ ! -z $portpath ]; then
+		. $portpath/$BUILD_SCRIPT
+		PORTEXIST=1
+	else
+		portpath="-"
+	fi
+	if [ "$INSTALLED" != 1 ] && [ "$PORTEXIST" != 1 ]; then
+		return 0
+	fi
+	echo -e "name: \t\t$1 \t$([[ $PORTEXIST = 1 ]] || echo \( foreignpkg \))"
+	echo -e "version: \t$version \t( installed: $iver )"
+	echo -e "release: \t$release \t( installed: $irel )"
+	echo -e "port path: \t$portpath"
+}
+
 scratch_trigger() {
 	needroot "Run trigger"
 	if [[ -z "$@" ]]; then
