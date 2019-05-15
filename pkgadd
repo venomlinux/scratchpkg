@@ -119,8 +119,15 @@ parse_opts $(extract_opt $@)
 
 ROOT_DIR=${ROOT:-/}
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
-PKGADD_DIR="$ROOT_DIR/var/lib/scratchpkg"
-LOCK_FILE="$PKGADD_DIR/spkg.lock"
+LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
+
+# disable pre/post install script when install to custom root location
+if [ "$ROOT_DIR" != "/" ]; then
+	NO_PREINSTALL=yes
+	NO_POSTINSTALL=yes
+	NO_PREUPGRADE=yes
+	NO_POSTUPGRADE=yes
+fi
 
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
@@ -181,12 +188,12 @@ if [ "$ALREADYINSTALLED" = "yes" ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PK
 	ret 0
 fi
 
-echo -ne "Loading $BASEPKGNAME...\033[0K\r"
-
 TMP_PKGADD="$(mktemp)" || exit 1
 TMP_PKGINSTALL="$(mktemp)" || exit 1
 TMP_PKGINSTALL_BKP="$(mktemp)" || exit 1
 TMP_PKGADD_RMLIST="$(mktemp)" || exit 1
+
+echo -ne "Loading $BASEPKGNAME...\033[0K\r"
 
 # check integrity of package
 tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null
@@ -218,7 +225,7 @@ echo "$opr: $name-$version-$release..."
 
 #ignore conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
-	while IFS=' ' read -r line; do
+	while read -r line; do
 			if [ "$line" = "${line%.*}.spkgnew" ]; then
 				line=${line%.*}
 			fi
@@ -243,22 +250,10 @@ fi
 
 if [ $(grep -x .pkginstall $TMP_PKGADD) ]; then
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		if [ "$ROOT_DIR" = "/" ]; then
-			source <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version"
-		else
-			tar -xf "$PKGNAME" -C "$ROOT_DIR"/tmp .pkginstall
-			chroot "$ROOT_DIR" bash /tmp/.pkginstall pre-install "$version"
-			rm -f "$ROOT_DIR"/tmp/.pkginstall
-		fi
+		(cd "$ROOT_DIR" && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version")
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		if [ "$ROOT_DIR" = "/" ]; then
-			source <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version"
-		else
-			tar -xf "$PKGNAME" -C "$ROOT_DIR"/tmp .pkginstall
-			chroot "$ROOT_DIR" bash /tmp/.pkginstall pre-upgrade "$version"
-			rm -f "$ROOT_DIR"/tmp/.pkginstall
-		fi
+		(cd "$ROOT_DIR" && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version" "$iversion")
 	fi
 fi
 
@@ -266,10 +261,8 @@ for i in $(grep ^.pkg* $TMP_PKGADD); do
 	excludefile="$excludefile --exclude=$i"
 done
 
-installcmd="tar --keep-directory-symlink -p -x -v -f $PKGNAME -C $ROOT_DIR $excludefile"
-
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
-$installcmd | while IFS=' ' read line; do
+tar --keep-directory-symlink -p -x -v -f $PKGNAME -C $ROOT_DIR $excludefile | while read line; do
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
@@ -288,10 +281,10 @@ done
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $TMP_PKGADD_RMLIST
-	grep -v '/$' $TMP_PKGADD_RMLIST | while IFS=' ' read line; do
+	grep -v '/$' $TMP_PKGADD_RMLIST | while read line; do
 		rm "$ROOT_DIR/$line" &>/dev/null
 	done
-	grep '/$' $TMP_PKGADD_RMLIST | tac | while IFS=' ' read line; do
+	grep '/$' $TMP_PKGADD_RMLIST | tac | while read line; do
 		if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
 			rmdir "$ROOT_DIR/$line" &>/dev/null
 		fi
@@ -313,15 +306,12 @@ done
 
 tar -x -f $PKGNAME -C $INDEX_DIR/$name $pkgfiles >/dev/null 2>&1
 
-if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
-		bash $INDEX_DIR/$name/.pkginstall post-install "$version"
+if [ -f $INDEX_DIR/$name/.pkginstall ]; then
+	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
+		(cd "$ROOT_DIR" && sh $INDEX_DIR/$name/.pkginstall post-install "$version")
 	fi
-fi
-
-if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
-		bash $INDEX_DIR/$name/.pkginstall post-upgrade "$version"
+	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
+		(cd "$ROOT_DIR" && sh $INDEX_DIR/$name/.pkginstall post-upgrade "$version" "$iversion")
 	fi
 fi
 

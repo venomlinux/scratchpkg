@@ -213,12 +213,6 @@ prepare_src() {
 	fi
 }
 
-runprebuildscript() {	
-	if [ "`type -t pre_build`" = "function" ]; then
-		pre_build
-	fi
-}
-
 run_build() {	
 	if [ "$UID" != 0 ]; then
 		msgerr "You must build package as root, or use fakeroot."
@@ -230,13 +224,7 @@ run_build() {
 	[ "$MAKE_FLAGS" = 1 ]  && export MAKEFLAGS       || unset MAKEFLAGS
 	[ "$BUILD_FLAGS" = 1 ] && export CFLAGS CXXFLAGS || unset CFLAGS CXXFLAGS
 	
-	[ -f $PWD/install ] && source $PWD/install
-	
 	pushd $SRC >/dev/null
-	
-	if [ "$NO_PREBUILD" != yes ]; then
-		runprebuildscript
-	fi
 	
 	if [ "$LOGGING" = yes ]; then	
 		(
@@ -501,7 +489,6 @@ parse_opts() {
 		-w |         --keep-work) KEEP_WORK=yes ;;
 		-l |               --log) LOGGING=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
-		           --no-prebuild) NO_PREBUILD=yes ;;
 		         --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
 		         --no-preupgrade) OPTS+=($1) ;;
@@ -539,7 +526,6 @@ Options:
       --srcdir=<path>       override directory path for sources
       --pkgdir=<path>       override directory path for compiled package
       --logdir=<path>       override directory path for build logs
-      --no-prebuild         skip prebuild script before build package
       --no-preinstall       skip preinstall script before install package
       --no-postinstall      skip postinstall script after install package
       --no-preupgrade       skip preupgrade script before upgrade package

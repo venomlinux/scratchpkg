@@ -179,7 +179,7 @@ scratch_integrity() {
 	if [ "$1" ]; then
 		pushd /
 			if [ -f $INDEX_DIR/$1/.files ]; then
-				while IFS=' ' read -r line; do
+				while read -r line; do
 					if [ ! -e "$line" ]; then
 						MISSING_FILE=yes
 						if [ -L "$line" ]; then
@@ -197,7 +197,7 @@ scratch_integrity() {
 	else
 		pushd /
 			for pkg in $(allinstalled); do
-				while IFS=' ' read -r line; do
+				while read -r line; do
 					if [ ! -e "$line" ]; then
 						MISSING_FILE=yes
 						if [ -L "$line" ]; then
@@ -360,7 +360,7 @@ scratch_files() {
 	if ! isinstalled $1; then
 		msg "Package'$1' not installed."
 	else
-		while IFS=' ' read -r line; do
+		while read -r line; do
 			echo "$line"
 		done < <(cat $INDEX_DIR/$1/.files)
 	fi	

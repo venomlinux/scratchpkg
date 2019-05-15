@@ -103,9 +103,15 @@ isinstalled() {
 	
 parse_opts $(extract_opt $@)
 
-INDEX_DIR="$ROOT/var/lib/scratchpkg/index"
-PKGDEL_DIR="$ROOT/var/lib/scratchpkg"
-LOCK_FILE="$PKGDEL_DIR/spkg.lock"
+ROOT_DIR=${ROOT:-/}
+INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
+LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
+
+# disable pre/post remove script when remove from custom root location
+if [ "$ROOT_DIR" != "/" ]; then
+	NO_PREREMOVE=yes
+	NO_POSTREMOVE=yes
+fi
 	
 # show help page
 if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
@@ -147,56 +153,45 @@ if [ -z $name ] && [ -z $version ] && [ -z $release ]; then
 fi
 
 echo "remove: $name-$version-$release..."
-
-# source .install script
-if [ "$ROOT" = "" ]; then
-	if [ -f $INDEX_DIR/$name/.pkginstall ]; then
-		source $INDEX_DIR/$name/.pkginstall
-	fi
-fi
 	
-if [ ! "$NO_PREREMOVE" ]; then	
-	if [ "`type -t pre_remove`" = "function" ]; then
-		pre_remove "$version" &>/dev/null
-	fi
+if [ ! "$NO_PREREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
+	(cd $ROOT_DIR && sh $INDEX_DIR/$name/.pkginstall pre-remove "$version")
 fi
 
 if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
-	while IFS=' ' read -r line; do
-		if [ -e "$ROOT/$line" ] || [ -L "$ROOT/$line" ]; then
+	while read -r line; do
+		if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 			[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
-			rm "$ROOT/$line"
+			rm "$ROOT_DIR/$line"
 		fi
 	done < <(tac $INDEX_DIR/$name/.bkpfiles)
 fi
 
-while IFS=' ' read -r line; do
-	if [ -e "$ROOT/$line" ] || [ -L "$ROOT/$line" ]; then
+while read -r line; do
+	if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 		[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
-		rm "$ROOT/$line"
+		rm "$ROOT_DIR/$line"
 	fi
 done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
 
-while IFS=' ' read -r line; do
+while read -r line; do
 	if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
-		if [ -d "$ROOT/$line" ]; then
+		if [ -d "$ROOT_DIR/$line" ]; then
 			[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
-			rmdir "$ROOT/$line"
+			rmdir "$ROOT_DIR/$line"
 		fi
 	fi
 done < <(tac $INDEX_DIR/$name/.files | grep '/$')
 	
-if [ ! "$NO_POSTREMOVE" ]; then
-	if [ "`type -t post_remove`" = "function" ]; then
-		post_remove "$version" &>/dev/null
-	fi
+if [ ! "$NO_POSTREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
+	(cd $ROOT_DIR && sh $INDEX_DIR/$name/.pkginstall post-remove "$version")
 fi
 	
 rm -rf $INDEX_DIR/$name
 
 # running ldconfig
 if [ -x /sbin/ldconfig ]; then
-	/sbin/ldconfig -r $ROOT/
+	/sbin/ldconfig -r $ROOT_DIR
 fi
 
 ret 0
