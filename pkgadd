@@ -93,7 +93,7 @@ parse_opts() {
 				         --no-backup) NO_BACKUP=yes ;;
 			   		      --no-color) NOCOLOR=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
-					    *.spkg.tar.*) PKGNAME="$1" ;;
+					    *.spkg.tar.*) PKGNAME="$(realpath $1)" ;;
 					               *) msg "Invalid option! ($1)"; exit 1 ;;
 			esac
 			shift
@@ -316,8 +316,8 @@ if [ -f $INDEX_DIR/$name/.pkginstall ]; then
 fi
 
 # running ldconfig
-if [ -x /sbin/ldconfig ]; then
-	/sbin/ldconfig -r $ROOT_DIR
+if [ -x $ROOT_DIR/sbin/ldconfig ]; then
+	$ROOT_DIR/sbin/ldconfig -r $ROOT_DIR
 fi
 
 ret 0

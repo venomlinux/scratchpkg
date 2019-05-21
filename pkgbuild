@@ -495,9 +495,10 @@ parse_opts() {
 		        --no-postupgrade) OPTS+=($1) ;;
 		             --no-backup) OPTS+=($1) ;;
 		            --redownload) REDOWNLOAD_SOURCE=yes ;;
-		              --srcdir=*) SOURCE_DIR="${1#*=}" ;;
-		              --pkgdir=*) PACKAGE_DIR="${1#*=}" ;;
-		              --logdir=*) LOG_DIR="${1#*=}" ;;
+		              --config=*) PKGBUILD_CONF="${1#*=}" ;;
+		              --srcdir=*) CUSTOM_SOURCE_DIR="${1#*=}" ;;
+		              --pkgdir=*) CUSTOM_PACKAGE_DIR="${1#*=}" ;;
+		              --logdir=*) CUSTOM_LOG_DIR="${1#*=}" ;;
 		                       *) msg "Invalid $(basename $0) option! ($1)"; exit 1 ;;
 		esac
 		shift
@@ -523,6 +524,7 @@ Options:
   -w, --keep-work           keep working directory
   -l, --log                 log build process
   -h, --help                show this help message
+      --config=<config>     use custom config file
       --srcdir=<path>       override directory path for sources
       --pkgdir=<path>       override directory path for compiled package
       --logdir=<path>       override directory path for build logs
@@ -538,14 +540,35 @@ EOF
 
 main() {
 	
+	parse_opts $(extract_opt $@)
+	
 	if [ -f $PKGBUILD_CONF ]; then
 		source $PKGBUILD_CONF
 	else
-		msgerr "'$PKGBUILD_CONF' file not found."
+		msgerr "Config file not found ('$PKGBUILD_CONF')"
 		exit 1
 	fi
 	
-	parse_opts $(extract_opt $@)
+	if [ "$CUSTOM_SOURCE_DIR" ]; then
+		SOURCE_DIR="$CUSTOM_SOURCE_DIR"
+	fi
+	
+	if [ "$CUSTOM_PACKAGE_DIR" ]; then
+		PACKAGE_DIR="$CUSTOM_PACKAGE_DIR"
+	fi
+	
+	if [ "$CUSTOM_LOG_DIR" ]; then
+		LOG_DIR="$CUSTOM_LOG_DIR"
+	fi
+	
+	if [ -z "$SOURCE_DIR" ]; then
+		msgerr "Option '--srcdir=' need argument (path)"
+		exit 1
+	elif [ -z "$PACKAGE_DIR" ]; then
+		msgerr "Option '--pkgdir=' need argument (path)"
+		exit 1
+	fi
+	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR" "$LOG_DIR"
 	
 	# show usage
 	if [ "$SHOWHELP" ]; then
@@ -564,15 +587,6 @@ main() {
 	backup=$(grep "^# backup[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
 	depends=$(grep "^# depends[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
 	noextract=$(grep "^# noextract[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
-	
-	if [ -z "$SOURCE_DIR" ]; then
-		msgerr "Option '--srcdir=' need argument (path)"
-		exit 1
-	elif [ -z "$PACKAGE_DIR" ]; then
-		msgerr "Option '--pkgdir=' need argument (path)"
-		exit 1
-	fi
-	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR" "$LOG_DIR"
 	
 	if [ "$LOGGING" = yes ] && [ -f $LOG_DIR/$name-$version-$release.log ] && [ ! -w $LOG_DIR/$name-$version-$release.log ]; then
 		msgerr "You dont have write permission for '$LOG_DIR/$name-$version-$release.log'."

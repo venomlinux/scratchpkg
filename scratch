@@ -1357,6 +1357,7 @@ Operation:
     files     <port>       show list files of installed package
     path      <port>       show package's buildscripts path
     readme    <port>       print readme file if exist
+    info      <port>       print ports info
     sync                   update port's repo
     dup                    print duplicate ports in repo
     listinst               list installed package in system
