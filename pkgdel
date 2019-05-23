@@ -103,12 +103,12 @@ isinstalled() {
 	
 parse_opts $(extract_opt $@)
 
-ROOT_DIR=${ROOT:-/}
+ROOT_DIR=${ROOT:-}
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
 
 # disable pre/post remove script when remove from custom root location
-if [ "$ROOT_DIR" != "/" ]; then
+if [ "$ROOT_DIR" != "" ]; then
 	NO_PREREMOVE=yes
 	NO_POSTREMOVE=yes
 fi
@@ -155,7 +155,7 @@ fi
 echo "remove: $name-$version-$release..."
 	
 if [ ! "$NO_PREREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
-	(cd $ROOT_DIR && sh $INDEX_DIR/$name/.pkginstall pre-remove "$version")
+	(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall pre-remove "$version")
 fi
 
 if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
@@ -175,7 +175,7 @@ while read -r line; do
 done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
 
 while read -r line; do
-	if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
+	if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR"/*/.files)" ]; then
 		if [ -d "$ROOT_DIR/$line" ]; then
 			[ "$VERBOSE_REMOVE" = yes ] && echo "<<< $line"
 			rmdir "$ROOT_DIR/$line"
@@ -184,14 +184,14 @@ while read -r line; do
 done < <(tac $INDEX_DIR/$name/.files | grep '/$')
 	
 if [ ! "$NO_POSTREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
-	(cd $ROOT_DIR && sh $INDEX_DIR/$name/.pkginstall post-remove "$version")
+	(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall post-remove "$version")
 fi
 	
 rm -rf $INDEX_DIR/$name
 
 # running ldconfig
-if [ -x /sbin/ldconfig ]; then
-	/sbin/ldconfig -r $ROOT_DIR
+if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
+	$ROOT_DIR/sbin/ldconfig -r "$ROOT_DIR"/
 fi
 
 ret 0

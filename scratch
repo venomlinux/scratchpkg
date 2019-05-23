@@ -806,7 +806,9 @@ scratch_install() {
 			fi
 		done
 		settermtitle "Triggering install hook"
-		scratch_trigger ${done_pkg[@]}
+		if [ ${#done_pkg[@]} -gt 0 ]; then
+			scratch_trigger ${done_pkg[@]}
+		fi
 		settermtitle "Reinstalling done"
 		[ "$error" = 1 ] && return 1 || return 0
 	fi

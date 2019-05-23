@@ -117,12 +117,12 @@ isinstalled() {
 
 parse_opts $(extract_opt $@)
 
-ROOT_DIR=${ROOT:-/}
+ROOT_DIR=${ROOT:-}
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
 
 # disable pre/post install script when install to custom root location
-if [ "$ROOT_DIR" != "/" ]; then
+if [ "$ROOT_DIR" != "" ]; then
 	NO_PREINSTALL=yes
 	NO_POSTINSTALL=yes
 	NO_PREUPGRADE=yes
@@ -250,10 +250,10 @@ fi
 
 if [ $(grep -x .pkginstall $TMP_PKGADD) ]; then
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		(cd "$ROOT_DIR" && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version")
+		(cd "$ROOT_DIR"/ && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version")
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		(cd "$ROOT_DIR" && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version" "$iversion")
+		(cd "$ROOT_DIR"/ && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version" "$iversion")
 	fi
 fi
 
@@ -262,7 +262,7 @@ for i in $(grep ^.pkg* $TMP_PKGADD); do
 done
 
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
-tar --keep-directory-symlink -p -x -v -f $PKGNAME -C $ROOT_DIR $excludefile | while read line; do
+tar --keep-directory-symlink -p -x -v -f $PKGNAME -C "$ROOT_DIR"/ $excludefile | while read line; do
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
@@ -285,7 +285,7 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		rm "$ROOT_DIR/$line" &>/dev/null
 	done
 	grep '/$' $TMP_PKGADD_RMLIST | tac | while read line; do
-		if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR")" ]; then
+		if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR"/*/.files)" ]; then
 			rmdir "$ROOT_DIR/$line" &>/dev/null
 		fi
 	done
@@ -304,20 +304,22 @@ for ii in $(grep ^.pkg* $TMP_PKGADD); do
 	pkgfiles="$pkgfiles $ii"
 done
 
-tar -x -f $PKGNAME -C $INDEX_DIR/$name $pkgfiles >/dev/null 2>&1
+if [ "$pkgfiles" ]; then
+	tar -x -f $PKGNAME -C $INDEX_DIR/$name $pkgfiles >/dev/null 2>&1
+fi
 
 if [ -f $INDEX_DIR/$name/.pkginstall ]; then
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		(cd "$ROOT_DIR" && sh $INDEX_DIR/$name/.pkginstall post-install "$version")
+		(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall post-install "$version")
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-		(cd "$ROOT_DIR" && sh $INDEX_DIR/$name/.pkginstall post-upgrade "$version" "$iversion")
+		(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall post-upgrade "$version" "$iversion")
 	fi
 fi
 
 # running ldconfig
-if [ -x $ROOT_DIR/sbin/ldconfig ]; then
-	$ROOT_DIR/sbin/ldconfig -r $ROOT_DIR
+if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
+	$ROOT_DIR/sbin/ldconfig -r "$ROOT_DIR"/
 fi
 
 ret 0
