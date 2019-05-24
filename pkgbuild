@@ -577,16 +577,15 @@ main() {
 	fi
 	
 	if [ -f $PKGBUILD_BSCRIPT ]; then
-		source $PKGBUILD_BSCRIPT
+		description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+		backup=$(grep "^# backup[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
+		depends=$(grep "^# depends[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
+		noextract=$(grep "^# noextract[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
+		source $PKGBUILD_BSCRIPT	
 	else
 		msgerr "'$PKGBUILD_BSCRIPT' file not found."
 		exit 1
 	fi
-	
-	description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-	backup=$(grep "^# backup[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
-	depends=$(grep "^# depends[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
-	noextract=$(grep "^# noextract[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
 	
 	if [ "$LOGGING" = yes ] && [ -f $LOG_DIR/$name-$version-$release.log ] && [ ! -w $LOG_DIR/$name-$version-$release.log ]; then
 		msgerr "You dont have write permission for '$LOG_DIR/$name-$version-$release.log'."
