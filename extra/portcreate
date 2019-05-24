@@ -24,14 +24,15 @@ if [ -d $1 ]; then
 else
 	mkdir $1
 	echo "# description	: 
-# backup	: 
+# homepage	: 
 # depends	: 
-# noextract	: 
 
 name=$1
 version=
 release=1
 options=()
+noextract=()
+backup=()
 source=()
 md5sum=()
 
