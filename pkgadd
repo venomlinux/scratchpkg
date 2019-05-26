@@ -274,7 +274,7 @@ tar --keep-directory-symlink -p -x -v -f $PKGNAME -C "$ROOT_DIR"/ $excludefile |
 			mv "$ROOT_DIR/$line".spkgnew "$ROOT_DIR/$line"
 		fi
 	fi
-	[ "$VERBOSE_INSTALL" = yes ] && echo ">>> $line"
+	[ "$VERBOSE_INSTALL" = yes ] && echo "+ $line"
 	echo "$line" >> $TMP_PKGINSTALL
 done
 
@@ -282,10 +282,12 @@ done
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $TMP_PKGADD_RMLIST
 	grep -v '/$' $TMP_PKGADD_RMLIST | while read line; do
+		[ "$VERBOSE_INSTALL" = yes ] && echo "- $line"
 		rm "$ROOT_DIR/$line" &>/dev/null
 	done
 	grep '/$' $TMP_PKGADD_RMLIST | tac | while read line; do
 		if [ ! "$(grep -R --exclude-dir="$name" -w "$line" "$INDEX_DIR"/*/.files)" ]; then
+			[ "$VERBOSE_INSTALL" = yes ] && echo "- $line"
 			rmdir "$ROOT_DIR/$line" &>/dev/null
 		fi
 	done
