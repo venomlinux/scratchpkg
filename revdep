@@ -36,6 +36,7 @@ Usage:
 Options:
   -a, --all                         print all affected files
   -r, --rebuild                     rebuild & reinstall broken package
+  -p, --package <pkg>               check for certain package
   -e, --exclude <pkg1 pkg2 pkgN>    exclude package when rebuild (use with -r/--rebuild)
   -y, --yes                         dont ask user confirmation to rebuild package (use with -r/--rebuild)
   -h, --help                        print this help message
@@ -64,6 +65,7 @@ parse_opt() {
 								esac
 								shift
 							done ;;
+			-p|--package)   PKG=$2; shift ;;
 			-h|--help)		usage; exit 0 ;;
 			*)				echo "Invalid option ($1)"; exit 1 ;;
 		esac
@@ -120,10 +122,20 @@ rebuild() {
 
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
 
+# package database directory
+INDEX_DIR="/var/lib/scratchpkg/index"
+
 parse_opt $@
 
 if [ "$UID" != 0 ] && [ "$REBUILD" = 1 ]; then
 	echo "$(basename $0) need to run as root to rebuild & reinstall package"
+	exit 1
+fi
+
+if [ "$PKG" ] && [ ! -f "$INDEX_DIR/$PKG/.files" ]; then
+	echo "$INDEX_DIR/$PKG/.files"
+	echo "ERROR: Package '$PKG' not installed"
+	cleanup
 	exit 1
 fi
 
@@ -176,7 +188,6 @@ EXCLUDED_LIBS=$(echo $EXCLUDE_LIBS | tr ' ' '\n' | sort | uniq)
 
 # search dirs
 TARGET_SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
-INDEX_DIR="/var/lib/scratchpkg/index"
 
 FILE_LIST=$(mktemp) || { echo "Can't create temporary file .Aborting..."; exit 1; }
 
@@ -207,8 +218,12 @@ for ll in $EXCLUDED_LIBS; do
 done
 echo
 
-echo -n "Find all files... "
-find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
+if [ "$PKG" ]; then
+	cat $INDEX_DIR/$PKG/.files | grep -E '*\.so|*\.so\.*' | sed 's/^/\//' > $FILE_LIST
+else
+	echo -n "Find all files... "
+	find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
+fi
 
 total=$(cat $FILE_LIST | wc -l)
 count=0
@@ -233,7 +248,7 @@ while IFS=' ' read -r line; do
 				LIB_NAME=$NEW_LIB_NAME
 				[[ $LIB_NAME ]] || continue
 				line2=$(echo $line | sed 's#^/##')
-				PKG_NAME=$(grep -Rx $line2 $INDEX_DIR | cut -d : -f1)
+				PKG_NAME=$(grep -Rx $line2 "$INDEX_DIR"/*/.files | cut -d : -f1)
 				[[ $PKG_NAME ]] || continue
 				PKG_NAME=$(dirname $(echo $PKG_NAME))
 				PKG_NAME=$(basename $(echo $PKG_NAME))
@@ -253,6 +268,7 @@ while IFS=' ' read -r line; do
 			fi
 			;;
 	esac
+	unset NEW_LIB_NAME
 done < $FILE_LIST
 
 echo -ne "\033[0K"
