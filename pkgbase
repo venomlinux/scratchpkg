@@ -24,7 +24,7 @@ for pkg in $allinstalled; do
 done
 
 if [ -n "$remove" ]; then
-	scratch remove $remove
+	scratch remove -y $remove
 fi
 
 exit $?
