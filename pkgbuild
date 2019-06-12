@@ -681,7 +681,7 @@ PKGBUILD_BSCRIPT="spkgbuild"
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
 LOG_DIR="/var/cache/scratchpkg/log"
-WORK_DIR="/tmp"
+WORK_DIR="/var/cache/scratchpkg/work"
 DOWNLOAD_PROG="wget"
 COMPRESSION_MODE="xz"
 

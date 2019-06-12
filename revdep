@@ -133,7 +133,6 @@ if [ "$UID" != 0 ] && [ "$REBUILD" = 1 ]; then
 fi
 
 if [ "$PKG" ] && [ ! -f "$INDEX_DIR/$PKG/.files" ]; then
-	echo "$INDEX_DIR/$PKG/.files"
 	echo "ERROR: Package '$PKG' not installed"
 	cleanup
 	exit 1
@@ -219,7 +218,12 @@ done
 echo
 
 if [ "$PKG" ]; then
-	cat $INDEX_DIR/$PKG/.files | grep -E '*\.so|*\.so\.*' | sed 's/^/\//' > $FILE_LIST
+	for D in $TARGET_SEARCH_DIRS; do
+		gx="$gx -e ^$D"
+	done
+	gx="$gx -e *\.so -e *\.so\.*"
+	echo -n "Find '$PKG' files... "
+	cat $INDEX_DIR/$PKG/.files | sed 's/^/\//' | grep $gx > $FILE_LIST
 else
 	echo -n "Find all files... "
 	find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
