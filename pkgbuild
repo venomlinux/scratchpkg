@@ -377,7 +377,7 @@ packaging() {
 		bz2) COMPRESS="-j" ;;
 	esac
 	
-	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME ./* "${addtotar[@]}"
+	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
 	if [ $? != 0 ]; then
 		rm -f $PACKAGE_DIR/$PKGNAME
 		msgerr "Packaging '$PKGNAME' failed."
