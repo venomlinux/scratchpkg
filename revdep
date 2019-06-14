@@ -138,41 +138,48 @@ if [ "$PKG" ] && [ ! -f "$INDEX_DIR/$PKG/.files" ]; then
 	exit 1
 fi
 
-while read line; do
-	if [[ $(echo ${line::1}) = "/" ]]; then
+while read -r line; do
+	if [[ "${line::1}" = "/" ]]; then
 		EXTRA_SEARCH_DIRS+="$line "
 	fi
 done < /etc/ld.so.conf
 
 if [ -d /etc/ld.so.conf.d/ ]; then
-	for dir in $(ls /etc/ld.so.conf.d/); do
-		while read line; do
-			if [[ $(echo ${line::1}) = "/" ]]; then
+	for dir in /etc/ld.so.conf.d/*.conf; do
+		while read -r line; do
+			if [[ "${line::1}" = "/" ]]; then
 				EXTRA_SEARCH_DIRS+="$line "
 			fi
-		done < /etc/ld.so.conf.d/$dir
+		done < $dir
 	done
 fi
 
 # excluded dirs
-EXCLUDE_DIR="$(cat /etc/revdep.conf 2>/dev/null | grep -v ^# | grep /$ | sed 's/\/*$//g')"
-EXCLUDE_DIR+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v ^# | grep /$ | sed 's/\/*$//g')"
+EXCLUDE_DIRS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep /$ | uniq | sed 's/\/*$//g')"
+EXCLUDE_DIRS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep /$ | uniq | sed 's/\/*$//g')"
 
-EXCLUDE_DIRS=$(echo $EXCLUDE_DIR | tr ' ' '\n' | sort | uniq)
+for dd in $EXCLUDE_DIRS; do
+	if [ -d $dd ]; then
+		_DIRS+=" $dd"
+	fi
+done
+
+EXCLUDE_DIRS=$(echo $_DIRS | tr ' ' '\n' | sort | uniq)
 
 for d in $EXCLUDE_DIRS; do
 	EXCLUDED_DIRS+="-path $d -prune -o "
 done
 
 # excluded files
-EXCLUDE_FILES="$(cat /etc/revdep.conf 2>/dev/null | grep -v ^# | grep -v /$)"
-EXCLUDE_FILES+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v ^# | grep -v /$)"
+EXCLUDE_FILES="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v /$ | grep ^/)"
+EXCLUDE_FILES+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep -v /$ | grep ^/)"
 
 for ff in $EXCLUDE_FILES; do
 	if [ -f $ff ]; then
 		_FILES+=" $ff"
 	fi
 done
+
 EXCLUDE_FILES=$(echo $_FILES | tr ' ' '\n' | sort | uniq)
 
 for f in $EXCLUDE_FILES; do
@@ -180,8 +187,8 @@ for f in $EXCLUDE_FILES; do
 done
 
 # excluded libraries
-EXCLUDE_LIBS="$(cat /etc/revdep.conf 2>/dev/null | grep -v ^# | grep -v ^/ | grep ".*.so.*")"
-EXCLUDE_LIBS+=" $(cat /etc/revdep.d/*.conf 2>/dev/null | grep -v ^# | grep -v ^/ | grep ".*.so.*")"
+EXCLUDE_LIBS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v ^/ | uniq | grep ".*.so.*")"
+EXCLUDE_LIBS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null  | cut -d : -f2 | grep -v ^/ | uniq | grep ".*.so.*")"
 
 EXCLUDED_LIBS=$(echo $EXCLUDE_LIBS | tr ' ' '\n' | sort | uniq)
 
@@ -223,13 +230,13 @@ if [ "$PKG" ]; then
 	done
 	gx="$gx -e *\.so -e *\.so\.*"
 	echo -n "Find '$PKG' files... "
-	cat $INDEX_DIR/$PKG/.files | sed 's/^/\//' | grep $gx > $FILE_LIST
+	sed 's/^/\//' $INDEX_DIR/$PKG/.files | grep $gx > $FILE_LIST
 else
 	echo -n "Find all files... "
 	find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
 fi
 
-total=$(cat $FILE_LIST | wc -l)
+total=$(wc -l $FILE_LIST | awk '{print $1}')
 count=0
 
 echo "$total files found"
@@ -237,15 +244,15 @@ echo "$total files found"
 echo "Checking for broken linkage..."
 
 while IFS=' ' read -r line; do
-	count=$(( $count + 1 ))
+	count=$(( count + 1 ))
 	libname=$(basename "$line")
-	echo -ne " $(( 100*$count/$total ))% $libname\033[0K\r"
+	echo -ne " $(( 100*count/total ))% $libname\033[0K\r"
 	case "$(file -bi "$line")" in
 		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
-			if [ "$(ldd $line 2>/dev/null | grep "not found")" ]; then
+			if ldd $line 2>/dev/null | grep -q "not found"; then
 				LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 				for l in $LIB_NAME; do
-					if [ ! "$(echo $EXCLUDED_LIBS | grep -w $l)" ]; then
+					if ! echo $EXCLUDED_LIBS | grep -qw $l; then
 						NEW_LIB_NAME+=" $l"
 					fi
 				done
@@ -254,15 +261,15 @@ while IFS=' ' read -r line; do
 				line2=$(echo $line | sed 's#^/##')
 				PKG_NAME=$(grep -Rx $line2 "$INDEX_DIR"/*/.files | cut -d : -f1)
 				[[ $PKG_NAME ]] || continue
-				PKG_NAME=$(dirname $(echo $PKG_NAME))
-				PKG_NAME=$(basename $(echo $PKG_NAME))
+				PKG_NAME=$(dirname $PKG_NAME)
+				PKG_NAME=$(basename $PKG_NAME)
+				echo $expkg | tr ' ' '\n' | grep -qx $PKG_NAME && continue
 				REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
-				LIB=$(echo $LIB_NAME | tr '\n' ' ')
 				for i in $LIB_NAME; do
 					[ "$PRINTALL" = 1 ] && echo -e " $PKG_NAME -> $line (requires $i)"
 					if echo $REQ_LIB | tr ' ' '\n' | grep -qx $i; then
 						[ "$PRINTALL" = 1 ] || echo -e " $PKG_NAME -> $line (requires $i)"
-						if [[ "$(echo ${ALLPKG[@]} | tr ' ' '\n' | grep -x "$PKG_NAME")" ]]; then
+						if echo "${ALLPKG[@]}" | tr ' ' '\n' | grep -qx "$PKG_NAME"; then
 							continue
 						else
 							ALLPKG+="$PKG_NAME "

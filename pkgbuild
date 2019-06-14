@@ -74,7 +74,7 @@ updatemdsum() {
 
 checkmdsum() {
 	
-	if [ ! -z "$source" -a -z "$md5sum" ]; then
+	if [ -n "$source" ] && [ -z "$md5sum" ]; then
 		msgerr "md5sum=() is empty, please provide it."
 		abort 1
 	fi
@@ -300,12 +300,12 @@ strip_files() {
 }
 
 compressinfomanpages() {
-	find . -type f -path "*/man/man*/*" | while read file; do
+	find . -type f -path "*/man/man*/*" | while read -r file; do
 		if [ "$file" = "${file%%.gz}" ]; then
 			gzip -9 -f "$file"
 		fi
 	done
-	find . -type l -path "*/man/man*/*" | while read file; do
+	find . -type l -path "*/man/man*/*" | while read -r file; do
 		FILE="${file%%.gz}.gz"
 		TARGET="$(readlink $file)"
 		TARGET="${TARGET##*/}"
@@ -377,7 +377,7 @@ packaging() {
 		bz2) COMPRESS="-j" ;;
 	esac
 	
-	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
+	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME ./* "${addtotar[@]}"
 	if [ $? != 0 ]; then
 		rm -f $PACKAGE_DIR/$PKGNAME
 		msgerr "Packaging '$PKGNAME' failed."
@@ -396,7 +396,7 @@ check_buildscript() {
 	if [ -z "$name" ]; then
 		msgerr "'name' is empty!"
 		exit 1
-	elif [ "$(basename `pwd`)" != "$name" ]; then
+	elif [ "$(basename $(pwd))" != "$name" ]; then
 		msgerr "Port name and Directory name is different!"
 		exit 1
 	elif [ -z "$version" ]; then
@@ -405,13 +405,13 @@ check_buildscript() {
 	elif [ -z "$release" ]; then
 		msgerr "'release' is empty!"
 		exit 1
-	elif [ "`type -t build`" != "function" ]; then
+	elif [ "$(type -t build)" != "function" ]; then
 		msgerr "'build' function not exist!"
 		exit 1
-	elif $(echo "$version" | grep -q '-'); then
+	elif echo "$version" | grep -q '-'; then
 		msgerr "'version' should not contain '-'."
 		exit 1
-	elif $(echo "$release" | grep -q '-'); then
+	elif echo "$release" | grep -q '-'; then
 		msgerr "'release' should not contain '-'."
 		exit 1
 	elif [ -z "$description" ]; then
@@ -447,10 +447,10 @@ checkdir() {
 		if [ ! -d $DIR ]; then
 			msgerr "Directory '$DIR' not exist."
 			abort 1
-		elif [ ! -w $dir ]; then
+		elif [ ! -w $DIR ]; then
 			msgerr "Directory '$DIR' not writable."
 			abort 1
-		elif [ ! -x $dir ] || [ ! -r $1 ]; then
+		elif [ ! -x $DIR ] || [ ! -r $1 ]; then
 			msgerr "Directory '$DIR' not readable."
 			abort 1
 		fi
@@ -591,7 +591,6 @@ main() {
 	if [ -f $PKGBUILD_BSCRIPT ]; then
 		description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 		backup=$(grep "^# backup[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
-		depends=$(grep "^# depends[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//')
 		noextract=$(grep "^# noextract[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
 		source $PKGBUILD_BSCRIPT	
 	else

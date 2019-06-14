@@ -1,9 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 BINDIR=/usr/bin
 CONFDIR=/etc
 CACHE_DIR=/var/cache/scratchpkg
-INDEX_DIR=/var/lib/scratchpkg
 PORT_DIR=/usr/ports
 REVDEPD=/etc/revdep.d
 REVDEPCONF=/etc/revdep.conf

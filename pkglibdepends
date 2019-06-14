@@ -53,11 +53,11 @@ pushd / >/dev/null
 				esac
 				libpath=$(ldd "$LINE" | grep -v "not found" | grep -w "$i" | awk '{print $3}')
 				if [ "$libpath" ]; then
-					FILEPATH=$(readlink -f $(echo $libpath))
-					FILENAME=$(echo $FILEPATH | sed -e '1s/^.//')
+					FILEPATH=$(readlink -f $libpath)
+					FILENAME=$(sed -e '1s/^.//' $FILEPATH)
 					PKG_NAME=$(basename $(dirname $(grep -Rx $FILENAME $INDEX_DIR | cut -d ':' -f1)))
 					if [ "$PKG_NAME" != $1 ]; then
-						if [ ! "$(echo "$deppkg" | grep -w "$PKG_NAME")" ]; then
+						if ! echo "$deppkg" | grep -qw "$PKG_NAME"; then
 							deppkg="$deppkg $PKG_NAME "
 						fi
 					fi
@@ -70,3 +70,5 @@ pushd / >/dev/null
 popd >/dev/null
 
 echo $deppkg | tr ' ' '\n'
+
+exit 0

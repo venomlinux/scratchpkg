@@ -57,7 +57,7 @@ checkdep() {
 getportpath() {	
 	for repo in ${PORT_REPO[@]}; do
 		if [[ -f $repo/$1/spkgbuild ]]; then
-			echo "$(dirname $repo/$1/spkgbuild)"
+			dirname $repo/$1/spkgbuild
 			return 0
 		fi
 	done
@@ -82,7 +82,7 @@ deplist() {
 	
 	# check dependencies
 	for i in $(checkdep $1); do
-		[ -e $INDEX_DIR/$i/.pkginfo -a "$QUICK" ] && continue
+		[ -e $INDEX_DIR/$i/.pkginfo ] && [ "$QUICK" ] && continue
 		if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $i) = "" ]]; then
 			deplist $i
 		fi
@@ -148,7 +148,7 @@ if [ "${#PKG[@]}" = 0 ]; then
 	exit 1
 fi
 
-while read repodir repourl junk; do
+while read -r repodir repourl junk; do
 	case $repodir in
 		""|"#"*) continue ;;
 	esac

@@ -94,7 +94,7 @@ ret() {
 }
 
 isinstalled() {
-	if [ -s $INDEX_DIR/$1/.pkginfo ] && [[ $(grep $1 $INDEX_DIR/$1/.pkginfo) ]]; then
+	if [ -s $INDEX_DIR/$1/.pkginfo ] && grep -q $1 $INDEX_DIR/$1/.pkginfo; then
 		return 0
 	else
 		return 1
@@ -143,9 +143,9 @@ if [ "$UID" != "0" ]; then
 	ret 1
 fi
 
-name=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^name | cut -d " " -f3-)
-version=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^version | cut -d " " -f3-)
-release=$(cat $INDEX_DIR/$RMNAME/.pkginfo | grep ^release | cut -d " " -f3-)
+name=$(grep ^name $INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+version=$(grep ^version $INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+release=$(grep ^release $INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
 
 if [ -z $name ] && [ -z $version ] && [ -z $release ]; then
 	msgerr "Package '$RMNAME' not installed but exist in database."
@@ -175,7 +175,7 @@ while read -r line; do
 done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
 
 while read -r line; do
-	if [ ! "$(grep -Rx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files)" ]; then
+	if grep -Rx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files; then
 		if [ -d "$ROOT_DIR/$line" ]; then
 			[ "$VERBOSE_REMOVE" = yes ] && echo "- $line"
 			rmdir "$ROOT_DIR/$line"

@@ -63,7 +63,7 @@ needroot() {
 		if [ "$#" -eq 0 ]; then
 			needroot "This operation"
 		else
-			msgerr "$@ need root access!"
+			msgerr "$* need root access!"
 		fi
 		exit 1
 	fi	
@@ -72,7 +72,7 @@ needroot() {
 getportpath() {	
 	for repo in ${PORT_REPO[@]}; do
 		if [[ -f $repo/$1/$BUILD_SCRIPT ]]; then
-			echo "$(dirname $repo/$1/$BUILD_SCRIPT)"
+			dirname $repo/$1/$BUILD_SCRIPT
 			return 0
 		fi
 	done
@@ -99,7 +99,7 @@ vercomp() {
 
 installed_pkg_info() {	
 	if isinstalled $2; then
-		echo $(cat $INDEX_DIR/$2/.pkginfo | grep ^$1 | cut -d " " -f3-)
+		grep ^$1 $INDEX_DIR/$2/.pkginfo | cut -d " " -f3-
 	fi
 }
 
@@ -127,7 +127,7 @@ checktool() {
 }
 
 needarg() {
-	if [[ -z "$@" ]]; then
+	if [ -z "$*" ]; then
 		msgerr "This operation required an arguments!"
 		exit 1
 	fi
@@ -151,7 +151,7 @@ isinstalled() {
 }
 
 settermtitle() {
-	echo -en "\033]0;$@\a"
+	echo -en "\033]0;$*\a"
 }
 
 scratch_missingdep() {
@@ -335,7 +335,7 @@ scratch_dependent() {
 					if [ $dep = $1 ]; then
 						GDP=yes
 						pname=$(dirname $all)
-						pname=$(echo ${pname##*/})
+						pname=${pname##*/}
 						if isinstalled $pname; then
 							msginst "$pname"
 						else
@@ -352,7 +352,7 @@ scratch_dependent() {
 
 scratch_own() {
 	local arg
-	arg=$(echo $1 | sed 's:^/::')
+	arg=${1/\/}
 	grep -R $arg $INDEX_DIR/*/.files | sed "s:$INDEX_DIR/::" | sed "s:/.files::" | tr : " " | column -t
 }
 
@@ -428,7 +428,7 @@ scratch_search() {
 							description=$(grep "^# description[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 							. $BUILD_SCRIPT
 						popd
-						if [ ! -z "$name" ] && [ ! -z "$version" ] && [ ! -z "$release" ]; then
+						if [ -n "$name" ] && [ -n "$version" ] && [ -n "$release" ]; then
 							portname=$(basename $port)
 							search_result="${PURPLE}($portname)${CRESET} $name ${CYAN}$version-$release${CRESET} $description"
 							if isinstalled $name; then
@@ -466,13 +466,13 @@ scratch_info() {
 	release="-"
 	iver="-"
 	irel="-"
-	if $(isinstalled $1); then
+	if isinstalled $1; then
 		iver=$(installed_pkg_info version $1)
 		irel=$(installed_pkg_info release $1)
 		INSTALLED=1
 	fi
 	portpath=$(getportpath $1)
-	if [ ! -z $portpath ]; then
+	if [ -n "$portpath" ]; then
 		. $portpath/$BUILD_SCRIPT
 		PORTEXIST=1
 	else
@@ -489,7 +489,7 @@ scratch_info() {
 
 scratch_trigger() {
 	needroot "Run trigger"
-	if [[ -z "$@" ]]; then
+	if [ -z "$@" ]; then
 		for i in trig_{1..12}; do
 			eval $i=1
 		done
@@ -857,7 +857,7 @@ scratch_install() {
 		echo
 		pkgcount=0
 		for pkg in $INST; do
-			pkgcount=$(( $pkgcount + 1 ))
+			pkgcount=$(( pkgcount + 1 ))
 			echo -en "[${GREEN}i${CRESET}] $pkg  "
 		done
 		echo; echo
@@ -871,7 +871,7 @@ scratch_install() {
 		count=0
 		total=$(echo $INST | wc -w)
 		for int in ${INST[@]}; do
-			count=$(( $count + 1 ))
+			count=$(( count + 1 ))
 			portpathh=$(getportpath $int)
 			if [ "$portpathh" ]; then
 				pushd $portpathh
@@ -879,7 +879,7 @@ scratch_install() {
 					pkgbuild -i ${OPTS[@]}
 					if [ $? != 0 ]; then
 						error=1
-						count=$(( $count - 1 ))
+						count=$(( count - 1 ))
 						break
 					fi
 					done_pkg+=($int)
@@ -953,7 +953,7 @@ scratch_remove() {
 		pkgcount=0
 		count=0
 		for pkg in ${IPKG[@]}; do
-			pkgcount=$(( $pkgcount + 1 ))
+			pkgcount=$(( pkgcount + 1 ))
 			echo -en "[${RED}x${CRESET}] $pkg  "
 		done
 		echo; echo
@@ -964,7 +964,7 @@ scratch_remove() {
 			echo
 		fi
 		for pkg in ${IPKG[@]}; do
-			count=$(( $count + 1 ))
+			count=$(( count + 1 ))
 			pre_triggers $pkg
 			settermtitle "[ $count/$pkgcount ] Removing $pkg..."
 			pkgdel $pkg ${OPTS[@]} || return 1
@@ -1021,11 +1021,11 @@ scratch_sysup() {
 			if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
 				echo -ne "[${GREEN}u${CRESET}] $d  "
 				WILLINSTALL+=($d)
-				UPGPKG=$(( $UPGPKG + 1 ))
+				UPGPKG=$(( UPGPKG + 1 ))
 			elif ! isinstalled $d && [ $(getportpath "$d") ]; then
 				echo -ne "[${CYAN}n${CRESET}] $d  "
 				WILLINSTALL+=($d)
-				NEWPKG=$(( $NEWPKG + 1 ))
+				NEWPKG=$(( NEWPKG + 1 ))
 			fi
 		done
 	else
@@ -1033,7 +1033,7 @@ scratch_sysup() {
 		for dd in ${PKGOUTDATE[@]}; do
 			echo -ne "[${GREEN}u${CRESET}] $dd  "
 			WILLINSTALL+=($dd)
-			UPGPKG=$(( $UPGPKG + 1 ))
+			UPGPKG=$(( UPGPKG + 1 ))
 		done
 	fi
 	echo		
@@ -1048,14 +1048,14 @@ scratch_sysup() {
 	count=0
 	total=$(echo ${WILLINSTALL[@]} | wc -w)
 	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
-		count=$(( $count + 1 ))
+		count=$(( count + 1 ))
 		pushd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
 			pkgbuild -i ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
-				count=$(( $count - 1 ))
+				count=$(( count - 1 ))
 				break
 			fi
 		else
@@ -1063,7 +1063,7 @@ scratch_sysup() {
 			pkgbuild -u ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
-				count=$(( $count - 1 ))
+				count=$(( count - 1 ))
 				break
 			fi
 		fi
@@ -1129,11 +1129,11 @@ scratch_upgrade() {
 	echo
 	count=0
 	for i in ${NEWPKG[@]}; do
-		count=$(( $count + 1 ))
+		count=$(( count + 1 ))
 		echo -en "[${CYAN}n${CRESET}] $i  "
 	done
 	for i in ${PKGNAME[@]}; do
-		count=$(( $count + 1 ))
+		count=$(( count + 1 ))
 		echo -en "[${GREEN}u${CRESET}] $i  "
 	done
 	echo
@@ -1148,13 +1148,13 @@ scratch_upgrade() {
 	fi
 	if [ ${#NEWPKG[@]} -gt 0 ]; then
 		for newpkg in ${NEWPKG[@]}; do	
-			count=$(( $count + 1 ))		
+			count=$(( count + 1 ))		
 			pushd $(getportpath $newpkg)
 				settermtitle "[ $count/$total ] Installing $newpkg..."
 				pkgbuild -i ${OPTS[@]}
 				if [ $? != 0 ]; then
 					error=1
-					count=$(( $count - 1 ))
+					count=$(( count - 1 ))
 					break
 				fi
 				done_pkg+=($newpkg)
@@ -1162,13 +1162,13 @@ scratch_upgrade() {
 		done
 	fi
 	for pkg in ${PKGNAME[@]}; do # upgrade all target packages
-		count=$(( $count + 1 ))
+		count=$(( count + 1 ))
 		pushd $(getportpath $pkg)
 			settermtitle "[ $count/$total ] Upgrading $pkg..."
 			pkgbuild -u ${OPTS[@]}
 			if [ $? != 0 ]; then
 				error=1
-				count=$(( $count - 1 ))
+				count=$(( count - 1 ))
 				break
 			fi
 			done_pkg+=($pkg)
@@ -1251,7 +1251,7 @@ getpkgcache() {
 			for port in $repo/*/$BUILD_SCRIPT; do
 				. $port
 				PORT_PACKAGES+=($name-$version-$release.spkg.tar.$COMPRESSION_MODE)
-				if [ ! -z $source ]; then
+				if [ -n "$source" ]; then
 					for src in ${source[@]}; do
 						if [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
 							if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
@@ -1328,13 +1328,12 @@ scratch_path() {
 }
 
 scratch_dup() {	
-	dup=$(find ${PORT_REPO[@]} -type d -print | egrep -xv "($(echo ${PORT_REPO[@]} | tr ' ' '|'))" | \
+	dup=$(find ${PORT_REPO[@]} -type d -print | grep -Exv "($(echo ${PORT_REPO[@]} | tr ' ' '|'))" | \
 		rev | cut -d '/' -f1 | rev | sort | uniq -d)
 	
 	if [ "$dup" ]; then
 		for dp in $dup; do
 			for repo in ${PORT_REPO[@]}; do
-				reponame=$(basename $repo)
 				[ -d $repo/$dp ] && echo "$repo/$dp"
 			done
 		done
@@ -1512,7 +1511,7 @@ if [ ! -f "$REPO_FILE" ]; then
 	msgerr "repo file not exist. ($REPO_FILE)"
 	exit 1
 else
-	while read repodir repourl junk; do
+	while read -r repodir repourl junk; do
 		case $repodir in
 			""|"#"*) continue ;;
 		esac
