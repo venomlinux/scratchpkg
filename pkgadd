@@ -284,7 +284,7 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		rm "$ROOT_DIR/$line" &>/dev/null
 	done
 	grep '/$' $TMP_PKGADD_RMLIST | tac | while read -r line; do
-		if ! grep -Rx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files; then
+		if ! grep -Rqx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files; then
 			[ "$VERBOSE_INSTALL" = yes ] && echo "- $line"
 			rmdir "$ROOT_DIR/$line" &>/dev/null
 		fi

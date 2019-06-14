@@ -175,7 +175,7 @@ while read -r line; do
 done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
 
 while read -r line; do
-	if grep -Rx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files; then
+	if grep -Rqx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files; then
 		if [ -d "$ROOT_DIR/$line" ]; then
 			[ "$VERBOSE_REMOVE" = yes ] && echo "- $line"
 			rmdir "$ROOT_DIR/$line"
