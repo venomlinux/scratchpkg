@@ -229,7 +229,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 			fi
 			if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 				if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-					if ! grep -Fx "$line" "$INDEX_DIR/$name/.files"; then
+					if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
 						echo "$line"
 						conflictedfile=yes
 					fi
@@ -284,7 +284,7 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 		rm "$ROOT_DIR/$line" &>/dev/null
 	done
 	grep '/$' $TMP_PKGADD_RMLIST | tac | while read -r line; do
-		if ! grep -Rqx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files; then
+		if [ ! "$(grep -Rx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files)" ]; then
 			[ "$VERBOSE_INSTALL" = yes ] && echo "- $line"
 			rmdir "$ROOT_DIR/$line" &>/dev/null
 		fi
