@@ -245,16 +245,6 @@ run_build() {
 	popd >/dev/null
 }
 
-purgefiles() {
-	local OPTIONS
-	[ "${#PURGE_FILES[@]}" -gt 0 ] || return 0
-	for OPTIONS in ${PURGE_FILES[@]}; do
-		if [ -e $OPTIONS ]; then
-			rm -fr $OPTIONS
-		fi
-	done
-}
-
 removeemptydirs() {	
 	find . -type d -empty -delete	
 }
@@ -459,7 +449,9 @@ checkdir() {
 
 clearworkdir() {
 	if [ ! "$KEEP_WORK" ]; then
-		rm -fr $WORK_DIR/$name
+		if [ "$name" ]; then
+			rm -fr $WORK_DIR/$name
+		fi
 	fi
 }
 

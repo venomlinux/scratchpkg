@@ -37,6 +37,7 @@ Options:
   -a, --all                         print all affected files
   -r, --rebuild                     rebuild & reinstall broken package
   -p, --package <pkg>               check for certain package
+  -f, --no-filter                   skip filter (exclude) dirs, files and libraries
   -e, --exclude <pkg1 pkg2 pkgN>    exclude package when rebuild (use with -r/--rebuild)
   -y, --yes                         dont ask user confirmation to rebuild package (use with -r/--rebuild)
   -h, --help                        print this help message
@@ -58,6 +59,7 @@ parse_opt() {
 			-a|--all)       PRINTALL=1 ;;
 			-r|--rebuild)   REBUILD=1 ;;
 			-y|--yes)       NOCONFIRM=1 ;;
+			-f|--no-filter) NO_FILTER=1 ;;
 			-e|--exclude)	while [ "$2" ]; do
 								case $2 in
 									-*) break ;;
@@ -73,29 +75,9 @@ parse_opt() {
 	done
 }
 
-rebuild() {
-	if [[ "$expkg" ]]; then
-		for broken in $ALLPKG; do
-			for exclude in $expkg; do
-				if [ $broken = $exclude ]; then
-					remove=1
-				fi
-			done
-			if [ "$remove" != 1 ]; then
-				if [ -z "$needrebuild" ]; then
-					needrebuild="$broken"
-				else
-					needrebuild="$needrebuild $broken"
-				fi
-			fi
-			unset remove
-		done
-	else
-		needrebuild=$ALLPKG
-	fi
-	
-	for allpkg in $(pkgdeplist -l -i $needrebuild | cut -d ' ' -f2); do
-		for pkg in $needrebuild; do
+rebuild() {	
+	for allpkg in $(pkgdeplist -l -i $ALLPKG | cut -d ' ' -f2); do
+		for pkg in $ALLPKG; do
 			if [ $pkg = $allpkg ]; then
 				if [ -z "$order" ]; then
 					order="$allpkg"
@@ -120,10 +102,53 @@ rebuild() {
 	fi
 }
 
+rev_exclude() {
+	# excluded dirs
+	EXCLUDE_DIRS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep /$ | uniq | sed 's/\/*$//g')"
+	EXCLUDE_DIRS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep /$ | uniq | sed 's/\/*$//g')"
+
+	for dd in $EXCLUDE_DIRS; do
+		if [ -d $dd ]; then
+			_DIRS+=" $dd"
+			ged="$ged -e ^$dd"
+		fi
+	done
+
+	EXCLUDE_DIRS=$(echo $_DIRS | tr ' ' '\n' | sort | uniq)
+
+	for d in $EXCLUDE_DIRS; do
+		EXCLUDED_DIRS+="-path $d -prune -o "
+	done
+
+	# excluded files
+	EXCLUDE_FILES="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v /$ | grep ^/)"
+	EXCLUDE_FILES+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep -v /$ | grep ^/)"
+
+	for ff in $EXCLUDE_FILES; do
+		if [ -f $ff ]; then
+			_FILES+=" $ff"
+			gef="$gef -e ^$ff$"
+		fi
+	done
+
+	EXCLUDE_FILES=$(echo $_FILES | tr ' ' '\n' | sort | uniq)
+
+	for f in $EXCLUDE_FILES; do
+		EXCLUDED_FILES+="! -path $f "
+	done
+
+	# excluded libraries
+	EXCLUDE_LIBS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v ^/ | uniq | grep ".*.so.*")"
+	EXCLUDE_LIBS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null  | cut -d : -f2 | grep -v ^/ | uniq | grep ".*.so.*")"
+
+	EXCLUDED_LIBS=$(echo $EXCLUDE_LIBS | tr ' ' '\n' | sort | uniq)
+}
+
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
 
 # package database directory
 INDEX_DIR="/var/lib/scratchpkg/index"
+SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/lib64 /usr/libexec"
 
 parse_opt $@
 
@@ -138,6 +163,7 @@ if [ "$PKG" ] && [ ! -f "$INDEX_DIR/$PKG/.files" ]; then
 	exit 1
 fi
 
+# get search extra dirs
 while read -r line; do
 	if [[ "${line::1}" = "/" ]]; then
 		EXTRA_SEARCH_DIRS+="$line "
@@ -154,46 +180,12 @@ if [ -d /etc/ld.so.conf.d/ ]; then
 	done
 fi
 
-# excluded dirs
-EXCLUDE_DIRS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep /$ | uniq | sed 's/\/*$//g')"
-EXCLUDE_DIRS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep /$ | uniq | sed 's/\/*$//g')"
-
-for dd in $EXCLUDE_DIRS; do
-	if [ -d $dd ]; then
-		_DIRS+=" $dd"
-	fi
-done
-
-EXCLUDE_DIRS=$(echo $_DIRS | tr ' ' '\n' | sort | uniq)
-
-for d in $EXCLUDE_DIRS; do
-	EXCLUDED_DIRS+="-path $d -prune -o "
-done
-
-# excluded files
-EXCLUDE_FILES="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v /$ | grep ^/)"
-EXCLUDE_FILES+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep -v /$ | grep ^/)"
-
-for ff in $EXCLUDE_FILES; do
-	if [ -f $ff ]; then
-		_FILES+=" $ff"
-	fi
-done
-
-EXCLUDE_FILES=$(echo $_FILES | tr ' ' '\n' | sort | uniq)
-
-for f in $EXCLUDE_FILES; do
-	EXCLUDED_FILES+="! -path $f "
-done
-
-# excluded libraries
-EXCLUDE_LIBS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v ^/ | uniq | grep ".*.so.*")"
-EXCLUDE_LIBS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null  | cut -d : -f2 | grep -v ^/ | uniq | grep ".*.so.*")"
-
-EXCLUDED_LIBS=$(echo $EXCLUDE_LIBS | tr ' ' '\n' | sort | uniq)
+if [ "$NO_FILTER" != 1 ]; then
+	rev_exclude
+fi
 
 # search dirs
-TARGET_SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/libexec $EXTRA_SEARCH_DIRS"
+TARGET_SEARCH_DIRS="$SEARCH_DIRS $EXTRA_SEARCH_DIRS"
 
 FILE_LIST=$(mktemp) || { echo "Can't create temporary file .Aborting..."; exit 1; }
 
@@ -229,8 +221,18 @@ if [ "$PKG" ]; then
 		gx="$gx -e ^$D"
 	done
 	gx="$gx -e *\.so -e *\.so\.*"
+	if [ -n "$gef" ]; then
+		filterfile="grep -v $gef"
+	else
+		filterfile=cat
+	fi
+	if [ -n "$ged" ]; then
+		filterdir="grep -v $ged"
+	else
+		filterdir=cat
+	fi
 	echo -n "Find '$PKG' files... "
-	sed 's/^/\//' $INDEX_DIR/$PKG/.files | grep $gx > $FILE_LIST
+	sed 's/^/\//' $INDEX_DIR/$PKG/.files | grep $gx | $filterfile | $filterdir > $FILE_LIST
 else
 	echo -n "Find all files... "
 	find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
@@ -258,8 +260,8 @@ while IFS=' ' read -r line; do
 				done
 				LIB_NAME=$NEW_LIB_NAME
 				[[ $LIB_NAME ]] || continue
-				line2=$(echo $line | sed 's#^/##')
-				PKG_NAME=$(grep -Rx $line2 "$INDEX_DIR"/*/.files | cut -d : -f1)
+				PKG_NAME=$(echo $line | sed 's#^/##')
+				PKG_NAME=$(grep -Rx $PKG_NAME "$INDEX_DIR"/*/.files | cut -d : -f1)
 				[[ $PKG_NAME ]] || continue
 				PKG_NAME=$(dirname $PKG_NAME)
 				PKG_NAME=$(basename $PKG_NAME)
