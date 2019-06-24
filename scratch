@@ -352,7 +352,7 @@ scratch_dependent() {
 
 scratch_own() {
 	local arg
-	arg=${1/\/}
+	arg=$(echo $1 | sed "s/^\///")
 	grep -R $arg $INDEX_DIR/*/.files | sed "s:$INDEX_DIR/::" | sed "s:/.files::" | tr : " " | column -t
 }
 
