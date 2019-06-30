@@ -1,12 +1,13 @@
 # description	: 
+# homepage	:
 # backup	: 
 # depends	: 
-# noextract	:
 
 name=
 version=
 release=1
 options=()
+noextract=()
 source=()
 md5sum=()
 

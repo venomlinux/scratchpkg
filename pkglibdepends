@@ -44,7 +44,7 @@ fi
 
 pushd / >/dev/null
 	while IFS=' ' read -r LINE; do
-		case "$(file -Lbi "${LINE}")" in
+		case "$(file -bi "${LINE}")" in
 			*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
 			NEEDED_LIB=$(objdump -x "$LINE" | grep NEEDED | awk '{print $2}')
 			for i in ${NEEDED_LIB[@]}; do
@@ -61,9 +61,8 @@ pushd / >/dev/null
 							deppkg="$deppkg $PKG_NAME "
 						fi
 					fi
-				else
-					echo "$LINE (missing shared lib) => $i"
 				fi
+				unset libpath
 			done
 		esac
 	done < <(tac $INDEX_DIR/$1/.files | grep -E ^"(bin/|lib/|libexec/|sbin/|usr/bin/|usr/lib/|usr/lib32/|usr/libexec/|usr/sbin/|opt/)" | grep -v "/$")
