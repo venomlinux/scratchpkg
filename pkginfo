@@ -1,0 +1,96 @@
+#!/bin/bash
+
+msg() {
+	echo "$CMD: $*"
+}
+
+pkg_installed() {
+	grep version "$INDEX_DIR"/*/.pkginfo | sed "s:$INDEX_DIR::" | tr '/' ' ' | awk '{print $1,$4}'
+}
+
+pkg_listfiles() {
+	[ "$1" ] || return
+	if [ ! -f "$INDEX_DIR"/$1/.files ]; then
+		msg "port '$1' not installed."
+		exit 1
+	fi
+	cat "$INDEX_DIR"/$1/.files
+}
+
+pkg_own() {
+	[ "$1" ] || return
+	local arg
+	arg=$(echo $1 | sed "s/^\///")
+	grep "$arg" $INDEX_DIR/*/.files | sed "s:$INDEX_DIR/::" | sed "s:/.files::" | tr : " " | column -t
+}
+
+pkg_port() {
+	find ${PORT_REPO[@]} -name spkgbuild -follow -printf "%h\n"
+}
+
+pkg_diff() {
+	for pkg in $(pkg_installed | awk '{print $1}'); do
+		installed_ver=$(grep -e ^version -e ^release /var/lib/scratchpkg/index/$pkg/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's/-$//')
+		port_ver=$(pkg_query $pkg | awk '{print $2,$3}' | tr ' ' '-')
+		[ "$installed_ver" ] || continue
+		[ "$port_ver" ] || continue
+		if [ "$installed_ver" != "$port_ver" ]; then
+			echo "$pkg: $installed_ver -> $port_ver"
+		fi
+	done
+}
+
+pkg_query() {
+	[ "$1" ] || return
+	. $(pkg_port | grep "/$1$")/spkgbuild 2>/dev/null && \
+		echo "$name $version $release" || \
+		return
+}
+
+usage() {
+	cat << EOF
+Usage:
+    $(basename $0) help <operation>
+    
+Operation:
+    build           build package
+    install         install packages
+    upgrade         upgrade packages
+    sysup           full system upgrades
+    remove          remove packages
+    extra           various extra options
+    
+EOF
+}
+
+main() {
+	case $1 in
+		-i|--installed) pkg_installed $2 ;;
+		-l|--listfiles) pkg_listfiles $2 ;;
+		-o|--own) pkg_own $2 ;;
+		-p|--ports) pkg_port ;;
+		-d|--diff) pkg_diff ;;
+		-q|--query) pkg_query $2 ;;
+		*) usage ;;
+	esac
+}
+
+INDEX_DIR=/var/lib/scratchpkg/index
+CMD=$(basename $0)
+REPOFILE=/etc/scratchpkg.repo
+
+if [ ! -f "$REPOFILE" ]; then
+	msg "repo file not exist. ($REPOFILE)"
+	exit 1
+else
+	while read -r repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		PORT_REPO+=($repodir)
+	done < "$REPOFILE"
+fi
+
+main $@
+
+exit 0

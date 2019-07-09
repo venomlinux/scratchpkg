@@ -221,10 +221,7 @@ scratch_integrity() {
 }
 
 scratch_listinst() {
-	local pkg
-	for pkg in $(allinstalled); do
-		echo $pkg
-	done
+	grep version "$INDEX_DIR"/*/.pkginfo | sed "s:$INDEX_DIR::" | tr '/' ' ' | awk '{print $1,$4}'
 }
 
 scratch_listorphan() {
@@ -1185,7 +1182,7 @@ scratch_upgrade() {
 scratch_outdate() {
 	local pkg
 	
-	for pkg in $(allinstalled); do
+	for pkg in $(scratch_listinst | awk '{print $1}'); do
 		if [ $(getportpath $pkg) ]; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
 			iversion=$(installed_pkg_info version $pkg)
