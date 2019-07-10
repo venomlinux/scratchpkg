@@ -4,8 +4,16 @@ msg() {
 	echo "$CMD: $*"
 }
 
+get_info() {
+	echo -ne "$1 "
+	grep -e ^version -e ^release "$INDEX_DIR"/$1/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
+	echo
+}
+
 pkg_installed() {
-	grep version "$INDEX_DIR"/*/.pkginfo | sed "s:$INDEX_DIR::" | tr '/' ' ' | awk '{print $1,$4}'
+	for pkg in $(grep ^name "$INDEX_DIR"/*/.pkginfo | awk '{print $3}'); do
+		get_info $pkg
+	done
 }
 
 pkg_listfiles() {
@@ -47,49 +55,53 @@ pkg_query() {
 		return
 }
 
+get_repo() {
+	if [ ! -f "$REPOFILE" ]; then
+		msg "repo file not exist. ($REPOFILE)"
+		exit 1
+	else
+		while read -r repodir repourl junk; do
+			case $repodir in
+				""|"#"*) continue ;;
+			esac
+			PORT_REPO+=($repodir)
+		done < "$REPOFILE"
+	fi
+}
+
 usage() {
 	cat << EOF
 Usage:
-    $(basename $0) help <operation>
+    $(basename $0) <option> [arg]
     
-Operation:
-    build           build package
-    install         install packages
-    upgrade         upgrade packages
-    sysup           full system upgrades
-    remove          remove packages
-    extra           various extra options
+Options:
+    -i,--installed          print all installed ports
+    -p,--ports              print all existing ports
+    -d,--diff               print outdate ports
+    -l,--listfiles <port>   print files for ports
+    -o,--owner     <file>   print files owner
+    -q,--query     <port>   print ports details
     
 EOF
 }
 
 main() {
+	get_repo
+	
 	case $1 in
-		-i|--installed) pkg_installed $2 ;;
+		-i|--installed) pkg_installed ;;
 		-l|--listfiles) pkg_listfiles $2 ;;
-		-o|--own) pkg_own $2 ;;
-		-p|--ports) pkg_port ;;
-		-d|--diff) pkg_diff ;;
-		-q|--query) pkg_query $2 ;;
-		*) usage ;;
+		-o|--owner)     pkg_own $2 ;;
+		-p|--ports)     pkg_port ;;
+		-d|--diff)      pkg_diff ;;
+		-q|--query)     pkg_query $2 ;;
+		*)              usage ;;
 	esac
 }
 
-INDEX_DIR=/var/lib/scratchpkg/index
+INDEX_DIR="/var/lib/scratchpkg/index"
+REPOFILE="/etc/scratchpkg.repo"
 CMD=$(basename $0)
-REPOFILE=/etc/scratchpkg.repo
-
-if [ ! -f "$REPOFILE" ]; then
-	msg "repo file not exist. ($REPOFILE)"
-	exit 1
-else
-	while read -r repodir repourl junk; do
-		case $repodir in
-			""|"#"*) continue ;;
-		esac
-		PORT_REPO+=($repodir)
-	done < "$REPOFILE"
-fi
 
 main $@
 

@@ -104,11 +104,16 @@ installed_pkg_info() {
 }
 
 allinstalled() {	
-	for i in $INDEX_DIR/*; do
-		if isinstalled ${i##*/}; then
-			echo ${i##*/}
-		fi
-	done
+	grep ^name "$INDEX_DIR"/*/.pkginfo | awk '{print $3}'
+	#for i in $INDEX_DIR/*; do
+		#if isinstalled ${i##*/}; then
+			#echo ${i##*/}
+		#fi
+	#done
+}
+
+get_depends() {
+	grep "^# depends[[:blank:]]*:" $(getportpath "$1")/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++'
 }
 
 confirm() {
@@ -159,7 +164,7 @@ scratch_missingdep() {
 	
 	for pkg in $(allinstalled); do
 		if [ $(getportpath "$pkg") ]; then
-			depends=$(grep "^# depends[[:blank:]]*:" $(getportpath "$pkg")/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
+			depends=$(get_depends $pkg)
 		fi
 		if [ "$depends" ]; then
 			for d in ${depends[@]}; do
@@ -221,7 +226,11 @@ scratch_integrity() {
 }
 
 scratch_listinst() {
-	grep version "$INDEX_DIR"/*/.pkginfo | sed "s:$INDEX_DIR::" | tr '/' ' ' | awk '{print $1,$4}'
+	for all in $(allinstalled); do		
+		echo -ne "$all "
+		grep -e ^version -e ^release $INDEX_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
+		echo
+	done
 }
 
 scratch_listorphan() {
@@ -230,7 +239,7 @@ scratch_listorphan() {
 	tmpalldep=$(mktemp)
 	for pkg in $(allinstalled); do
 		echo $pkg >> $tmpallpkg
-		dep="$dep $(grep "^# depends[[:blank:]]*:" $(getportpath $pkg)/$BUILD_SCRIPT 2>/dev/null | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')"
+		dep="$dep $(get_depends $pkg)"
 	done
 	echo $dep | tr ' ' '\n' | sort | uniq > $tmpalldep
 	grep -xvF -f $tmpalldep $tmpallpkg
@@ -282,7 +291,7 @@ scratch_depends() {
 	local dep
 	
 	if [ $(getportpath "$1") ]; then
-		depends=$(grep "^# depends[[:blank:]]*:" $(getportpath "$1")/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
+		depends=$(get_depends $1)
 	else
 		msgerr "Port '$1' not exist."
 		exit 1
@@ -304,9 +313,8 @@ scratch_isorphan() {
 	
 	for pkg in $(allinstalled); do
 		pkgpath=$(getportpath $pkg)
-		#echo $pkgpath
 		if [ $pkgpath ]; then
-			depend=$(grep "^# depends[[:blank:]]*:" $pkgpath/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
+			depend=$(get_depends $pkg)
 			for dep in ${depend[@]}; do
 				if [ $dep = $1 ]; then
 					return 1
@@ -338,6 +346,7 @@ scratch_dependent() {
 						else
 							msgnoinst "$pname"
 						fi
+						break
 					fi
 				done
 			done
@@ -357,9 +366,7 @@ scratch_files() {
 	if ! isinstalled $1; then
 		msg "Package'$1' not installed."
 	else
-		while read -r line; do
-			echo "$line"
-		done < <(cat $INDEX_DIR/$1/.files)
+		cat $INDEX_DIR/$1/.files
 	fi	
 }
 
