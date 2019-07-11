@@ -105,11 +105,6 @@ installed_pkg_info() {
 
 allinstalled() {	
 	grep ^name "$INDEX_DIR"/*/.pkginfo | awk '{print $3}'
-	#for i in $INDEX_DIR/*; do
-		#if isinstalled ${i##*/}; then
-			#echo ${i##*/}
-		#fi
-	#done
 }
 
 get_depends() {
@@ -1189,7 +1184,7 @@ scratch_upgrade() {
 scratch_outdate() {
 	local pkg
 	
-	for pkg in $(scratch_listinst | awk '{print $1}'); do
+	for pkg in $(allinstalled); do
 		if [ $(getportpath $pkg) ]; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
 			iversion=$(installed_pkg_info version $pkg)
