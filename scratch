@@ -732,9 +732,9 @@ scratch_build() {
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^-(f|w|m|o|x|l)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(no-prebuild|force-rebuild|skip-mdsum|download|extract|keep-work|log)$ ]]; then
+		elif [[ "$1" =~ ^--(force-rebuild|skip-mdsum|download|extract|keep-work|redownload|log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(pkgdir|srcdir|logdir)= ]]; then
+		elif [[ "$1" =~ ^--(pkgdir|srcdir|logdir)=* ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
@@ -766,9 +766,11 @@ scratch_install() {
 		return 1
 	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(c|v|-verbose|-ignore-conflict)$ ]]; then
+		if [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict|-no-backup|-log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(no-preinstall|no-postinstall) ]]; then
+		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir)=* ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^--(no-preinstall|no-postinstall)$ ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
 			OPTS+=($1)
@@ -980,9 +982,11 @@ scratch_sysup() {
 	needroot "Upgrading package"
 	
 	while [ "$1" ]; do
-		if  [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup)$ ]]; then
+		if  [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup|log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^-(c|v|-verbose|-ignore-conflict)$ ]]; then
+		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir)=* ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict)$ ]]; then
 			OPTS+=($1)
 		elif [ "$1" = "--yes" ] || [ "$1" = "-y" ]; then
 			NOCONFIRM=1
@@ -1083,9 +1087,11 @@ scratch_upgrade() {
 	
 	needarg "$@"
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup)$ ]]; then
+		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup|log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^-(c|v|-ignore-conflict|-verbose) ]]; then
+		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir)=* ]]; then
+			OPTS+=($1)
+		elif [[ "$1" =~ ^-(c|v|l|-ignore-conflict|-verbose) ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(-no-dep|d)$ ]]; then
 			NO_DEP=1
@@ -1388,7 +1394,6 @@ Options:
     --srcdir=<path>        override default SOURCE_DIR
     --pkgdir=<path>        override default PACKAGE_DIR
     --logdir=<path>        override default LOG_DIR
-    --no-prebuild          skip pre-build script
     
 EOF
 }
@@ -1403,9 +1408,13 @@ Options:
     -c, --ignore-conflict  skip file conflict check
     -v, --verbose          print install process
     -y, --yes              dont ask confirmation
+    -l, --log              log build process
     --no-backup            skip backup configuration file
     --no-preupgrade        skip pre-upgrade script
     --no-postupgrade       skip post-upgrade script
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --logdir=<path>        override default LOG_DIR
     
 EOF
 }
@@ -1421,9 +1430,13 @@ Options:
     -v, --verbose          print install process
     -s, --sync             sync ports before upgrades
     -y, --yes              dont ask confirmation
+    -l, --log              log build process
     --no-backup            skip backup configuration file
     --no-preupgrade        skip pre-upgrade script
     --no-postupgrade       skip post-upgrade script
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --logdir=<path>        override default LOG_DIR
     
 EOF
 }
@@ -1452,9 +1465,14 @@ Options:
     -c, --ignore-conflict  skip file conflict check
     -r, --reinstall        reinstall installed package
     -v, --verbose          print install files
+    -l, --log              log build process
     -y, --yes              dont ask confirmation
+    --no-backup            skip backup configuration file (use with -r/--reinstall)
     --no-preinstall        skip pre-install script
     --no-postinstall       skip post-install script
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --logdir=<path>        override default LOG_DIR
     
 EOF
 }

@@ -50,6 +50,7 @@ Usage:
 
 Options:
   -h, --help            show this help message
+  -v, --verbose         print removed files
       --no-preremove    don't run pre-remove script
       --no-postremove   don't run post-remove script
       --root=<path>     remove package from custom root directory
