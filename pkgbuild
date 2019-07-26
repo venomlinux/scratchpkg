@@ -336,10 +336,6 @@ packaging() {
 		[ -f $f ] && install -m644 $f $PKG/.pkg$f
 	done
 	
-	#[ -f install ] && install -m644 install $PKG/.pkginstall
-	#[ -f readme ] && install -m644 readme $PKG/.pkgreadme
-	#[ -f mkdirs ] && install -m644 mkdirs $PKG/.pkgmkdirs
-	
 	pushd $PKG >/dev/null
 	
 	rm -f usr/{,share/}info/dir
@@ -484,7 +480,7 @@ parse_opts() {
 		-u |           --upgrade) UPGRADE_PKG=yes; OPTS+=($1) ;;
 		-r |         --reinstall) REINSTALL_PKG=yes; OPTS+=($1) ;;
 		-c |   --ignore-conflict) OPTS+=($1) ;;
-		-v |           --verbose) VERBOSE=yes; OPTS+=($1) ;;
+		-v |           --verbose) OPTS+=($1) ;;
 		-f |     --force-rebuild) FORCE_REBUILD=yes ;;
 		-m |        --skip-mdsum) IGNORE_MDSUM=yes ;;
 		-g |          --genmdsum) UPDATE_MDSUM=yes ;;
@@ -493,7 +489,7 @@ parse_opts() {
 		-w |         --keep-work) KEEP_WORK=yes ;;
 		-l |               --log) LOGGING=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
-		         --no-preinstall) NO_PREINSTALL=yes; OPTS+=($1) ;;
+		         --no-preinstall) OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
 		         --no-preupgrade) OPTS+=($1) ;;
 		        --no-postupgrade) OPTS+=($1) ;;
@@ -503,6 +499,7 @@ parse_opts() {
 		              --srcdir=*) CUSTOM_SOURCE_DIR="${1#*=}" ;;
 		              --pkgdir=*) CUSTOM_PACKAGE_DIR="${1#*=}" ;;
 		              --logdir=*) CUSTOM_LOG_DIR="${1#*=}" ;;
+		             --workdir=*) CUSTOM_WORK_DIR="${1#*=}" ;;
 		                       *) msg "Invalid $(basename $0) option! ($1)"; exit 1 ;;
 		esac
 		shift
@@ -532,6 +529,7 @@ Options:
       --srcdir=<path>       override directory path for sources
       --pkgdir=<path>       override directory path for compiled package
       --logdir=<path>       override directory path for build logs
+      --workdir=<path>      override directory path for working dir
       --no-preinstall       skip preinstall script before install package
       --no-postinstall      skip postinstall script after install package
       --no-preupgrade       skip preupgrade script before upgrade package
@@ -565,13 +563,10 @@ main() {
 		LOG_DIR="$CUSTOM_LOG_DIR"
 	fi
 	
-	if [ -z "$SOURCE_DIR" ]; then
-		msgerr "Option '--srcdir=' need argument (path)"
-		exit 1
-	elif [ -z "$PACKAGE_DIR" ]; then
-		msgerr "Option '--pkgdir=' need argument (path)"
-		exit 1
+	if [ "$CUSTOM_WORK_DIR" ]; then
+		WORK_DIR="$CUSTOM_WORK_DIR"
 	fi
+	
 	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR" "$LOG_DIR"
 	
 	# show usage
@@ -658,8 +653,7 @@ main() {
 		pkgadd $PACKAGE_DIR/$PKGNAME $INST_OPT ${OPTS[@]} || abort 1
 	fi
 	
-	abort 0
-	
+	abort 0	
 }
 
 trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM

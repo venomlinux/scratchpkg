@@ -734,7 +734,7 @@ scratch_build() {
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(force-rebuild|skip-mdsum|download|extract|keep-work|redownload|log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(pkgdir|srcdir|logdir)=* ]]; then
+		elif [[ "$1" =~ ^--(pkgdir|srcdir|logdir|workdir)=* ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-. ]]; then
 			echo "Unrecognize option. ($1)"
@@ -768,7 +768,7 @@ scratch_install() {
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict|-no-backup|-log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir)=* ]]; then
+		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(no-preinstall|no-postinstall)$ ]]; then
 			OPTS+=($1)
@@ -984,7 +984,7 @@ scratch_sysup() {
 	while [ "$1" ]; do
 		if  [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup|log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir)=* ]]; then
+		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict)$ ]]; then
 			OPTS+=($1)
@@ -1089,7 +1089,7 @@ scratch_upgrade() {
 	while [ "$1" ]; do
 		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup|log)$ ]]; then
 			OPTS+=($1)
-		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir)=* ]]; then
+		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(c|v|l|-ignore-conflict|-verbose) ]]; then
 			OPTS+=($1)
@@ -1394,6 +1394,7 @@ Options:
     --srcdir=<path>        override default SOURCE_DIR
     --pkgdir=<path>        override default PACKAGE_DIR
     --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
     
 EOF
 }
@@ -1415,6 +1416,7 @@ Options:
     --srcdir=<path>        override default SOURCE_DIR
     --pkgdir=<path>        override default PACKAGE_DIR
     --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
     
 EOF
 }
@@ -1437,6 +1439,7 @@ Options:
     --srcdir=<path>        override default SOURCE_DIR
     --pkgdir=<path>        override default PACKAGE_DIR
     --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
     
 EOF
 }
@@ -1473,6 +1476,7 @@ Options:
     --srcdir=<path>        override default SOURCE_DIR
     --pkgdir=<path>        override default PACKAGE_DIR
     --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
     
 EOF
 }
