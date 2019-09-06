@@ -318,8 +318,8 @@ if [ -f $INDEX_DIR/$name/.pkginstall ]; then
 fi
 
 # running ldconfig
-if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
-	$ROOT_DIR/sbin/ldconfig -r "$ROOT_DIR"/
-fi
+#if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
+#	$ROOT_DIR/sbin/ldconfig -r "$ROOT_DIR"/
+#fi
 
 ret 0
