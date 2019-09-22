@@ -486,6 +486,7 @@ parse_opts() {
 		-g |          --genmdsum) UPDATE_MDSUM=yes ;;
 		-o |          --download) DOWNLOAD_ONLY=yes ;;
 		-x |           --extract) EXTRACT_ONLY=yes ;;
+		-b |        --only-build) BUILD_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
 		-l |               --log) LOGGING=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
@@ -522,6 +523,7 @@ Options:
   -g, --genmdsum            generate md5sum
   -o, --download            download only source file
   -x, --extract             extract only source file
+  -b, --build-only          build and package without downloading and extracting source             
   -w, --keep-work           keep working directory
   -l, --log                 log build process
   -h, --help                show this help message
@@ -626,6 +628,20 @@ main() {
 		prepare_src
 		KEEP_WORK=yes
 		abort 0
+	fi 
+
+	# build and package without downloading and extracting source
+	if [ "$BUILD_ONLY" ]; then
+		if [ -f "$PACKAGE_DIR/$PKGNAME" ] && [ ! "$FORCE_REBUILD" ]; then
+		    if [ ! "$INSTALL_PKG" ] && [ ! "$REINSTALL_PKG" ] && [ ! "$UPGRADE_PKG" ]; then
+			    echo "Package '$PKGNAME' is up-to-date."
+			    abort 0
+		    fi
+	    else
+            run_build
+		    packaging
+		    clearworkdir
+	    fi
 	fi
 	
 	# calculate & print md5sum
