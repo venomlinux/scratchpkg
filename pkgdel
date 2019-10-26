@@ -120,6 +120,12 @@ if [ "$SHOWHELP" ] || [ -z "$RMNAME" ]; then
 	ret 0
 fi
 
+# check for root access
+if [ "$UID" != "0" ]; then
+	echo "Removing package need root access!"
+	ret 1
+fi
+
 # check for lock file
 if [ -f $LOCK_FILE ]; then
 	msgerr "Cant install/remove package simultaneously."
@@ -135,12 +141,6 @@ fi
 
 if ! isinstalled $RMNAME; then
 	msgerr "Package '$RMNAME' not installed."
-	ret 1
-fi
-
-# check for root access
-if [ "$UID" != "0" ]; then
-	echo "Installing package need root access!"
 	ret 1
 fi
 

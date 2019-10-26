@@ -990,7 +990,7 @@ scratch_sysup() {
 			OPTS+=($1)
 		elif [ "$1" = "--yes" ] || [ "$1" = "-y" ]; then
 			NOCONFIRM=1
-		elif [ "$1" = "--np-dep" ] || [ "$1" = "-d" ]; then
+		elif [ "$1" = "--no-dep" ] || [ "$1" = "-d" ]; then
 			NODEP=1
 		elif [ "$1" = "--sync" ] || [ "$1" = "-s" ]; then
 			SYNC=1

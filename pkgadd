@@ -139,6 +139,12 @@ if [ ! -d $INDEX_DIR ]; then
 	ret 1
 fi
 
+# check for root access
+if [ "$UID" != "0" ]; then
+	msgerr "Installing package need root access!"
+	ret 1
+fi
+
 # check for lock file
 if [ -f $LOCK_FILE ]; then
 	msgerr "Cant install/remove package simultaneously."
@@ -152,19 +158,11 @@ else
 	fi
 fi
 
-if [ -n "$PKGNAME" ]; then
-	BASEPKGNAME=$(basename $PKGNAME)
-fi
+BASEPKGNAME=$(basename $PKGNAME)
 
 # check existence of package file
 if [ ! -f "$PKGNAME" ]; then
 	msgerr "Package '$1' not exist!"
-	ret 1
-fi
-
-# check for root access
-if [ "$UID" != "0" ]; then
-	msgerr "Installing package need root access!"
 	ret 1
 fi
 
