@@ -76,7 +76,7 @@ parse_opts() {
 		while [ "$1" ]; do
 			case $1 in
 			-h |              --help) SHOWHELP=yes ;;
-			-v |           --verbose) VERBOSE_REMOVE=yes ;;
+			-v |           --verbose) VERBOSE_REMOVE="-v" ;;
 			          --no-preremove) NO_PREREMOVE=yes ;;
 				     --no-postremove) NO_POSTREMOVE=yes ;;
 		                    --root=*) ROOT="${1#*=}" ;;
@@ -90,7 +90,7 @@ parse_opts() {
 
 ret() {
 	# remove lock file on exit
-	rm -f $LOCK_FILE
+	rm -f $LOCK_FILE $reserve $dirs $remove $files
 	exit $1
 }
 
@@ -153,46 +153,54 @@ if [ -z $name ] && [ -z $version ] && [ -z $release ]; then
 	ret 1
 fi
 
+# create list for reserve and remove (dirs and files)
+reserve=$(mktemp) || { msgerr "Failed create tmp files"; ret 1; }
+remove=$(mktemp)  || { msgerr "Failed create tmp files"; ret 1; }
+dirs=$(mktemp)    || { msgerr "Failed create tmp files"; ret 1; }
+files=$(mktemp)   || { msgerr "Failed create tmp files"; ret 1; }
+
+grep '/$' $INDEX_DIR/*/.files | grep -v $INDEX_DIR/$name | awk -F : '{print $2}' | sort | uniq > $reserve
+grep '/$' $INDEX_DIR/$name/.files > $remove
+grep -Fxv -f $reserve $remove > $dirs
+grep -v '/$' $INDEX_DIR/$name/.files >> $files
+
 echo "remove: $name-$version-$release..."
-	
+
+# pre-remove script
 if [ ! "$NO_PREREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
-	(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall pre-remove "$version")
+	pushd "$ROOT_DIR"/ >/dev/null
+		sh $INDEX_DIR/$name/.pkginstall pre-remove "$version"
+	popd >/dev/null
 fi
 
+# remove backup files
 if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
-	while read -r line; do
-		if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
-			[ "$VERBOSE_REMOVE" = yes ] && echo "- $line"
-			rm "$ROOT_DIR/$line"
-		fi
-	done < <(tac $INDEX_DIR/$name/.bkpfiles)
+	pushd $ROOT_DIR/ >/dev/null
+		rm $(tac $INDEX_DIR/$name/.bkpfiles)
+	popd >/dev/null
 fi
 
-while read -r line; do
-	if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
-		[ "$VERBOSE_REMOVE" = yes ] && echo "- $line"
-		rm "$ROOT_DIR/$line"
-	fi
-done < <(tac $INDEX_DIR/$name/.files | grep -v '/$')
+# remove files and dirs
+pushd $ROOT_DIR/ >/dev/null
+	rm $VERBOSE_REMOVE $(tac $files)
+	rmdir $VERBOSE_REMOVE $(tac $dirs)
+popd >/dev/null
 
-while read -r line; do
-	if [ ! "$(grep -Rx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files)" ]; then
-		if [ -d "$ROOT_DIR/$line" ]; then
-			[ "$VERBOSE_REMOVE" = yes ] && echo "- $line"
-			rmdir "$ROOT_DIR/$line"
-		fi
-	fi
-done < <(tac $INDEX_DIR/$name/.files | grep '/$')
-	
+# post-remove script	
 if [ ! "$NO_POSTREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
-	(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall post-remove "$version")
+	pushd "$ROOT_DIR"/ >/dev/null
+		sh $INDEX_DIR/$name/.pkginstall post-remove "$version"
+	popd >/dev/null
 fi
-	
+
+# remove from database
 rm -rf $INDEX_DIR/$name
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
 	$ROOT_DIR/sbin/ldconfig -r "$ROOT_DIR"/
 fi
+
+rm -f $reserve $dirs $remove $files
 
 ret 0

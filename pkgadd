@@ -246,10 +246,14 @@ fi
 
 if grep -qx .pkginstall $TMP_PKGADD; then
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		(cd "$ROOT_DIR"/ && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version")
+		pushd "$ROOT_DIR"/ >/dev/null
+			sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version"
+		popd >/dev/null
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		(cd "$ROOT_DIR"/ && sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version" "$iversion")
+		pushd "$ROOT_DIR"/ >/dev/null
+			sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version" "$iversion"
+		popd >/dev/null
 	fi
 fi
 
@@ -308,10 +312,14 @@ fi
 
 if [ -f $INDEX_DIR/$name/.pkginstall ]; then
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall post-install "$version")
+		pushd "$ROOT_DIR"/ >/dev/null
+			sh $INDEX_DIR/$name/.pkginstall post-install "$version"
+		popd >/dev/null
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-		(cd "$ROOT_DIR"/ && sh $INDEX_DIR/$name/.pkginstall post-upgrade "$version" "$iversion")
+		pushd "$ROOT_DIR"/ >/dev/null
+			sh $INDEX_DIR/$name/.pkginstall post-upgrade "$version" "$iversion"
+		popd >/dev/null
 	fi
 fi
 
