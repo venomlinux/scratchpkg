@@ -84,14 +84,14 @@ parse_opts() {
 			-u |           --upgrade) UPGRADE_PKG=yes ;;
 			-r |         --reinstall) REINSTALL_PKG=yes ;;
 			-c |   --ignore-conflict) IGNORE_CONFLICT=yes ;;
-			-v |           --verbose) VERBOSE_INSTALL=yes ;;
+			-v |           --verbose) VERBOSE_INSTALL="-v" ;;
 			-h |              --help) SHOWHELP=yes ;;
 			         --no-preinstall) NO_PREINSTALL=yes ;;
 			        --no-postinstall) NO_POSTINSTALL=yes ;;
 			  	     --no-preupgrade) NO_PREUPGRADE=yes ;;
 				    --no-postupgrade) NO_POSTUPGRADE=yes ;;
 				         --no-backup) NO_BACKUP=yes ;;
-		                    --root=*) ROOT="${1#*=}" ;;
+		                    --root=*) ROOT_DIR="${1#*=}" ;;
 					    *.spkg.tar.*) PKGNAME="$(realpath $1)" ;;
 					               *) msg "Invalid option! ($1)"; exit 1 ;;
 			esac
@@ -116,11 +116,10 @@ isinstalled() {
 
 parse_opts $(extract_opt $@)
 
-ROOT_DIR=${ROOT:-}
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
 
-# disable pre/post install script when install to custom root location
+# disable pre/post install/upgrade script when install to custom root location
 if [ "$ROOT_DIR" != "" ]; then
 	NO_PREINSTALL=yes
 	NO_POSTINSTALL=yes
@@ -184,21 +183,6 @@ if [ "$ALREADYINSTALLED" = "yes" ] && [ ! "$UPGRADE_PKG" ] && [ ! "$REINSTALL_PK
 	ret 0
 fi
 
-TMP_PKGADD="$(mktemp)" || exit 1
-TMP_PKGINSTALL="$(mktemp)" || exit 1
-TMP_PKGINSTALL_BKP="$(mktemp)" || exit 1
-TMP_PKGADD_RMLIST="$(mktemp)" || exit 1
-
-echo -ne "Loading $BASEPKGNAME...\033[0K\r"
-
-# check integrity of package
-tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null
-if [ $? != 0 ]; then
-	msgerr "Package '$1' is corrupted!"
-	ret 1
-fi
-echo -ne "\033[0K"
-
 # cant reinstall if not installed and cant upgrade if up-to-date
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then	
 	if [ "$ALREADYINSTALLED" != "yes" ]; then
@@ -213,29 +197,46 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	fi
 fi
 
-### INSTALL PACKAGE INTO SYSTEM ###
+echo -ne "Loading $BASEPKGNAME...\033[0K\r"
+
+TMP_PKGADD="$(mktemp)"         || exit 1
+TMP_PKGINSTALL="$(mktemp)"     || exit 1
+TMP_PKGADD_RMLIST="$(mktemp)"  || exit 1
+
+# check integrity of package and save list file/dirs to install in the meantime
+tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null
+if [ $? != 0 ]; then
+	msgerr "Package '$1' is corrupted!"
+	ret 1
+fi
+echo -ne "\033[0K"
+
+# set operation whether install/upgrade/reinstall
+# install is default
 opr=install
 [ "$UPGRADE_PKG" ] && opr=upgrade
 [ "$REINSTALL_PKG" ] && opr=reinstall
 echo "$opr: $name-$version-$release..."
 
-#ignore conflict
+# check for file conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
 	while read -r line; do
-			if [ "$line" = "${line%.*}.spkgnew" ]; then
-				line=${line%.*}
-			fi
-			if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
-				if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-					if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
-						echo "$line"
-						conflictedfile=yes
-					fi
-				else
-					echo "$line"
+		if [ "$line" = "${line%.*}.spkgnew" ]; then
+			line=${line%.*}
+		fi
+		if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
+			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
+				if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
+					owner="$(grep -E ^$line$ $INDEX_DIR/*/.files | sed "s,$INDEX_DIR/,,;s,\/.*,,")"
+					[ "$owner" ] && owner=\($owner\) || owner=
+					echo "$line $owner"
 					conflictedfile=yes
 				fi
+			else
+				echo "$line"
+				conflictedfile=yes
 			fi
+		fi
 	done < <(grep -Ev ^.pkg* $TMP_PKGADD | grep -v '/$')
 	
 	if [ "$conflictedfile" = "yes" ]; then
@@ -244,6 +245,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 	fi
 fi
 
+# pre-install and pre-upgrade script
 if grep -qx .pkginstall $TMP_PKGADD; then
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		pushd "$ROOT_DIR"/ >/dev/null
@@ -257,14 +259,16 @@ if grep -qx .pkginstall $TMP_PKGADD; then
 	fi
 fi
 
+# exclude .pkg* files when extract into system
 for i in $(grep ^.pkg* $TMP_PKGADD); do
 	excludefile="$excludefile --exclude=$i"
 done
 
 rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
+
+# extract package into ROOT_DIR
 tar --keep-directory-symlink -p -x -v -f $PKGNAME -C "$ROOT_DIR"/ $excludefile | while read -r line; do
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
-		echo "$line" >> $TMP_PKGINSTALL_BKP
 		line=${line%.*}
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 			if [ ! -e "$ROOT_DIR/$line" ] || [ "$NO_BACKUP" = yes ]; then
@@ -274,23 +278,24 @@ tar --keep-directory-symlink -p -x -v -f $PKGNAME -C "$ROOT_DIR"/ $excludefile |
 			mv "$ROOT_DIR/$line".spkgnew "$ROOT_DIR/$line"
 		fi
 	fi
-	[ "$VERBOSE_INSTALL" = yes ] && echo "+ $line"
+	if [ "$VERBOSE_INSTALL" ]; then
+		[ ${line: -1} = / ] && echo "extract directory: '$line'" || echo "extract file     : '$line'"
+	fi
 	echo "$line" >> $TMP_PKGINSTALL
 done
 
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
+	rmlist_file=$(mktemp)
+	rmlist_dir=$(mktemp)
 	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $TMP_PKGADD_RMLIST
-	grep -v '/$' $TMP_PKGADD_RMLIST | while read -r line; do
-		[ "$VERBOSE_INSTALL" = yes ] && echo "- $line"
-		rm "$ROOT_DIR/$line" &>/dev/null
-	done
-	grep '/$' $TMP_PKGADD_RMLIST | tac | while read -r line; do
-		if [ ! "$(grep -Rx "$line" "$INDEX_DIR"/*/.files | grep -v "$INDEX_DIR"/$name/.files)" ]; then
-			[ "$VERBOSE_INSTALL" = yes ] && echo "- $line"
-			rmdir "$ROOT_DIR/$line" &>/dev/null
-		fi
-	done
+	grep -v '/$' $TMP_PKGADD_RMLIST | tac > $rmlist_file
+	grep '/$' $TMP_PKGADD_RMLIST | tac > $rmlist_dir
+	pushd "$ROOT_DIR"/ >/dev/null
+		[ -s $rmlist_file ] && xargs -a $rmlist_file -d'\n' rm $VERBOSE_INSTALL
+		[ -s $rmlist_dir ]  && xargs -a $rmlist_dir -d'\n' rmdir $VERBOSE_INSTALL
+	popd >/dev/null
+	rm -f $rmlist_file $rmlist_dir
 fi
 
 # register package into database
@@ -300,7 +305,6 @@ echo "name = $name" > $INDEX_DIR/$name/.pkginfo
 echo "version = $version" >> $INDEX_DIR/$name/.pkginfo
 echo "release = $release" >> $INDEX_DIR/$name/.pkginfo
 install -m644 $TMP_PKGINSTALL $INDEX_DIR/$name/.files
-[ -f $TMP_PKGINSTALL_BKP ] && install -m644 $TMP_PKGINSTALL_BKP $INDEX_DIR/$name/.bkpfiles
 
 for ii in $(grep ^.pkg* $TMP_PKGADD); do
 	pkgfiles="$pkgfiles $ii"
@@ -325,7 +329,7 @@ fi
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
-	$ROOT_DIR/sbin/ldconfig -r "$ROOT_DIR"/
+	"$ROOT_DIR"/sbin/ldconfig -r "$ROOT_DIR"/
 fi
 
 ret 0

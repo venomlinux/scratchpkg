@@ -79,7 +79,7 @@ parse_opts() {
 			-v |           --verbose) VERBOSE_REMOVE="-v" ;;
 			          --no-preremove) NO_PREREMOVE=yes ;;
 				     --no-postremove) NO_POSTREMOVE=yes ;;
-		                    --root=*) ROOT="${1#*=}" ;;
+		                    --root=*) ROOT_DIR="${1#*=}" ;;
 		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
 					               *) RMNAME=$1 ;;
 			esac
@@ -104,7 +104,6 @@ isinstalled() {
 	
 parse_opts $(extract_opt $@)
 
-ROOT_DIR=${ROOT:-}
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
 
@@ -161,8 +160,8 @@ files=$(mktemp)   || { msgerr "Failed create tmp files"; ret 1; }
 
 grep '/$' $INDEX_DIR/*/.files | grep -v $INDEX_DIR/$name | awk -F : '{print $2}' | sort | uniq > $reserve
 grep '/$' $INDEX_DIR/$name/.files > $remove
-grep -Fxv -f $reserve $remove > $dirs
-grep -v '/$' $INDEX_DIR/$name/.files >> $files
+grep -Fxv -f $reserve $remove | tac > $dirs
+grep -v '/$' $INDEX_DIR/$name/.files | tac >> $files
 
 echo "remove: $name-$version-$release..."
 
@@ -173,18 +172,13 @@ if [ ! "$NO_PREREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
 	popd >/dev/null
 fi
 
-# remove backup files
-if [ -f "$INDEX_DIR/$name/.bkpfiles" ]; then
-	pushd $ROOT_DIR/ >/dev/null
-		rm $(tac $INDEX_DIR/$name/.bkpfiles)
-	popd >/dev/null
-fi
-
 # remove files and dirs
-pushd $ROOT_DIR/ >/dev/null
-	rm $VERBOSE_REMOVE $(tac $files)
-	rmdir $VERBOSE_REMOVE $(tac $dirs)
+pushd "$ROOT_DIR"/ >/dev/null
+	[ -s $files ] && xargs -a $files -d'\n' rm $VERBOSE_REMOVE
+	[ -s $dirs ]  && xargs -a $dirs -d'\n' rmdir $VERBOSE_REMOVE
 popd >/dev/null
+
+rm -f $reserve $dirs $remove $files
 
 # post-remove script	
 if [ ! "$NO_POSTREMOVE" ] && [ -f $INDEX_DIR/$name/.pkginstall ]; then
@@ -198,9 +192,7 @@ rm -rf $INDEX_DIR/$name
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
-	$ROOT_DIR/sbin/ldconfig -r "$ROOT_DIR"/
+	"$ROOT_DIR"/sbin/ldconfig -r "$ROOT_DIR"/
 fi
-
-rm -f $reserve $dirs $remove $files
 
 ret 0
