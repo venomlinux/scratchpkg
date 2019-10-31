@@ -108,7 +108,9 @@ allinstalled() {
 }
 
 get_depends() {
-	grep "^# depends[[:blank:]]*:" $(getportpath "$1")/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++'
+	local ppath
+	ppath=$(getportpath "$1") || return 0
+	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++'
 }
 
 confirm() {

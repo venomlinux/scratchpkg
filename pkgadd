@@ -228,7 +228,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 				if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
 					owner="$(grep -E ^$line$ $INDEX_DIR/*/.files | sed "s,$INDEX_DIR/,,;s,\/.*,,")"
-					[ "$owner" ] && owner=\($owner\) || owner=
+					[ "$owner" ] && owner=\($owner\)
 					echo "$line $owner"
 					conflictedfile=yes
 				fi
@@ -278,9 +278,7 @@ tar --keep-directory-symlink -p -x -v -f $PKGNAME -C "$ROOT_DIR"/ $excludefile |
 			mv "$ROOT_DIR/$line".spkgnew "$ROOT_DIR/$line"
 		fi
 	fi
-	if [ "$VERBOSE_INSTALL" ]; then
-		[ ${line: -1} = / ] && echo "extract directory: '$line'" || echo "extract file     : '$line'"
-	fi
+	[ "$VERBOSE_INSTALL" ] && echo "extracted '$line'"
 	echo "$line" >> $TMP_PKGINSTALL
 done
 
