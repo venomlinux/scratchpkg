@@ -270,13 +270,20 @@ Install scripts is a bash script contains command need to run before/after insta
 of install script is `install`. This install script need to placed in port directory and later will included in tar-ed
 package. The script contains the following functions which run at different times:
 
-* `pre_build()`: The script is run right before package is built.
-* `pre_install()`: The script is run right before files are extracted. One argument is passed: new package version.
-* `post_install()`: The script is run right after files are extracted. One argument is passed: new package version.
-* `pre_upgrade()`: The script is run right before files are extracted. Two arguments are passed in the following order: new package version, old package version.
-* `post_upgrade()`: The script is run right after files are extracted. Two arguments are passed in the following order: new package version, old package version.
-* `pre_remove()`: The script is run right before files are removed. One argument is passed: old package version.
-* `post_remove()`: The script is run right after files are removed. One argument is passed: old package version.
+This script is executed using `sh`. Argument is passed when this script is executed.
+
+### install:
+    $1 : pre-install/post-install
+    $2 : version
+    
+### upgrade:
+    $1 : pre-upgrade/post-upgrade
+    $2 : version
+    $3 : old version
+    
+### remove:
+    $1 : pre-remove/post-remove
+    $2 : old version
 
 Example of install script for `dbus`:
 
@@ -308,14 +315,12 @@ Example of install script for `dbus`:
     #    <repo directory> <repo url for sync>
     #
 
-    /usr/ports/core  https://raw.githubusercontent.com/emmett1/ports/master/core
-    /usr/ports/xorg  https://raw.githubusercontent.com/emmett1/ports/master/xorg
-    /usr/ports/xfce4 https://raw.githubusercontent.com/emmett1/ports/master/xfce4
-    /usr/ports/kf5   https://raw.githubusercontent.com/emmett1/ports/master/kf5
-    /usr/ports/lxde  https://raw.githubusercontent.com/emmett1/ports/master/lxde
-    /usr/ports/extra https://raw.githubusercontent.com/emmett1/ports/master/extra
-    /usr/ports/git   https://raw.githubusercontent.com/emmett1/ports/master/git
-    /usr/ports/wip   https://raw.githubusercontent.com/emmett1/ports/master/wip
+    /usr/ports/core  https://raw.githubusercontent.com/venomlinux/ports/master/core
+    /usr/ports/xorg  https://raw.githubusercontent.com/venomlinux/ports/master/xorg
+    /usr/ports/extra https://raw.githubusercontent.com/venomlinux/ports/master/extra
+    /usr/ports/xfce4 https://raw.githubusercontent.com/venomlinux/ports/master/xfce4
+    /usr/ports/kf5   https://raw.githubusercontent.com/venomlinux/ports/master/kf5
+    /usr/ports/lxde  https://raw.githubusercontent.com/venomlinux/ports/master/lxde
     
 *Note: url is optional. Add if need to sync it.*
 
