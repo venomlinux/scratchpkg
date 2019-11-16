@@ -102,7 +102,7 @@ parse_opts() {
 
 ret() {
 	# remove lock and all tmp files on exit
-	rm -f $LOCK_FILE $TMP_PKGADD $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP $TMP_PKGADD_RMLIST
+	rm -f $LOCK_FILE $TMP_PKGADD $TMP_PKGINSTALL
 	exit $1
 }
 
@@ -201,7 +201,6 @@ echo -ne "Loading $BASEPKGNAME...\033[0K\r"
 
 TMP_PKGADD="$(mktemp)"         || exit 1
 TMP_PKGINSTALL="$(mktemp)"     || exit 1
-TMP_PKGADD_RMLIST="$(mktemp)"  || exit 1
 
 # check integrity of package and save list file/dirs to install in the meantime
 tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null
@@ -262,7 +261,7 @@ for i in $(grep ^.pkg* $TMP_PKGADD); do
 	excludefile="$excludefile --exclude=$i"
 done
 
-rm -f $TMP_PKGINSTALL $TMP_PKGINSTALL_BKP
+rm -f $TMP_PKGINSTALL
 
 # extract package into ROOT_DIR
 tar --keep-directory-symlink -p -x -v -f $PKGNAME -C "$ROOT_DIR"/ $excludefile | while read -r line; do
@@ -284,14 +283,17 @@ done
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	rmlist_file=$(mktemp)
 	rmlist_dir=$(mktemp)
-	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $TMP_PKGADD_RMLIST
-	grep -v '/$' $TMP_PKGADD_RMLIST | tac > $rmlist_file
-	grep '/$' $TMP_PKGADD_RMLIST | tac > $rmlist_dir
+	reserve_dir=$(mktemp)
+	rmlist_all=$(mktemp)
+	grep '/$' $INDEX_DIR/*/.files | grep -v $INDEX_DIR/$name | awk -F : '{print $2}' | sort | uniq > $reserve_dir # get list reserved dirs
+	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $rmlist_all                                            # get list files and dirs to remove
+	grep -v '/$' $rmlist_all | tac > $rmlist_file                                                                 # get files only to remove
+	grep -Fxv -f $reserve_dir $rmlist_all | grep '/$' | tac > $rmlist_dir                                         # get dirs only (safe) to remove
 	pushd "$ROOT_DIR"/ >/dev/null
 		[ -s $rmlist_file ] && xargs -a $rmlist_file -d'\n' rm $VERBOSE_INSTALL
 		[ -s $rmlist_dir ]  && xargs -a $rmlist_dir -d'\n' rmdir $VERBOSE_INSTALL
 	popd >/dev/null
-	rm -f $rmlist_file $rmlist_dir
+	rm -f $rmlist_file $rmlist_dir $reserve_dir $rmlist_all
 fi
 
 # register package into database
