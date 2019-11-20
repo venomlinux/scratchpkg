@@ -907,12 +907,15 @@ outdatepkg() {
 	for pkg in $(allinstalled); do
 		if [ ! -e "$INDEX_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
+			if [ -z "$name" ] || [ -z "$version" ]; then
+				continue
+			fi
 			iversion=$(installed_pkg_info version $pkg)
 			irelease=$(installed_pkg_info release $pkg)
 			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
 				echo $name
 			fi
-			unset iversion irelease
+			unset iversion irelease version release
 		fi
 	done
 }
@@ -1195,6 +1198,9 @@ scratch_outdate() {
 	for pkg in $(allinstalled); do
 		if [ $(getportpath $pkg) ]; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
+			if [ -z "$name" ] || [ -z "$version" ]; then
+				continue
+			fi
 			iversion=$(installed_pkg_info version $pkg)
 			irelease=$(installed_pkg_info release $pkg)
 			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
@@ -1219,7 +1225,7 @@ scratch_outdate() {
 					OUTDATE=yes
 				fi
 			fi
-			unset ITSLOCK
+			unset ITSLOCK name version
 		fi
 	done
 	
