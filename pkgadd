@@ -285,7 +285,7 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	rmlist_dir=$(mktemp)
 	reserve_dir=$(mktemp)
 	rmlist_all=$(mktemp)
-	grep '/$' $INDEX_DIR/*/.files | grep -v $INDEX_DIR/$name | awk -F : '{print $2}' | sort | uniq > $reserve_dir # get list reserved dirs
+	grep '/$' $INDEX_DIR/*/.files | grep -v $INDEX_DIR/$name/.files | awk -F : '{print $2}' | sort | uniq > $reserve_dir # get list reserved dirs
 	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $rmlist_all                                            # get list files and dirs to remove
 	grep -v '/$' $rmlist_all | tac > $rmlist_file                                                                 # get files only to remove
 	grep -Fxv -f $reserve_dir $rmlist_all | grep '/$' | tac > $rmlist_dir                                         # get dirs only (safe) to remove
