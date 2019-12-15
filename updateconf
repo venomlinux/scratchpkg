@@ -47,9 +47,11 @@ for file in $spkgnew; do
 		continue
 	fi
 	echo
+	echo "File: $currentfile"
+	echo
 	echo "Choose action:"
-	echo "1) Keep original"
-	echo "2) Replace original with new"
+	echo "1) Discard update"
+	echo "2) Update config"
 	echo "*) Do nothing"
 	echo
 	echo -n "Action: "
