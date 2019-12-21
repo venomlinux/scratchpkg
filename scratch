@@ -772,6 +772,8 @@ scratch_install() {
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
 			OPTS+=($1)
+		elif [[ "$1" =~ ^--exclude=* ]]; then
+			EXOPT=$1
 		elif [[ "$1" =~ ^--(no-preinstall|no-postinstall)$ ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
@@ -854,7 +856,7 @@ scratch_install() {
 		return 0
 	fi
 	echo "Resolving dependencies..."
-	INST="$(pkgdeplist -l -q ${IPKG[@]} | awk '{print $2}')"
+	INST="$(scratch_deplist -q ${IPKG[@]} $EXOPT)"
 
 	if [ "$INST" ]; then
 		echo
@@ -991,6 +993,8 @@ scratch_sysup() {
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
 			OPTS+=($1)
+		elif [[ "$1" =~ ^--exclude=* ]]; then
+			EXOPT=$1
 		elif [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict)$ ]]; then
 			OPTS+=($1)
 		elif [ "$1" = "--yes" ] || [ "$1" = "-y" ]; then
@@ -1023,7 +1027,7 @@ scratch_sysup() {
 	
 	if [ "$NODEP" != 1 ]; then
 		echo "Resolving dependencies..."
-		DEP=$(pkgdeplist ${PKGOUTDATE[@]} -l | awk '{print $2}')
+		DEP=$(scratch_deplist ${PKGOUTDATE[@]} $EXOPT | awk '{print $2}')
 		echo
 		for d in $DEP; do
 			if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
@@ -1096,6 +1100,8 @@ scratch_upgrade() {
 			OPTS+=($1)
 		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
 			OPTS+=($1)
+		elif [[ "$1" =~ ^--exclude=* ]]; then
+			EXOPT=$1
 		elif [[ "$1" =~ ^-(c|v|l|-ignore-conflict|-verbose) ]]; then
 			OPTS+=($1)
 		elif [[ "$1" =~ ^-(-no-dep|d)$ ]]; then
@@ -1127,7 +1133,7 @@ scratch_upgrade() {
 	done
 	if [ -z "$NO_DEP" ]; then		
 		echo "Resolving dependencies..."
-		DEP=$(pkgdeplist -l -n ${PKGNAME[@]} | awk '{print $2}')
+		DEP=$(scratch_deplist ${PKGNAME[@]} $EXOPT | awk '{print $2}')
 		for dep in $DEP; do
 			if ! isinstalled $dep; then
 				if [ $(getportpath $dep) ]; then
@@ -1355,6 +1361,105 @@ scratch_dup() {
 	fi	
 }
 
+scratch_deplist() {
+	needarg $@
+	while [ "$1" ]; do
+		case $1 in
+			-q) quick=1;;
+			--exclude=*) IFS=, read -r -a exclude <<< ${1#*=};;
+			-*) ;;
+			*) PKG+=($1);;
+		esac
+		shift
+	done
+	
+	if [ "${#PKG[@]}" -gt 0 ]; then
+		for p in ${PKG[@]}; do
+			deplist $p
+		done
+	else
+		return 1
+	fi
+	
+	[[ ${DEP[@]} ]] || return 0
+	
+	if [ "$quick" = 1 ]; then
+		echo ${DEP[@]} | tr ' ' '\n'
+	else
+		for p in ${DEP[@]}; do
+			if isinstalled $p; then
+				echo "[*] $p"
+			else
+				echo "[-] $p"
+			fi
+		done
+		if [ "${#MISSINGDEP[@]}" -gt 0 ]; then
+			for m in ${MISSINGDEP[@]}; do
+				echo "Missing deps: $m" | sed 's/(/ (/'
+			done
+		fi
+	fi
+}
+
+deplist() {
+	# skip excluded dependencies
+	if [[ $(echo ${exclude[@]} | tr " " "\n" | grep -x $1) ]]; then
+		return 0
+	fi
+	
+	# check currently process package for loop
+	if [ ${#CHECK[@]} -gt 0 ]; then
+		if [[ "$(echo ${CHECK[@]} | tr " " "\n" | grep -x $1)" == "$1" ]]; then
+			return 0
+		fi
+	fi
+	
+	# add package to currently process
+	CHECK+=($1)
+	
+	# check dependencies
+	for i in $(pkg_depends $1); do
+		if [ "$quick" = 1 ] && isinstalled $i; then
+			continue
+		else
+			if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $i) = "" ]]; then
+				if ! getportpath $i >/dev/null; then
+					MISSINGDEP+=("$i($1)")
+				else
+					deplist $i
+				fi
+			fi
+		fi
+	done
+	
+	# add dependency to list checked dep
+	if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $1) = "" ]]; then
+		if [ "$quick" != 1 ]; then
+			DEP+=($1)
+		else
+			isinstalled $1 || DEP+=($1)
+		fi
+	fi
+	
+	# delete process package array
+	for i in "${!CHECK[@]}"; do
+		if [[ ${CHECK[i]} = "$1" ]]; then
+			unset 'CHECK[i]'
+		fi
+	done
+}
+
+pkg_depends() {
+	needarg $@
+	local pkg=$1
+	ppath=$(getportpath $pkg) || return 1
+	grep "^# depends[[:blank:]]*:" $ppath/spkgbuild \
+	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
+	| tr ' ' '\n' \
+	| awk '!a[$0]++' \
+	| sed 's/,//'
+}
+
 usage_extra() {
 	cat << EOF
 Usage:
@@ -1554,6 +1659,7 @@ shift
 for opt in $@; do
 	case $opt in
 		--nocolor) nocolor ;;
+		 --repo=*) PORT_REPO+=(${opt#*=}) ;;
 		      --*) MAINOPTS+=($opt) ;;
 		       -*) for (( i=1; i<${#opt}; i++ )); do MAINOPTS+=(-${opt:$i:1}); done ;;
 		        *) MAINOPTS+=($opt) ;;
