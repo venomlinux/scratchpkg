@@ -76,7 +76,7 @@ parse_opt() {
 }
 
 rebuild() {	
-	for allpkg in $(pkgdeplist -l -i $ALLPKG | cut -d ' ' -f2); do
+	for allpkg in $(scratch deplist $ALLPKG | awk '{print $2}'); do
 		for pkg in $ALLPKG; do
 			if [ $pkg = $allpkg ]; then
 				if [ -z "$order" ]; then
