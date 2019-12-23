@@ -375,6 +375,18 @@ packaging() {
 	msg "Successfully created package '$PKGNAME'. (${pkgsize})"
 	
 	popd >/dev/null
+	
+	[ -f .pkglist ] || generate_pkglist
+}
+
+generate_pkglist() {
+	if [ ! -f "$PACKAGE_DIR/$PKGNAME" ]; then
+		msgerr "Package '$PKGNAME' not found."
+		abort 1
+	fi
+	
+	msg "Generating .pkglist..."
+	tar -tvf "$PACKAGE_DIR/$PKGNAME" | awk '{print $1,$2,$6}' > .pkglist
 }
 
 check_buildscript() {	
@@ -488,6 +500,7 @@ parse_opts() {
 		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
 		-l |               --log) LOGGING=yes ;;
+		-p |           --pkglist) GENPKGLIST=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
 		         --no-preinstall) OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
@@ -598,6 +611,11 @@ main() {
 		*) msgerr "Invalid compression mode. ($COMPRESSION_MODE)"
 			exit 1 ;;
 	esac
+	
+	if [ "$GENPKGLIST" = "yes" ]; then
+		generate_pkglist
+		exit 0
+	fi
 
 	LOCK_FILE="/tmp/pkgbuild.$name.lock"
 	
