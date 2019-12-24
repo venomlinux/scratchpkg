@@ -108,9 +108,13 @@ allinstalled() {
 }
 
 get_depends() {
-	local ppath
-	ppath=$(getportpath "$1") || return 0
-	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++'
+	local pkg=$1
+	ppath=$(getportpath $pkg) || return 0
+	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
+	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
+	| tr ' ' '\n' \
+	| awk '!a[$0]++' \
+	| sed 's/,//'
 }
 
 confirm() {
@@ -1362,7 +1366,6 @@ scratch_dup() {
 }
 
 scratch_deplist() {
-	needarg $@
 	while [ "$1" ]; do
 		case $1 in
 			-q) quick=1;;
@@ -1418,7 +1421,7 @@ deplist() {
 	CHECK+=($1)
 	
 	# check dependencies
-	for i in $(pkg_depends $1); do
+	for i in $(get_depends $1); do
 		if [ "$quick" = 1 ] && isinstalled $i; then
 			continue
 		else
@@ -1447,17 +1450,6 @@ deplist() {
 			unset 'CHECK[i]'
 		fi
 	done
-}
-
-pkg_depends() {
-	needarg $@
-	local pkg=$1
-	ppath=$(getportpath $pkg) || return 1
-	grep "^# depends[[:blank:]]*:" $ppath/spkgbuild \
-	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
-	| tr ' ' '\n' \
-	| awk '!a[$0]++' \
-	| sed 's/,//'
 }
 
 usage_extra() {
@@ -1523,6 +1515,7 @@ Options:
     -v, --verbose          print install process
     -y, --yes              dont ask confirmation
     -l, --log              log build process
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
     --no-backup            skip backup configuration file
     --no-preupgrade        skip pre-upgrade script
     --no-postupgrade       skip post-upgrade script
@@ -1546,6 +1539,7 @@ Options:
     -s, --sync             sync ports before upgrades
     -y, --yes              dont ask confirmation
     -l, --log              log build process
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
     --no-backup            skip backup configuration file
     --no-preupgrade        skip pre-upgrade script
     --no-postupgrade       skip post-upgrade script
@@ -1583,6 +1577,7 @@ Options:
     -v, --verbose          print install files
     -l, --log              log build process
     -y, --yes              dont ask confirmation
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
     --no-backup            skip backup configuration file (use with -r/--reinstall)
     --no-preinstall        skip pre-install script
     --no-postinstall       skip post-install script
@@ -1594,18 +1589,36 @@ Options:
 EOF
 }
 
+usage_deplist() {
+	cat << EOF
+Usage:
+    $(basename $0) deplist [ <pkgname> <options> ]
+    
+Options:
+    -q, --quick            print only not-installed pkg in quick format
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
+	
+EOF
+}
+
+
 usage_help() {
 	cat << EOF
 Usage:
     $(basename $0) help <operation>
     
-Operation:
+Operations:
     build           build package
     install         install packages
     upgrade         upgrade packages
     sysup           full system upgrades
     remove          remove packages
+    deplist         list all dependencies
     extra           various extra options
+    
+Global options:
+    --repo=<repo>   add custom repo
+    --nocolor       disable colour output
     
 EOF
 }

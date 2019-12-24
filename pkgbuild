@@ -376,17 +376,17 @@ packaging() {
 	
 	popd >/dev/null
 	
-	[ -f .pkglist ] || generate_pkglist
+	[ -f .pkgfiles ] || generate_pkgfiles
 }
 
-generate_pkglist() {
+generate_pkgfiles() {
 	if [ ! -f "$PACKAGE_DIR/$PKGNAME" ]; then
 		msgerr "Package '$PKGNAME' not found."
 		abort 1
 	fi
 	
-	msg "Generating .pkglist..."
-	tar -tvf "$PACKAGE_DIR/$PKGNAME" | awk '{print $1,$2,$6}' > .pkglist
+	msg "Generating .pkgfiles..."
+	tar -tvf "$PACKAGE_DIR/$PKGNAME" | awk '{print $1,$2,$6}' > .pkgfiles
 }
 
 check_buildscript() {	
@@ -500,7 +500,7 @@ parse_opts() {
 		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
 		-l |               --log) LOGGING=yes ;;
-		-p |           --pkglist) GENPKGLIST=yes ;;
+		-p |          --pkgfiles) GENPKGFILES=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
 		         --no-preinstall) OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
@@ -535,6 +535,7 @@ Options:
   -g, --genmdsum            generate md5sum
   -o, --download            download only source file
   -x, --extract             extract only source file
+  -p, --pkgfiles            generate list files in package
   -w, --keep-work           keep working directory
   -l, --log                 log build process
   -h, --help                show this help message
@@ -612,8 +613,8 @@ main() {
 			exit 1 ;;
 	esac
 	
-	if [ "$GENPKGLIST" = "yes" ]; then
-		generate_pkglist
+	if [ "$GENPKGFILES" = "yes" ]; then
+		generate_pkgfiles
 		exit 0
 	fi
 
