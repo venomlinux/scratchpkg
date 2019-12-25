@@ -369,7 +369,7 @@ packaging() {
 		msgerr "Packaging '$PKGNAME' failed."
 		abort 1
 	fi
-	tar -tvf $PACKAGE_DIR/$PKGNAME
+	tar -tvf $PACKAGE_DIR/$PKGNAME | sort -k 6
 	
 	pkgsize="$(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}')"
 	msg "Successfully created package '$PKGNAME'. (${pkgsize})"
@@ -386,7 +386,10 @@ generate_pkgfiles() {
 	fi
 	
 	msg "Generating .pkgfiles..."
-	tar -tvf "$PACKAGE_DIR/$PKGNAME" | awk '{print $1,$2,$6}' > .pkgfiles
+	tar -tvf "$PACKAGE_DIR/$PKGNAME" \
+	| awk '{print $1,$2,$6}' \
+	| sed "s,lib/modules/$(uname -r),lib/modules/<kernelversion>,g" \
+	| sort -k 3 > .pkgfiles
 }
 
 check_buildscript() {	
