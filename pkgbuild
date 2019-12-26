@@ -122,7 +122,7 @@ download_src() {
 			SRCURL=$FILE
 		fi
 		case $DOWNLOAD_PROG in
-			curl) DLCMD="curl -C - --fail --ftp-pasv --retry 3 --retry-delay 3 -o $SOURCE_DIR/$FILENAME.partial $CURL_OPTS" ;;
+			curl) DLCMD="curl -C - -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $SOURCE_DIR/$FILENAME.partial $CURL_OPTS" ;;
 			wget) DLCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial $WGET_OPTS" ;;
 		esac
 		if [ "$FILENAME" != "$FILE" ]; then
