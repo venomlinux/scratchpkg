@@ -163,6 +163,8 @@ prepare_src() {
 	SRC=$WORK_DIR/$name/src
 	PKG=$WORK_DIR/$name/pkg
 	
+	umask 022
+	
 	rm -fr $WORK_DIR/$name
 	
 	mkdir -p $SRC $PKG
@@ -505,6 +507,7 @@ parse_opts() {
 		-l |               --log) LOGGING=yes ;;
 		-p |          --pkgfiles) GENPKGFILES=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
+		                --root=*) OPTS+=($1) ;;
 		         --no-preinstall) OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
 		         --no-preupgrade) OPTS+=($1) ;;

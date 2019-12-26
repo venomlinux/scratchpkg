@@ -795,6 +795,10 @@ scratch_install() {
 		fi
 		shift
 	done
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
 	# if reinstall, dont calculate dep, just reinstall it then exit
 	if [ "$REINSTALL" = 1 ]; then
 		for ii in ${PKGNAME[@]}; do
@@ -948,6 +952,10 @@ scratch_remove() {
 		fi
 		shift
 	done
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
 	
 	for i in ${PKGNAME[@]}; do
 		if ! isinstalled $i; then
@@ -1013,6 +1021,11 @@ scratch_sysup() {
 		fi
 		shift
 	done
+	
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
 	
 	if [ "$SYNC" = 1 ]; then
 		scratch_sync
@@ -1120,6 +1133,10 @@ scratch_upgrade() {
 		fi
 		shift
 	done
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
 	for pkg in ${PKGNAME[@]}; do
 		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' not installed."
@@ -1617,7 +1634,8 @@ Operations:
     extra           various extra options
     
 Global options:
-    --repo=<repo>   add custom repo
+    --repo=<path>   add custom local repo path
+    --root=<path>   use custom root path
     --nocolor       disable colour output
     
 EOF
@@ -1647,25 +1665,6 @@ main() {
 	return $?
 }
 
-BUILD_SCRIPT="spkgbuild"
-INDEX_DIR="/var/lib/scratchpkg/index"
-REPO_FILE="/etc/scratchpkg.repo"
-
-SOURCE_DIR="/var/cache/scratchpkg/sources"
-PACKAGE_DIR="/var/cache/scratchpkg/packages"
-
-if [ ! -f "$REPO_FILE" ]; then
-	msgerr "repo file not exist. ($REPO_FILE)"
-	exit 1
-else
-	while read -r repodir repourl junk; do
-		case $repodir in
-			""|"#"*) continue ;;
-		esac
-		PORT_REPO+=($repodir)
-	done < "$REPO_FILE"
-fi
-
 mode=$1
 shift
 
@@ -1673,11 +1672,28 @@ for opt in $@; do
 	case $opt in
 		--nocolor) nocolor ;;
 		 --repo=*) PORT_REPO+=(${opt#*=}) ;;
+		 --root=*) ROOT_DIR=(${opt#*=}) ;;
 		      --*) MAINOPTS+=($opt) ;;
 		       -*) for (( i=1; i<${#opt}; i++ )); do MAINOPTS+=(-${opt:$i:1}); done ;;
 		        *) MAINOPTS+=($opt) ;;
 	esac
 done
+
+BUILD_SCRIPT="spkgbuild"
+INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
+REPO_FILE="/etc/scratchpkg.repo"
+
+SOURCE_DIR="/var/cache/scratchpkg/sources"
+PACKAGE_DIR="/var/cache/scratchpkg/packages"
+
+if [ -f "$REPO_FILE" ]; then
+	while read -r repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		PORT_REPO+=($repodir)
+	done < "$REPO_FILE"
+fi
 
 main ${MAINOPTS[@]}
 
