@@ -81,15 +81,18 @@ generatemdsum() {
 checkmdsum() {
 	local mismatch m
 	
+	TMPCHECKSUM=$WORK_DIR/checksums.$$
+	
 	if [ ! -f .checksums ]; then
 		msg "Generating .checksums..."
 		generatemdsum > .checksums
 	else
-		generatemdsum > .checksums.tmp
-		mismatch=$(diff -w -t -U 0 .checksums .checksums.tmp | sed '/^---/d;/^+++/d;/^@@/d' | awk '{print $2}' | uniq)
+		msg "Checking checksums..."
+		generatemdsum > $TMPCHECKSUM
+		mismatch=$(diff -w -t -U 0 .checksums $TMPCHECKSUM | sed '/^---/d;/^+++/d;/^@@/d' | awk '{print $2}' | uniq)
 	fi
 	
-	rm -f .checksums.tmp
+	rm -f $TMPCHECKSUM
 	
 	if [ "$mismatch" ]; then
 		msgerr "md5sum mismatch:"
@@ -147,7 +150,7 @@ download_src() {
 
 prepare_src() {
 	local FILE FILENAME SRC_DIR
-	echo $CHECK_MDSUM
+	
 	[ "$IGNORE_MDSUM" -o "$CHECK_MDSUM" = 0 ] || checkmdsum
 	
 	SRC=$WORK_DIR/$name/src

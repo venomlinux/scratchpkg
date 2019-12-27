@@ -18,6 +18,13 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+EDITOR=${EDITOR:-vi}
+
+type -p $EDITOR >/dev/null || {
+	echo "Editor '$EDITOR' not exist..."
+	exit 2
+}
+
 if [ "$UID" != 0 ]; then
 	echo "This operation need root access. Exiting..."
 	exit 1
@@ -51,7 +58,9 @@ for file in $spkgnew; do
 	echo
 	echo "Choose action:"
 	echo "1) Discard update"
-	echo "2) Update config"
+	echo "2) Discard update and edit"
+	echo "3) Update config"
+	echo "4) Update config and edit"
 	echo "*) Do nothing"
 	echo
 	echo -n "Action: "
@@ -60,8 +69,16 @@ for file in $spkgnew; do
 		echo "Remove '$file'"
 		rm -f "$file"
 	elif [ "$ACTION" = "2" ]; then
+		echo "Remove '$file'"
+		rm -f "$file"
+		$EDITOR $currentfile
+	elif [ "$ACTION" = "3" ]; then
 		echo "Replace '$currentfile' with '$file'."
 		mv "$file" "$currentfile"
+	elif [ "$ACTION" = "4" ]; then
+		echo "Replace '$currentfile' with '$file'."
+		mv "$file" "$currentfile"
+		$EDITOR $currentfile
 	else
 		echo "Doing nothing."
 	fi
