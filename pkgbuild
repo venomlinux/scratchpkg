@@ -35,10 +35,16 @@ msgwarn() {
 }
 
 updatemdsum() {
+	msg "Generating .checksums..."
+	generatemdsum > .checksums
+}
+
+generatemdsum() {
+	local um file missingsource
 	
 	if [ -z $source ]; then
-		msgwarn "source=() is empty, no need md5sum."
-		abort 0
+		echo SKIP > .checksums
+		return 0
 	fi
 		
 	for um in $(seq 0 $((${#source[@]} - 1))); do
@@ -68,46 +74,30 @@ updatemdsum() {
 		abort 1
 	fi
 	
-	echo -e "md5sum=($(md5sum $needupdatechecksum | awk '{ print $1 }'))"
+	md5sum $needupdatechecksum | sed -e 's|  .*/|  |' | sort -k 2
 		
 }
 
 checkmdsum() {
+	local mismatch m
 	
-	if [ -n "$source" ] && [ -z "$md5sum" ]; then
-		msgerr "md5sum=() is empty, please provide it."
-		abort 1
+	if [ ! -f .checksums ]; then
+		msg "Generating .checksums..."
+		generatemdsum > .checksums
+	else
+		generatemdsum > .checksums.tmp
+		mismatch=$(diff -w -t -U 0 .checksums .checksums.tmp | sed '/^---/d;/^+++/d;/^@@/d' | awk '{print $2}' | uniq)
 	fi
 	
-	if [ "${#source[@]}" != "${#md5sum[@]}" ]; then
-		msgerr "Total source and md5sums different."
-		abort 1
-	fi
+	rm -f .checksums.tmp
 	
-	for s in $(seq 0 $((${#source[@]} - 1))); do
-		if [ $(echo ${source[$s]} | grep -E "(ftp|http|https)://") ]; then
-			if [ $(echo ${source[$s]} | grep -E "::(ftp|http|https)://") ]; then
-				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | awk -F '::' '{print $1}')
-			else
-				sourcename=$SOURCE_DIR/$(echo ${source[$s]} | rev | cut -d / -f 1 | rev)
-			fi
-		else
-			sourcename="${source[$s]}"
-		fi
-		sum=$(md5sum "$sourcename" | awk '{ print $1 }')
-		if [ "$sum" != "${md5sum[$s]}" ] && [ "SKIP" != "${md5sum[$s]}" ]; then
-			errormdsum+=($sourcename)
-		fi
-	done
-	
-	if [ "${#errormdsum[@]}" -gt 0 ]; then
+	if [ "$mismatch" ]; then
 		msgerr "md5sum mismatch:"
-		for mismatch in ${errormdsum[@]}; do
-			msg2 "$mismatch"
+		for m in $mismatch; do
+			msg2 $m
 		done
 		abort 1
-	fi
-	
+	fi	
 }
 
 download_src() {
@@ -157,8 +147,8 @@ download_src() {
 
 prepare_src() {
 	local FILE FILENAME SRC_DIR
-	
-	[ "$IGNORE_MDSUM" ] || checkmdsum
+	echo $CHECK_MDSUM
+	[ "$IGNORE_MDSUM" -o "$CHECK_MDSUM" = 0 ] || checkmdsum
 	
 	SRC=$WORK_DIR/$name/src
 	PKG=$WORK_DIR/$name/pkg
@@ -440,6 +430,8 @@ set_options() {
 			!buildflags) BUILD_FLAGS=0 ;;
 			makeflags)   MAKE_FLAGS=1 ;;
 			!makeflags)  MAKE_FLAGS=0 ;;
+			mdsum)       CHECK_MDSUM=1 ;;
+			!mdsum)      CHECK_MDSUM=0 ;;
 		esac
 	done
 }
@@ -653,7 +645,7 @@ main() {
 		abort 0
 	fi
 	
-	# calculate & print md5sum
+	# update md5sum
 	if [ "$UPDATE_MDSUM" ]; then
 		updatemdsum
 		abort 0
@@ -695,7 +687,7 @@ WORK_DIR="/var/cache/scratchpkg/work"
 DOWNLOAD_PROG="wget"
 COMPRESSION_MODE="xz"
 
-OPTIONS=(!libtool emptydirs strip zipman buildflags makeflags)
+OPTIONS=(!libtool emptydirs strip zipman buildflags makeflags checksum)
 
 INCLUDEINPKG=(install readme mkdirs)
 
