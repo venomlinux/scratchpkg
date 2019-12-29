@@ -43,7 +43,7 @@ generatemdsum() {
 	local um file missingsource
 	
 	if [ -z $source ]; then
-		echo SKIP > .checksums
+		echo SKIP
 		return 0
 	fi
 		
@@ -59,20 +59,6 @@ generatemdsum() {
 		fi
 		needupdatechecksum="$needupdatechecksum $sourcename"
 	done
-	
-	for file in ${needupdatechecksum[@]}; do
-		if [ ! -f $file ]; then
-			missingsource+=($file)
-		fi
-	done
-	
-	if [ "${#missingsource[@]}" -gt 0 ]; then
-		msg "Missing source:"
-		for ms in ${missingsource[@]}; do
-			msg2 "$ms"
-		done
-		abort 1
-	fi
 	
 	md5sum $needupdatechecksum | sed -e 's|  .*/|  |' | sort -k 2
 		
@@ -377,7 +363,7 @@ packaging() {
 generate_pkgfiles() {
 	if [ ! -f "$PACKAGE_DIR/$PKGNAME" ]; then
 		msgerr "Package '$PKGNAME' not found."
-		abort 1
+		exit 1
 	fi
 	
 	msg "Generating .pkgfiles..."
@@ -444,13 +430,13 @@ checkdir() {
 	for DIR in "$@"; do
 		if [ ! -d $DIR ]; then
 			msgerr "Directory '$DIR' not exist."
-			abort 1
+			exit 1
 		elif [ ! -w $DIR ]; then
 			msgerr "Directory '$DIR' not writable."
-			abort 1
+			exit 1
 		elif [ ! -x $DIR ] || [ ! -r $1 ]; then
 			msgerr "Directory '$DIR' not readable."
-			abort 1
+			exit 1
 		fi
 	done
 }
@@ -555,8 +541,7 @@ Options:
 EOF
 }
 
-main() {
-	
+main() {	
 	parse_opts $(extract_opt $@)
 	
 	if [ -f $PKGBUILD_CONF ]; then
@@ -602,7 +587,7 @@ main() {
 	
 	if [ "$LOGGING" = yes ] && [ -f $LOG_DIR/$name-$version-$release.log ] && [ ! -w $LOG_DIR/$name-$version-$release.log ]; then
 		msgerr "You dont have write permission for '$LOG_DIR/$name-$version-$release.log'."
-		abort 1
+		exit 1
 	fi
 	
 	check_buildscript
@@ -650,6 +635,7 @@ main() {
 	
 	# update md5sum
 	if [ "$UPDATE_MDSUM" ]; then
+		download_src
 		updatemdsum
 		abort 0
 	fi

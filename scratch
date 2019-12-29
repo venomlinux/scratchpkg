@@ -1035,7 +1035,7 @@ scratch_sysup() {
 	PKGOUTDATE=$(outdatepkg)
 	
 	if [ ! "$PKGOUTDATE" ]; then
-		echo "All package are up to date."
+		echo "All packages are up to date."
 		return 0
 	fi
 		
