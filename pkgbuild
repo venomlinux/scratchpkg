@@ -105,9 +105,7 @@ download_src() {
 			wget) DLCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial $WGET_OPTS" ;;
 		esac
 		if [ "$FILENAME" != "$FILE" ]; then
-			if [ -f "$SOURCE_DIR/$FILENAME" ] && [ -z "$REDOWNLOAD_SOURCE" ]; then
-				msg "Source '$FILENAME' found."
-			else
+			if [ ! -f "$SOURCE_DIR/$FILENAME" ] || [ "$REDOWNLOAD_SOURCE" ]; then
 				[ "$REDOWNLOAD_SOURCE" ] && rm -f "$SOURCE_DIR/$FILENAME.partial"
 				if [ -f "$SOURCE_DIR/$FILENAME.partial" ]; then
 					msg "Resuming '$SRCURL'."
