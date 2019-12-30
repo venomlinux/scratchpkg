@@ -61,7 +61,6 @@ generatemdsum() {
 	done
 	
 	md5sum $needupdatechecksum | sed -e 's|  .*/|  |' | sort -k 2
-		
 }
 
 checkmdsum() {
@@ -125,8 +124,6 @@ download_src() {
 			if [ ! -f "$FILENAME" ]; then
 				msgerr "Source '$FILENAME' not found."
 				abort 1
-			else
-				msg "Source '$FILENAME' found."
 			fi
 		fi
 	done
