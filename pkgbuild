@@ -40,24 +40,22 @@ updatemdsum() {
 }
 
 generatemdsum() {
-	local um file missingsource
+	local src FILENAME
 	
 	if [ -z $source ]; then
 		echo SKIP
 		return 0
 	fi
-		
-	for um in $(seq 0 $((${#source[@]} - 1))); do
-		if [ $(echo ${source[$um]} | grep -E "(ftp|http|https)://") ]; then
-			if [ $(echo ${source[$um]} | grep -E "::(ftp|http|https)://") ]; then
-				sourcename="$SOURCE_DIR/$(echo ${source[$um]} | awk -F '::' '{print $1}')"
-			else
-				sourcename="$SOURCE_DIR/$(echo ${source[$um]} | rev | cut -d / -f 1 | rev)"
-			fi
+	
+	for src in ${source[@]}; do
+		if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
+			FILENAME=$SOURCE_DIR/$(echo $src | awk -F '::' '{print $1}')
+		elif [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+			FILENAME=$SOURCE_DIR/$(basename $src)
 		else
-			sourcename="${source[$um]}"
+			FILENAME=$src
 		fi
-		needupdatechecksum="$needupdatechecksum $sourcename"
+		needupdatechecksum="$needupdatechecksum $FILENAME"
 	done
 	
 	md5sum $needupdatechecksum | sed -e 's|  .*/|  |' | sort -k 2
@@ -92,7 +90,7 @@ download_src() {
 	local FILE FILENAME
 	
 	for FILE in ${source[@]}; do
-		if [[ $FILE =~ ::(http|https|ftp|file):// ]]; then
+		if [[ $FILE =~ ::(http|https|ftp):// ]]; then
 			FILENAME=$(echo $FILE | awk -F '::' '{print $1}')
 			SRCURL=$(echo $FILE | awk -F '::' '{print $2}')
 		else
@@ -145,18 +143,15 @@ prepare_src() {
 	
 	if [ "${#source[@]}" -gt 0 ]; then
 		for FILE in ${source[@]}; do
-			if [[ $FILE =~ ::(http|https|ftp|file):// ]]; then
-				FILENAME=$(echo $FILE | awk -F '::' '{print $1}')
-				SRC_DIR="$SOURCE_DIR"
-			elif [[ $FILE =~ ^(http|https|ftp|file):// ]]; then
-				FILENAME=$(basename $FILE)
-				SRC_DIR="$SOURCE_DIR"
+			if [[ $FILE =~ ::(http|https|ftp):// ]]; then
+				FILENAME=$SOURCE_DIR/$(echo $FILE | awk -F '::' '{print $1}')
+			elif [[ $FILE =~ ^(http|https|ftp):// ]]; then
+				FILENAME=$SOURCE_DIR/$(basename $FILE)
 			else
-				FILENAME=$(basename $FILE)
-				SRC_DIR="$PWD"
+				FILENAME=$PWD/$(basename $FILE)
 			fi
 			for NOEXT in ${noextract[@]}; do
-				if [ "$NOEXT" = "$FILENAME" ]; then
+				if [ "$NOEXT" = "$(basename $FILENAME)" ]; then
 					nxt=1
 					break
 				fi
@@ -165,26 +160,29 @@ prepare_src() {
 				case $FILENAME in
 					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
 						if [ $(type -p bsdtar) ]; then
-							COMMAND="bsdtar -p -o -C $SRC -xf $SOURCE_DIR/$FILENAME"
+							COMMAND="bsdtar -p -o -C $SRC -xf $FILENAME"
 						else
-							COMMAND="tar -p -o -C $SRC -xf $SOURCE_DIR/$FILENAME"
+							COMMAND="tar -p -o -C $SRC -xf $FILENAME"
 						fi
 						MODE="Unpacking" ;;
 					*)
-						COMMAND="cp $SOURCE_DIR/$FILENAME $SRC"
+						COMMAND="cp $FILENAME $SRC"
 						MODE="Preparing" ;;				
 				esac
-				msg2 "$MODE '$FILENAME'..."
-				$COMMAND
-				if [ $? != 0 ]; then
+				msg "$MODE '$(basename $FILENAME)'..."
+				$COMMAND || {
 					msgerr "$MODE '$FILENAME' failed."
 					abort 1
-				fi
+				}
 			else
-				msg2 "Preparing '$FILENAME'..."
-				cp "$SRC_DIR/$FILENAME" "$SRC"
+				MODE="Preparing"
+				msg "$MODE '$(basename $FILENAME)'..."
+				cp "$FILENAME" "$SRC" || {
+					msgerr "$MODE '$FILENAME' failed."
+					abort 1
+				}
 			fi
-			nxt=
+			unset nxt
 		done
 	fi
 }
@@ -202,14 +200,7 @@ run_build() {
 	
 	pushd $SRC >/dev/null
 	
-	if [ "$LOGGING" = yes ]; then	
-		(
-			set -e -x; build 2>&1 | tee $LOG_DIR/$name-$version-$release.log
-			exit $PIPESTATUS
-		)
-	else
-		(set -e -x; build)
-	fi
+	(set -e -x; build)
 		
 	if [ $? != 0 ]; then
 		msgerr "Build '$name-$version-$release' failed."
@@ -368,6 +359,26 @@ generate_pkgfiles() {
 	| sort -k 3 > .pkgfiles
 }
 
+cleanup() {
+	if [ -e "$PACKAGE_DIR/$PKGNAME" ]; then
+		msg "Removing $PACKAGE_DIR/$PKGNAME"
+		rm -f "$PACKAGE_DIR/$PKGNAME"
+	fi
+	for src in ${source[@]}; do
+		if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
+			FILENAME=$SOURCE_DIR/$(echo $src | awk -F '::' '{print $1}')
+		elif [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+			FILENAME=$SOURCE_DIR/$(basename $src)
+		else
+			FILENAME=$src
+		fi
+		if [ -e "$FILENAME" ] && [ "$FILENAME" != "$src" ]; then
+			msg "Removing $FILENAME"
+			rm -f "$FILENAME"
+		fi
+	done
+}
+
 check_buildscript() {	
 	# check the required field in buildscript
 	if [ -z "$name" ]; then
@@ -480,9 +491,9 @@ parse_opts() {
 		-o |          --download) DOWNLOAD_ONLY=yes ;;
 		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
-		-l |               --log) LOGGING=yes ;;
 		-p |          --pkgfiles) GENPKGFILES=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
+		                 --clean) CLEANUP=yes ;;
 		                --root=*) OPTS+=($1) ;;
 		         --no-preinstall) OPTS+=($1) ;;
 		        --no-postinstall) OPTS+=($1) ;;
@@ -493,7 +504,6 @@ parse_opts() {
 		              --config=*) PKGBUILD_CONF="${1#*=}" ;;
 		              --srcdir=*) CUSTOM_SOURCE_DIR="${1#*=}" ;;
 		              --pkgdir=*) CUSTOM_PACKAGE_DIR="${1#*=}" ;;
-		              --logdir=*) CUSTOM_LOG_DIR="${1#*=}" ;;
 		             --workdir=*) CUSTOM_WORK_DIR="${1#*=}" ;;
 		                       *) msg "Invalid $(basename $0) option! ($1)"; exit 1 ;;
 		esac
@@ -519,12 +529,11 @@ Options:
   -x, --extract             extract only source file
   -p, --pkgfiles            generate list files in package
   -w, --keep-work           keep working directory
-  -l, --log                 log build process
   -h, --help                show this help message
+      --clean               remove downloaded sources and prebuilt packages
       --config=<config>     use custom config file
       --srcdir=<path>       override directory path for sources
       --pkgdir=<path>       override directory path for compiled package
-      --logdir=<path>       override directory path for build logs
       --workdir=<path>      override directory path for working dir
       --no-preinstall       skip preinstall script before install package
       --no-postinstall      skip postinstall script after install package
@@ -554,15 +563,11 @@ main() {
 		PACKAGE_DIR="$CUSTOM_PACKAGE_DIR"
 	fi
 	
-	if [ "$CUSTOM_LOG_DIR" ]; then
-		LOG_DIR="$CUSTOM_LOG_DIR"
-	fi
-	
 	if [ "$CUSTOM_WORK_DIR" ]; then
 		WORK_DIR="$CUSTOM_WORK_DIR"
 	fi
 	
-	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR" "$LOG_DIR"
+	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR"
 	
 	# show usage
 	if [ "$SHOWHELP" ]; then
@@ -572,16 +577,9 @@ main() {
 	
 	if [ -f $PKGBUILD_BSCRIPT ]; then
 		description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-		backup=$(grep "^# backup[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# backup[[:blank:]]*:[[:blank:]]*//')
-		noextract=$(grep "^# noextract[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# noextract[[:blank:]]*:[[:blank:]]*//')
 		source $PKGBUILD_BSCRIPT	
 	else
 		msgerr "'$PKGBUILD_BSCRIPT' file not found."
-		exit 1
-	fi
-	
-	if [ "$LOGGING" = yes ] && [ -f $LOG_DIR/$name-$version-$release.log ] && [ ! -w $LOG_DIR/$name-$version-$release.log ]; then
-		msgerr "You dont have write permission for '$LOG_DIR/$name-$version-$release.log'."
 		exit 1
 	fi
 	
@@ -594,8 +592,35 @@ main() {
 			exit 1 ;;
 	esac
 	
+	# generate .pkgfiles
 	if [ "$GENPKGFILES" = "yes" ]; then
 		generate_pkgfiles
+		exit 0
+	fi
+	
+	# download source only
+	if [ "$DOWNLOAD_ONLY" ]; then
+		download_src
+		exit 0
+	fi
+	
+	# extract source only
+	if [ "$EXTRACT_ONLY" ]; then
+		download_src
+		prepare_src
+		exit 0
+	fi
+	
+	# update md5sum
+	if [ "$UPDATE_MDSUM" ]; then
+		download_src
+		updatemdsum
+		exit 0
+	fi
+	
+	# remove source and package
+	if [ "$CLEANUP" ]; then
+		cleanup
 		exit 0
 	fi
 
@@ -612,27 +637,6 @@ main() {
 			msgerr "Cant create lock file in '$LOCK_FILE'"
 			exit 1
 		fi
-	fi
-	
-	# download source only
-	if [ "$DOWNLOAD_ONLY" ]; then
-		download_src
-		abort 0
-	fi
-	
-	# extract source only
-	if [ "$EXTRACT_ONLY" ]; then
-		download_src
-		prepare_src
-		KEEP_WORK=yes
-		abort 0
-	fi
-	
-	# update md5sum
-	if [ "$UPDATE_MDSUM" ]; then
-		download_src
-		updatemdsum
-		abort 0
 	fi
 	
 	# build package
@@ -666,7 +670,6 @@ PKGBUILD_BSCRIPT="spkgbuild"
 
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
-LOG_DIR="/var/cache/scratchpkg/log"
 WORK_DIR="/var/cache/scratchpkg/work"
 DOWNLOAD_PROG="wget"
 COMPRESSION_MODE="xz"
