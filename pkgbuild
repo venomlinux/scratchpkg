@@ -200,7 +200,7 @@ run_build() {
 	
 	pushd $SRC >/dev/null
 	
-	(set -e -x; build)
+	(set -e -x; build 2>&1)
 		
 	if [ $? != 0 ]; then
 		msgerr "Build '$name-$version-$release' failed."
@@ -299,8 +299,11 @@ backupconf() {
 packaging() {
 	local FILE f
 	
-	for f in ${INCLUDEINPKG[@]}; do
-		[ -f $f ] && install -m644 $f $PKG/.pkg$f
+	for FILE in ${INCLUDEINPKG[@]}; do
+		if [ -f $FILE ]; then
+			install -m644 $FILE $PKG/.pkg$FILE
+			addtotar+=(.pkg$FILE)
+		fi
 	done
 	
 	pushd $PKG >/dev/null
@@ -315,12 +318,6 @@ packaging() {
 	if [ "${#backup[@]}" -gt 0 ]; then
 		backupconf
 	fi
-	
-	for FILE in ${INCLUDEINPKG[@]}; do
-		if [ -f .pkg$FILE ]; then
-			addtotar+=(.pkg$FILE)
-		fi
-	done
 	
 	[ "$FORCE_REBUILD" ] && rm -f "$PACKAGE_DIR/$PKGNAME"
 	
@@ -338,9 +335,8 @@ packaging() {
 	fi
 	tar -tvf $PACKAGE_DIR/$PKGNAME | sort -k 6
 	
-	pkgsize="$(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}')"
-	msg "Successfully created package '$PKGNAME'. (${pkgsize})"
-	
+	msg "Successfully created package '$PKGNAME'. ($(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}'))"
+		
 	popd >/dev/null
 	
 	[ -f .pkgfiles ] || generate_pkgfiles
@@ -419,14 +415,14 @@ set_options() {
 			!emptydirs)  KEEP_EMPTYDIR=0;;
 			strip)       STRIP_BINARY=1 ;;
 			!strip)      STRIP_BINARY=0 ;;
-			zipman)      ZIP_MAN=1 ;;
-			!zipman)     ZIP_MAN=0 ;;
-			buildflags)  BUILD_FLAGS=1 ;;
-			!buildflags) BUILD_FLAGS=0 ;;
-			makeflags)   MAKE_FLAGS=1 ;;
-			!makeflags)  MAKE_FLAGS=0 ;;
-			mdsum)       CHECK_MDSUM=1 ;;
-			!mdsum)      CHECK_MDSUM=0 ;;
+			zipman)      ZIP_MAN=1      ;;
+			!zipman)     ZIP_MAN=0      ;;
+			buildflags)  BUILD_FLAGS=1  ;;
+			!buildflags) BUILD_FLAGS=0  ;;
+			makeflags)   MAKE_FLAGS=1   ;;
+			!makeflags)  MAKE_FLAGS=0   ;;
+			mdsum)       CHECK_MDSUM=1  ;;
+			!mdsum)      CHECK_MDSUM=0  ;;
 		esac
 	done
 }
@@ -555,17 +551,9 @@ main() {
 		exit 1
 	fi
 	
-	if [ "$CUSTOM_SOURCE_DIR" ]; then
-		SOURCE_DIR="$CUSTOM_SOURCE_DIR"
-	fi
-	
-	if [ "$CUSTOM_PACKAGE_DIR" ]; then
-		PACKAGE_DIR="$CUSTOM_PACKAGE_DIR"
-	fi
-	
-	if [ "$CUSTOM_WORK_DIR" ]; then
-		WORK_DIR="$CUSTOM_WORK_DIR"
-	fi
+	[ "$CUSTOM_SOURCE_DIR" ]  && SOURCE_DIR="$CUSTOM_SOURCE_DIR"	
+	[ "$CUSTOM_PACKAGE_DIR" ] && PACKAGE_DIR="$CUSTOM_PACKAGE_DIR"	
+	[ "$CUSTOM_WORK_DIR" ]    && WORK_DIR="$CUSTOM_WORK_DIR"
 	
 	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR"
 	
@@ -588,12 +576,11 @@ main() {
 
 	case $COMPRESSION_MODE in
 		gz|bz2|xz) PKGNAME="$name-$version-$release.spkg.tar.$COMPRESSION_MODE" ;;
-		*) msgerr "Invalid compression mode. ($COMPRESSION_MODE)"
-			exit 1 ;;
+		        *) msgerr "Invalid compression mode. ($COMPRESSION_MODE)"; exit 1 ;;
 	esac
 	
 	# generate .pkgfiles
-	if [ "$GENPKGFILES" = "yes" ]; then
+	if [ "$GENPKGFILES" ]; then
 		generate_pkgfiles
 		exit 0
 	fi

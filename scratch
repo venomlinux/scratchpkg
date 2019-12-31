@@ -297,7 +297,7 @@ scratch_depends() {
 		msgerr "Port '$1' not exist."
 		exit 1
 	fi
-			#isinstalled ${depends[0]}
+	
 	for dep in ${depends[@]}; do
 		if isinstalled $dep; then
 			msginst "$dep"
@@ -466,30 +466,24 @@ scratch_foreignpkg() {
 }
 
 scratch_info() {
-	[ $1 ] || return 0
-	version="-"
-	release="-"
-	iver="-"
-	irel="-"
-	if isinstalled $1; then
-		iver=$(installed_pkg_info version $1)
-		irel=$(installed_pkg_info release $1)
-		INSTALLED=1
-	fi
-	portpath=$(getportpath $1)
-	if [ -n "$portpath" ]; then
-		. $portpath/$BUILD_SCRIPT
-		PORTEXIST=1
-	else
-		portpath="-"
-	fi
-	if [ "$INSTALLED" != 1 ] && [ "$PORTEXIST" != 1 ]; then
-		return 0
-	fi
-	echo -e "name: \t\t$1 \t$([[ $PORTEXIST = 1 ]] || echo \( foreignpkg \))"
-	echo -e "version: \t$version \t( installed: $iver )"
-	echo -e "release: \t$release \t( installed: $irel )"
-	echo -e "port path: \t$portpath"
+	needarg $@
+	local pkg=$1
+	ppath=$(getportpath $pkg) || return 1
+	
+	. $ppath/$BUILD_SCRIPT
+	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
+	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
+	deps=$(get_depends $pkg | tr '\n' ' ')
+	
+	echo -e "Name:         $pkg"
+	echo -e "Path:         $ppath"
+	echo -e "Version:      $version"
+	echo -e "Release:      $release"
+	echo -e "Description:  $desc"
+	echo -e "Homepage:     $url"
+	echo -e "Maintainer:   $maint"
+	echo -e "Dependencies: $deps"
 }
 
 scratch_trigger() {
@@ -730,36 +724,29 @@ pre_triggers() {
 }
 
 scratch_build() {
-	local OPTS
-	if [ -z "$1" ]; then
-		echo "Please specify package to build."
-		return 1
-	fi
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(f|w|m|o|x|l)$ ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--(force-rebuild|skip-mdsum|download|extract|keep-work|redownload|log)$ ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--(pkgdir|srcdir|logdir|workdir)=* ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^-. ]]; then
-			echo "Unrecognize option. ($1)"
-			return 1
-		else
-			PKGNAME=$1
-		fi
+		case $1 in
+			-i|-u|-r) continue;;
+			-*) OPTS+=($1);;
+			 *) PKGNAME+=($1);;
+		esac
 		shift
 	done
-	pushd $(getportpath $PKGNAME)
-	if [ $? = 0 ]; then
-		settermtitle "Building $PKGNAME..."
-		pkgbuild ${OPTS[@]} || return 1
-		settermtitle "Building $PKGNAME done"
-	else
-		echo "Package '$PKGNAME' not found."
-		return 1
-	fi
-	return 0
+	for P in ${PKGNAME[@]}; do
+		pushd $(getportpath $P)
+		if [ $? = 0 ]; then
+			settermtitle "Building $P..."
+			pkgbuild ${OPTS[@]} || {
+				settermtitle "Building $P failed"
+				return 1
+			}
+			settermtitle "Building $P done"
+		else
+			echo "Package '$P' not found."
+			return 1
+		fi
+		popd
+	done
 }
 
 scratch_install() {
@@ -767,34 +754,23 @@ scratch_install() {
 	
 	needroot "Installing package"
 	
-	if [ -z "$1" ]; then
+	while [ "$1" ]; do
+		case $1 in
+			-i|-u) ;;
+			-r) REINSTALL=1;;
+			-y|--yes) NOCONFIRM=1;;
+			-n|--no-dep) NO_DEP=1;;
+			--exclude=*) EXOPT=$1;;
+			-*) OPTS+=($1);;
+			*) PKGNAME+=($1);;
+		esac
+		shift
+	done
+	
+	if [ -z "$PKGNAME" ]; then
 		echo "Please specify package(s) to install."
 		return 1
 	fi
-	while [ "$1" ]; do
-		if [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict|-no-backup|-log)$ ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--exclude=* ]]; then
-			EXOPT=$1
-		elif [[ "$1" =~ ^--(no-preinstall|no-postinstall)$ ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^-(r|-reinstall)$ ]]; then
-			OPTS+=($1)
-			REINSTALL=1
-		elif [[ "$1" =~ ^-(d|-no-dep)$ ]]; then
-			NO_DEP=1
-		elif [[ "$1" = "--yes" ]] || [[ "$1" = "-y" ]]; then
-			NOCONFIRM=1
-		elif [[ "$1" =~ ^-. ]]; then
-			echo "Unrecognize option. ($1)"
-			return 1
-		else
-			PKGNAME+=($1)
-		fi
-		shift
-	done
 	# use custom root location
 	if [ "$ROOT_DIR" ]; then
 		OPTS+=(--root=$ROOT_DIR)
@@ -809,7 +785,7 @@ scratch_install() {
 			else
 				pushd $(getportpath $ii)
 					settermtitle "Reinstalling $ii..."
-					pkgbuild ${OPTS[@]}
+					pkgbuild ${OPTS[@]} -r
 					if [ $? != 0 ]; then
 						error=1
 						break
@@ -935,23 +911,19 @@ scratch_remove() {
 	
 	needroot "Removing package"
 	
-	if [ -z "$1" ]; then
+	while [ "$1" ]; do
+		case $1 in
+			-y|--yes) NOCONFIRM=1;;
+			-*) OPTS+=($1);;
+			*) PKGNAME+=($1);;
+		esac
+		shift
+	done
+	
+	if [ -z "$PKGNAME" ]; then
 		echo "Please specify package(s) to remove."
 		return 1
 	fi
-	while [ "$1" ]; do
-		if [[ "$1" =~ ^--(no-postremove|no-preremove)$ ]]; then
-			OPTS+=($1)
-		elif [[ "$1" = "--yes" ]] || [[ "$1" = "-y" ]]; then
-			NOCONFIRM=1
-		elif [[ "$1" =~ ^-. ]]; then
-			echo "Unrecognize option. ($1)"
-			return 1
-		else
-			PKGNAME+=($1)
-		fi
-		shift
-	done
 	# use custom root location
 	if [ "$ROOT_DIR" ]; then
 		OPTS+=(--root=$ROOT_DIR)
@@ -1001,24 +973,14 @@ scratch_sysup() {
 	needroot "Upgrading package"
 	
 	while [ "$1" ]; do
-		if  [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup|log)$ ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--exclude=* ]]; then
-			EXOPT=$1
-		elif [[ "$1" =~ ^-(c|v|l|-verbose|-ignore-conflict)$ ]]; then
-			OPTS+=($1)
-		elif [ "$1" = "--yes" ] || [ "$1" = "-y" ]; then
-			NOCONFIRM=1
-		elif [ "$1" = "--no-dep" ] || [ "$1" = "-d" ]; then
-			NODEP=1
-		elif [ "$1" = "--sync" ] || [ "$1" = "-s" ]; then
-			SYNC=1
-		elif [[ "$1" =~ ^-. ]]; then
-			echo "Unrecognize option. ($1)"
-			exit 1
-		fi
+		case $1 in
+			-i|-u|-r) ;;
+			-y|--yes) NOCONFIRM=1;;
+			-d|--no-dep) NODEP=1;;
+			-s|--sync) SYNC=1;;
+			--exclude=*) EXOPT+=($1);;
+			-*) OPTS+=($1);;
+		esac
 		shift
 	done
 	
@@ -1111,28 +1073,22 @@ scratch_upgrade() {
 	
 	needroot "Upgrading package"
 	
-	needarg "$@"
 	while [ "$1" ]; do
-		if [[ "$1" =~ ^--(no-postupgrade|no-preupgrade|no-backup|log)$ ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--(srcdir|pkgdir|logdir|workdir)=* ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^--exclude=* ]]; then
-			EXOPT=$1
-		elif [[ "$1" =~ ^-(c|v|l|-ignore-conflict|-verbose) ]]; then
-			OPTS+=($1)
-		elif [[ "$1" =~ ^-(-no-dep|d)$ ]]; then
-			NO_DEP=1
-		elif [[ "$1" = "--yes" ]] || [[ "$1" = "-y" ]]; then
-			NOCONFIRM=1
-		elif [[ "$1" =~ ^-. ]]; then
-			echo "Unrecognize option. ($1)"
-			exit 1
-		else
-			PKGNAME+=($1)
-		fi
+		case $1 in
+			-y|--yes) NOCONFIRM=1;;
+			-d|--no-dep) NO_DEP=1;;
+			--exclude=*) EXOPT=$1;;
+			-*) OPTS+=($1);;
+			*) PKGNAME+=($1);;
+		esac
 		shift
 	done
+	
+	if [ -z "$PKGNAME" ]; then
+		echo "Please specify package(s) to remove."
+		return 1
+	fi
+	
 	# use custom root location
 	if [ "$ROOT_DIR" ]; then
 		OPTS+=(--root=$ROOT_DIR)
@@ -1256,7 +1212,7 @@ scratch_outdate() {
 		fi
 	done
 	
-	[ ! "$OUTDATE" ] && msg "All package is up to date."
+	[ ! "$OUTDATE" ] && msg "All packages are up to date."
 }
 
 clearpkgcache() {	
@@ -1670,12 +1626,12 @@ shift
 
 for opt in $@; do
 	case $opt in
-		--nocolor) nocolor ;;
-		 --repo=*) PORT_REPO+=(${opt#*=}) ;;
-		 --root=*) ROOT_DIR=(${opt#*=}) ;;
-		      --*) MAINOPTS+=($opt) ;;
-		       -*) for (( i=1; i<${#opt}; i++ )); do MAINOPTS+=(-${opt:$i:1}); done ;;
-		        *) MAINOPTS+=($opt) ;;
+		--nocolor) nocolor;;
+		 --repo=*) PORT_REPO+=(${opt#*=});;
+		 --root=*) ROOT_DIR=(${opt#*=});;
+		      --*) MAINOPTS+=($opt);;
+		       -*) for (( i=1; i<${#opt}; i++ )); do MAINOPTS+=(-${opt:$i:1}); done;;
+		        *) MAINOPTS+=($opt);;
 	esac
 done
 
