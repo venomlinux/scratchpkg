@@ -726,7 +726,7 @@ pre_triggers() {
 scratch_build() {
 	while [ "$1" ]; do
 		case $1 in
-			-i|-u|-r) continue;;
+			-i|-u|-r) ;;
 			-*) OPTS+=($1);;
 			 *) PKGNAME+=($1);;
 		esac

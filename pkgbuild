@@ -48,9 +48,9 @@ generatemdsum() {
 	fi
 	
 	for src in ${source[@]}; do
-		if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
+		if echo $src | grep -qE "::(ftp|http|https)://"; then
 			FILENAME=$SOURCE_DIR/$(echo $src | awk -F '::' '{print $1}')
-		elif [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+		elif echo $src | grep -qE "(ftp|http|https)://"; then
 			FILENAME=$SOURCE_DIR/$(basename $src)
 		else
 			FILENAME=$src
@@ -128,7 +128,7 @@ download_src() {
 }
 
 prepare_src() {
-	local FILE FILENAME SRC_DIR
+	local FILE FILENAME
 	
 	[ "$IGNORE_MDSUM" -o "$CHECK_MDSUM" = 0 ] || checkmdsum
 	
@@ -200,7 +200,7 @@ run_build() {
 	
 	pushd $SRC >/dev/null
 	
-	(set -e -x; build 2>&1)
+	(set -e -x; build 2>&1) ||
 		
 	if [ $? != 0 ]; then
 		msgerr "Build '$name-$version-$release' failed."
@@ -297,9 +297,9 @@ backupconf() {
 }
 
 packaging() {
-	local FILE f
+	local FILE
 	
-	for FILE in ${INCLUDEINPKG[@]}; do
+	for FILE in $INCLUDEINPKG; do
 		if [ -f $FILE ]; then
 			install -m644 $FILE $PKG/.pkg$FILE
 			addtotar+=(.pkg$FILE)
@@ -327,12 +327,12 @@ packaging() {
 		bz2) COMPRESS="-j" ;;
 	esac
 	
-	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}"
-	if [ $? != 0 ]; then
+	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}" || {
 		rm -f $PACKAGE_DIR/$PKGNAME
 		msgerr "Packaging '$PKGNAME' failed."
 		abort 1
-	fi
+	}
+	
 	tar -tvf $PACKAGE_DIR/$PKGNAME | sort -k 6
 	
 	msg "Successfully created package '$PKGNAME'. ($(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}'))"
@@ -348,8 +348,12 @@ generate_pkgfiles() {
 		exit 1
 	fi
 	
+	for i in $INCLUDEINPKG; do
+		excludefile="$excludefile --exclude=.pkg$i"
+	done
+	
 	msg "Generating .pkgfiles..."
-	tar -tvf "$PACKAGE_DIR/$PKGNAME" \
+	tar -tvf "$PACKAGE_DIR/$PKGNAME" $excludefile \
 	| awk '{print $1,$2,$6}' \
 	| sed "s,lib/modules/$(uname -r),lib/modules/<kernelversion>,g" \
 	| sort -k 3 > .pkgfiles
@@ -361,9 +365,9 @@ cleanup() {
 		rm -f "$PACKAGE_DIR/$PKGNAME"
 	fi
 	for src in ${source[@]}; do
-		if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
+		if echo $src | grep -qE "::(ftp|http|https)://"; then
 			FILENAME=$SOURCE_DIR/$(echo $src | awk -F '::' '{print $1}')
-		elif [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+		elif echo $src | grep -qE "(ftp|http|https)://"; then
 			FILENAME=$SOURCE_DIR/$(basename $src)
 		else
 			FILENAME=$src
@@ -421,8 +425,8 @@ set_options() {
 			!buildflags) BUILD_FLAGS=0  ;;
 			makeflags)   MAKE_FLAGS=1   ;;
 			!makeflags)  MAKE_FLAGS=0   ;;
-			mdsum)       CHECK_MDSUM=1  ;;
-			!mdsum)      CHECK_MDSUM=0  ;;
+			checksum)    CHECK_MDSUM=1  ;;
+			!checksum)   CHECK_MDSUM=0  ;;
 		esac
 	done
 }
@@ -619,11 +623,10 @@ main() {
 		msgerr "remove '$LOCK_FILE' if no build process for '$name'."
 		exit 1
 	else
-		touch "$LOCK_FILE"
-		if [ "$?" != 0 ]; then
+		touch "$LOCK_FILE" || {
 			msgerr "Cant create lock file in '$LOCK_FILE'"
 			exit 1
-		fi
+		}
 	fi
 	
 	# build package
@@ -663,6 +666,6 @@ COMPRESSION_MODE="xz"
 
 OPTIONS=(!libtool emptydirs strip zipman buildflags makeflags checksum)
 
-INCLUDEINPKG=(install readme mkdirs)
+INCLUDEINPKG="install readme mkdirs"
 
 main "$@"
