@@ -25,20 +25,19 @@ type -p $EDITOR >/dev/null || {
 	exit 2
 }
 
-if [ "$UID" != 0 ]; then
+[ "$UID" = 0 ] || {
 	echo "This operation need root access. Exiting..."
 	exit 1
-fi
+}
 
 spkgnew=$(find /etc -regextype posix-extended -regex ".+\.spkgnew" 2> /dev/null)
 
-if [ -z "$spkgnew" ]; then
+[ "$spkgnew" ] || {
 	echo "Nothing to do. Exiting..."
 	exit 0
-fi
+}
 
 for file in $spkgnew; do
-	clear
 	currentfile=${file%.*}
 	if [ ! -e "$currentfile" ]; then
 		echo "Remove '$file', '$currentfile' not exist."
@@ -46,42 +45,33 @@ for file in $spkgnew; do
 		sleep 1
 		continue
 	fi
-	diff -u $currentfile $file --color=always
-	if [ $? = 0 ]; then
-		echo "Remove '$file', no diff found."
-		rm -f "$file"
-		sleep 1
-		continue
-	fi
-	echo
-	echo "File: $currentfile"
-	echo
-	echo "Choose action:"
-	echo "1) Discard update"
-	echo "2) Discard update and edit"
-	echo "3) Update config"
-	echo "4) Update config and edit"
-	echo "*) Do nothing"
-	echo
-	echo -n "Action: "
-	read ACTION
-	if [ "$ACTION" = "1" ]; then
-		echo "Remove '$file'"
-		rm -f "$file"
-	elif [ "$ACTION" = "2" ]; then
-		echo "Remove '$file'"
-		rm -f "$file"
-		$EDITOR $currentfile
-	elif [ "$ACTION" = "3" ]; then
-		echo "Replace '$currentfile' with '$file'."
-		mv "$file" "$currentfile"
-	elif [ "$ACTION" = "4" ]; then
-		echo "Replace '$currentfile' with '$file'."
-		mv "$file" "$currentfile"
-		$EDITOR $currentfile
-	else
-		echo "Doing nothing."
-	fi
+	while true; do
+		clear
+		diff -u $currentfile $file --color=always
+		if [ $? = 0 ]; then
+			echo "Remove '$file', no diff found."
+			rm -f "$file"
+			sleep 1
+			break
+		fi
+		echo
+		echo "File: $currentfile"
+		echo
+		echo -n "[U]pdate [D]iscard [E]dit [K]eep ? "
+		read -n1 ACTION
+		echo
+		case $ACTION in
+			U|u) echo "Replace '$currentfile' with '$file'."
+			     mv -f "$file" "$currentfile"
+			     break;;
+			D|d) echo "Remove '$file'."
+			     rm -f "$file"
+			     break;;
+			E|e) vim "$currentfile";;
+			K|k) echo "Keeping both."
+			     break;;
+		esac
+	done
 	sleep 1
 done
 
