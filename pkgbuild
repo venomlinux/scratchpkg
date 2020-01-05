@@ -42,7 +42,7 @@ updatemdsum() {
 generatemdsum() {
 	local src FILENAME
 	
-	if [ -z $source ]; then
+	if [ -z "$source" ]; then
 		echo SKIP
 		return 0
 	fi

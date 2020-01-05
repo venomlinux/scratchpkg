@@ -1,15 +1,15 @@
 # description	: 
 # homepage	:
-# backup	: 
+# maintainer	:
 # depends	: 
 
 name=
 version=
 release=1
-options=()
-noextract=()
-source=()
-md5sum=()
+backup=""
+options=""
+noextract=""
+source=""
 
 build() {
 	cd $name-$version
