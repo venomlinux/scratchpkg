@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 #  scratchpkg
 #
@@ -25,7 +25,7 @@ type -p $EDITOR >/dev/null || {
 	exit 2
 }
 
-[ "$UID" = 0 ] || {
+[ "$(id -u)" = 0 ] || {
 	echo "This operation need root access. Exiting..."
 	exit 1
 }
@@ -57,8 +57,8 @@ for file in $spkgnew; do
 		echo
 		echo "File: $currentfile"
 		echo
-		echo -n "[U]pdate [D]iscard [E]dit [K]eep ? "
-		read -n1 ACTION
+		printf "[U]pdate [D]iscard [E]dit [K]eep ?: "
+		read ACTION
 		echo
 		case $ACTION in
 			U|u) echo "Replace '$currentfile' with '$file'."

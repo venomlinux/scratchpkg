@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 #  scratchpkg
 #
@@ -19,19 +19,19 @@
 #
 
 msg() {
-	echo -e "==> $1"
+	echo "==> $1"
 }
 
 msg2() {
-	echo -e " -> $1"
+	echo " -> $1"
 }
 
 msgerr() {
-	echo -e "==> ERROR: $1"
+	echo "==> ERROR: $1"
 }
 
 msgwarn() {
-	echo -e "==> WARNING: $1"
+	echo "==> WARNING: $1"
 }
 
 updatemdsum() {
@@ -39,15 +39,13 @@ updatemdsum() {
 	generatemdsum > .checksums
 }
 
-generatemdsum() {
-	local src FILENAME
-	
+generatemdsum() {	
 	if [ -z "$source" ]; then
 		echo SKIP
 		return 0
 	fi
 	
-	for src in ${source[@]}; do
+	for src in $source; do
 		if echo $src | grep -qE "::(ftp|http|https)://"; then
 			FILENAME=$SOURCE_DIR/$(echo $src | awk -F '::' '{print $1}')
 		elif echo $src | grep -qE "(ftp|http|https)://"; then
@@ -61,9 +59,7 @@ generatemdsum() {
 	md5sum $needupdatechecksum | sed -e 's|  .*/|  |' | sort -k 2
 }
 
-checkmdsum() {
-	local mismatch m
-	
+checkmdsum() {	
 	TMPCHECKSUM=$WORK_DIR/checksums.$$
 	
 	if [ ! -f .checksums ]; then
@@ -86,11 +82,9 @@ checkmdsum() {
 	fi	
 }
 
-download_src() {
-	local FILE FILENAME
-	
-	for FILE in ${source[@]}; do
-		if [[ $FILE =~ ::(http|https|ftp):// ]]; then
+download_src() {	
+	for FILE in $source; do
+		if echo $FILE | grep -Eq '::(http|https|ftp)://'; then
 			FILENAME=$(echo $FILE | awk -F '::' '{print $1}')
 			SRCURL=$(echo $FILE | awk -F '::' '{print $2}')
 		else
@@ -127,9 +121,7 @@ download_src() {
 	done
 }
 
-prepare_src() {
-	local FILE FILENAME
-	
+prepare_src() {	
 	[ "$IGNORE_MDSUM" -o "$CHECK_MDSUM" = 0 ] || checkmdsum
 	
 	SRC=$WORK_DIR/$name/src
@@ -141,16 +133,16 @@ prepare_src() {
 	
 	mkdir -p $SRC $PKG
 	
-	if [ "${#source[@]}" -gt 0 ]; then
-		for FILE in ${source[@]}; do
-			if [[ $FILE =~ ::(http|https|ftp):// ]]; then
+	if [ "$source" ]; then
+		for FILE in $source; do
+			if echo $FILE | grep -Eq '::(http|https|ftp)://'; then
 				FILENAME=$SOURCE_DIR/$(echo $FILE | awk -F '::' '{print $1}')
-			elif [[ $FILE =~ ^(http|https|ftp):// ]]; then
+			elif echo $FILE | grep -Eq '^(http|https|ftp)://'; then
 				FILENAME=$SOURCE_DIR/$(basename $FILE)
 			else
 				FILENAME=$PWD/$(basename $FILE)
 			fi
-			for NOEXT in ${noextract[@]}; do
+			for NOEXT in $noextract; do
 				if [ "$NOEXT" = "$(basename $FILENAME)" ]; then
 					nxt=1
 					break
@@ -188,19 +180,19 @@ prepare_src() {
 }
 
 run_build() {	
-	if [ "$UID" != 0 ]; then
+	[ "$(id -u)" = 0 ] || {
 		msgerr "You must build package as root, or use fakeroot."
 		abort 1
-	fi
+	}
 	
 	msg "Start build '$name-$version-$release'."	
 	
 	[ "$MAKE_FLAGS" = 1 ]  && export MAKEFLAGS       || unset MAKEFLAGS
 	[ "$BUILD_FLAGS" = 1 ] && export CFLAGS CXXFLAGS || unset CFLAGS CXXFLAGS
 	
-	pushd $SRC >/dev/null
+	cd $SRC >/dev/null
 	
-	(set -e -x; build 2>&1) ||
+	(set -e -x; build 2>&1)
 		
 	if [ $? != 0 ]; then
 		msgerr "Build '$name-$version-$release' failed."
@@ -209,7 +201,7 @@ run_build() {
 		msg "Build '$name-$version-$release' success."
 	fi
 	
-	popd >/dev/null
+	cd - >/dev/null
 }
 
 removeemptydirs() {	
@@ -220,12 +212,9 @@ removelibtool() {
 	find . ! -type d -name "*.la" -delete
 }
 
-strip_files() {
-	local xstrip
-	local FILTER
-	
+strip_files() {	
 	if [ "$nostrip" ]; then
-		for i in ${nostrip[@]}; do
+		for i in $nostrip; do
 			xstrip="$xstrip -e $i"
 		done
 		FILTER="grep -v $xstrip"
@@ -285,8 +274,7 @@ compressinfomanpages() {
 }
 
 backupconf() {
-	local FILE
-	for FILE in ${backup[@]}; do
+	for FILE in $backup; do
 		if [ ! -f $FILE ]; then
 			msgerr "File '$FILE' not exist!"
 			abort 1
@@ -297,16 +285,14 @@ backupconf() {
 }
 
 packaging() {
-	local FILE
-	
 	for FILE in $INCLUDEINPKG; do
 		if [ -f $FILE ]; then
 			install -m644 $FILE $PKG/.pkg$FILE
-			addtotar+=(.pkg$FILE)
+			addtotar="$addtotar .pkg$FILE"
 		fi
 	done
 	
-	pushd $PKG >/dev/null
+	cd $PKG >/dev/null
 	
 	rm -f usr/{,share/}info/dir
 	
@@ -327,7 +313,7 @@ packaging() {
 		bz2) COMPRESS="-j" ;;
 	esac
 	
-	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * "${addtotar[@]}" || {
+	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * $addtotar || {
 		rm -f $PACKAGE_DIR/$PKGNAME
 		msgerr "Packaging '$PKGNAME' failed."
 		abort 1
@@ -337,16 +323,16 @@ packaging() {
 	
 	msg "Successfully created package '$PKGNAME'. ($(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}'))"
 		
-	popd >/dev/null
+	cd - >/dev/null
 	
 	[ -f .pkgfiles ] || generate_pkgfiles
 }
 
 generate_pkgfiles() {
-	if [ ! -f "$PACKAGE_DIR/$PKGNAME" ]; then
+	[ -f "$PACKAGE_DIR/$PKGNAME" ] || {
 		msgerr "Package '$PKGNAME' not found."
 		exit 1
-	fi
+	}
 	
 	for i in $INCLUDEINPKG; do
 		excludefile="$excludefile --exclude=.pkg$i"
@@ -360,14 +346,14 @@ generate_pkgfiles() {
 }
 
 cleanup() {
-	if [ -e "$PACKAGE_DIR/$PKGNAME" ]; then
+	[ -e "$PACKAGE_DIR/$PKGNAME" ] && {
 		msg "Removing $PACKAGE_DIR/$PKGNAME"
 		rm -f "$PACKAGE_DIR/$PKGNAME"
-	fi
-	for src in ${source[@]}; do
+	}
+	for src in $source; do
 		if echo $src | grep -qE "::(ftp|http|https)://"; then
 			FILENAME=$SOURCE_DIR/$(echo $src | awk -F '::' '{print $1}')
-		elif echo $src | grep -qE "(ftp|http|https)://"; then
+		elif echo $src | grep -qE "^(ftp|http|https)://"; then
 			FILENAME=$SOURCE_DIR/$(basename $src)
 		else
 			FILENAME=$src
@@ -408,10 +394,8 @@ check_buildscript() {
 	fi
 }
 
-set_options() {
-	local OPT
-	
-	for OPT in ${OPTIONS[@]} ${options[@]}; do
+set_options() {	
+	for OPT in $OPTIONS $options; do
 		case $OPT in
 			libtool)     KEEP_LIBTOOL=1 ;;
 			!libtool)    KEEP_LIBTOOL=0 ;;
@@ -432,7 +416,6 @@ set_options() {
 }
 
 checkdir() {
-	local DIR	
 	for DIR in "$@"; do
 		if [ ! -d $DIR ]; then
 			msgerr "Directory '$DIR' not exist."
@@ -461,30 +444,19 @@ interrupted() {
 }
 
 abort() {
-	rm -f $LOCK_FILE
+	rm -f "$LOCK_FILE"
 	clearworkdir
 	exit $1
-}
-
-extract_opt() {
-	for opt in $@; do
-		case $opt in
-			  --*) BOPTS+=($opt) ;;
-			   -*) for (( i=1; i<${#opt}; i++ )); do BOPTS+=(-${opt:$i:1}); done ;;
-			    *) BOPTS+=($opt) ;;
-		esac
-	done
-	echo ${BOPTS[@]}
 }
 
 parse_opts() {	
 	while [ "$1" ]; do
 		case $1 in
 		-i |           --install) INSTALL_PKG=yes ;;
-		-u |           --upgrade) UPGRADE_PKG=yes; OPTS+=($1) ;;
-		-r |         --reinstall) REINSTALL_PKG=yes; OPTS+=($1) ;;
-		-c |   --ignore-conflict) OPTS+=($1) ;;
-		-v |           --verbose) OPTS+=($1) ;;
+		-u |           --upgrade) UPGRADE_PKG=yes; OPTS="$OPTS $1" ;;
+		-r |         --reinstall) REINSTALL_PKG=yes; OPTS="$OPTS $1" ;;
+		-c |   --ignore-conflict) OPTS="$OPTS $1" ;;
+		-v |           --verbose) OPTS="$OPTS $1" ;;
 		-f |     --force-rebuild) FORCE_REBUILD=yes ;;
 		-m |        --skip-mdsum) IGNORE_MDSUM=yes ;;
 		-g |          --genmdsum) UPDATE_MDSUM=yes ;;
@@ -494,12 +466,12 @@ parse_opts() {
 		-p |          --pkgfiles) GENPKGFILES=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
 		                 --clean) CLEANUP=yes ;;
-		                --root=*) OPTS+=($1) ;;
-		         --no-preinstall) OPTS+=($1) ;;
-		        --no-postinstall) OPTS+=($1) ;;
-		         --no-preupgrade) OPTS+=($1) ;;
-		        --no-postupgrade) OPTS+=($1) ;;
-		             --no-backup) OPTS+=($1) ;;
+		                --root=*) OPTS="$OPTS $1" ;;
+		         --no-preinstall) OPTS="$OPTS $1" ;;
+		        --no-postinstall) OPTS="$OPTS $1" ;;
+		         --no-preupgrade) OPTS="$OPTS $1" ;;
+		        --no-postupgrade) OPTS="$OPTS $1" ;;
+		             --no-backup) OPTS="$OPTS $1" ;;
 		            --redownload) REDOWNLOAD_SOURCE=yes ;;
 		              --config=*) PKGBUILD_CONF="${1#*=}" ;;
 		              --srcdir=*) CUSTOM_SOURCE_DIR="${1#*=}" ;;
@@ -546,10 +518,10 @@ EOF
 }
 
 main() {	
-	parse_opts $(extract_opt $@)
+	parse_opts "$@"
 	
-	if [ -f $PKGBUILD_CONF ]; then
-		source $PKGBUILD_CONF
+	if [ -f "$PKGBUILD_CONF" ]; then
+		source "$PKGBUILD_CONF"
 	else
 		msgerr "Config file not found ('$PKGBUILD_CONF')"
 		exit 1
@@ -562,14 +534,14 @@ main() {
 	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR"
 	
 	# show usage
-	if [ "$SHOWHELP" ]; then
+	[ "$SHOWHELP" ] && {
 		help
 		exit 0
-	fi
+	}
 	
-	if [ -f $PKGBUILD_BSCRIPT ]; then
+	if [ -f "$PKGBUILD_BSCRIPT" ]; then
 		description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-		source $PKGBUILD_BSCRIPT	
+		source ./$PKGBUILD_BSCRIPT	
 	else
 		msgerr "'$PKGBUILD_BSCRIPT' file not found."
 		exit 1
@@ -584,50 +556,51 @@ main() {
 	esac
 	
 	# generate .pkgfiles
-	if [ "$GENPKGFILES" ]; then
+	[ "$GENPKGFILES" ] && {
 		generate_pkgfiles
 		exit 0
-	fi
+	}
 	
 	# download source only
-	if [ "$DOWNLOAD_ONLY" ]; then
+	[ "$DOWNLOAD_ONLY" ] && {
 		download_src
 		exit 0
-	fi
+	}
 	
 	# extract source only
-	if [ "$EXTRACT_ONLY" ]; then
+	[ "$EXTRACT_ONLY" ] && {
 		download_src
 		prepare_src
 		exit 0
-	fi
+	}
 	
 	# update md5sum
-	if [ "$UPDATE_MDSUM" ]; then
+	[ "$UPDATE_MDSUM" ] && {
 		download_src
 		updatemdsum
 		exit 0
-	fi
+	}
 	
 	# remove source and package
-	if [ "$CLEANUP" ]; then
+	[ "$CLEANUP" ] && {
 		cleanup
 		exit 0
-	fi
+	}
 
 	LOCK_FILE="/tmp/pkgbuild.$name.lock"
 	
 	# check for lock file
-	if [ -f "$LOCK_FILE" ]; then
+	[ -f "$LOCK_FILE" ] && {
 		msgerr "Cant build same package simultaneously."
 		msgerr "remove '$LOCK_FILE' if no build process for '$name'."
 		exit 1
-	else
-		touch "$LOCK_FILE" || {
-			msgerr "Cant create lock file in '$LOCK_FILE'"
-			exit 1
-		}
-	fi
+	}
+	
+	# create lock file
+	touch "$LOCK_FILE" || {
+		msgerr "Cant create lock file in '$LOCK_FILE'."
+		exit 1
+	}
 	
 	# build package
 	if [ -f "$PACKAGE_DIR/$PKGNAME" ] && [ ! "$FORCE_REBUILD" ]; then
@@ -645,13 +618,13 @@ main() {
 	
 	# install package
 	if [ "$INSTALL_PKG" ] || [ "$REINSTALL_PKG" ] || [ "$UPGRADE_PKG" ]; then
-		pkgadd $PACKAGE_DIR/$PKGNAME $INST_OPT ${OPTS[@]} || abort 1
+		pkgadd $PACKAGE_DIR/$PKGNAME $INST_OPT $OPTS || abort 1
 	fi
 	
 	abort 0	
 }
 
-trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+trap "interrupted" 1 2 3 15
 
 export LC_ALL=C
 
@@ -664,7 +637,7 @@ WORK_DIR="/var/cache/scratchpkg/work"
 DOWNLOAD_PROG="wget"
 COMPRESSION_MODE="xz"
 
-OPTIONS=(!libtool emptydirs strip zipman buildflags makeflags checksum)
+OPTIONS="!libtool emptydirs strip zipman buildflags makeflags checksum"
 
 INCLUDEINPKG="install readme mkdirs"
 

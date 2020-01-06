@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 #  scratchpkg
 #
@@ -18,7 +18,7 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+trap "interrupted" 1 2 3 15
 
 export LC_ALL=C
 
@@ -28,19 +28,19 @@ interrupted() {
 }
 
 msg() {
-	echo -e "==> $1"
+	echo "==> $1"
 }
 
 msg2() {
-	echo -e " -> $1"
+	echo " -> $1"
 }
 
 msgerr() {
-	echo -e "==> ERROR: $1"
+	echo "==> ERROR: $1"
 }
 
 msgwarn() {
-	echo -e "==> WARNING: $1"
+	echo "==> WARNING: $1"
 }
 
 help() {	
@@ -62,17 +62,6 @@ Options:
       --root=<path>          install to custom root directory
       
 EOF
-}
-
-extract_opt() {
-	for opt in $@; do
-		case $opt in
-			  --*) OPTS+=($opt) ;;
-			   -*) for (( i=1; i<${#opt}; i++ )); do OPTS+=(-${opt:$i:1}); done ;;
-			    *) OPTS+=($opt) ;;
-		esac
-	done
-	echo ${OPTS[@]}
 }
 
 parse_opts() {
@@ -102,19 +91,19 @@ parse_opts() {
 
 ret() {
 	# remove lock and all tmp files on exit
-	rm -f $LOCK_FILE $TMP_PKGADD $TMP_PKGINSTALL
+	rm -f "$LOCK_FILE" "$TMP_PKGADD" "$TMP_PKGINSTALL" "$TMP_CONFLICT"
 	exit $1
 }
 
 isinstalled() {
-	if [ -s $INDEX_DIR/$1/.pkginfo ] && grep -q $1 $INDEX_DIR/$1/.pkginfo; then
+	if [ -s "$INDEX_DIR/$1/.pkginfo" ] && grep -q "$1" "$INDEX_DIR/$1/.pkginfo"; then
 		return 0
 	else
 		return 1
 	fi
 }
 
-parse_opts $(extract_opt $@)
+parse_opts "$@"
 
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
@@ -128,42 +117,40 @@ if [ "$ROOT_DIR" != "" ]; then
 fi
 
 # show help page
-if [ "$SHOWHELP" ] || [ -z "$PKGNAME" ]; then
+[ "$SHOWHELP" ] || [ -z "$PKGNAME" ] && {
 	help
 	ret 0
-fi
+}
 
-if [ ! -d $INDEX_DIR ]; then
+[ -d "$INDEX_DIR" ] || {
 	msgerr "Package's database directory not exist! ($INDEX_DIR)"
 	ret 1
-fi
+}
 
 # check for root access
-if [ "$UID" != "0" ]; then
+[ "$(id -u)" = "0" ] || {
 	msgerr "Installing package need root access!"
 	ret 1
-fi
+}
 
 # check for lock file
-if [ -f $LOCK_FILE ]; then
+[ -f "$LOCK_FILE" ] && {
 	msgerr "Cant install/remove package simultaneously."
 	msgerr "remove '$LOCK_FILE' if no install/remove package process running."
+}
+
+touch "$LOCK_FILE" || {
+	msgerr "Cant create lock file in '$LOCK_FILE'."
 	exit 1
-else
-	touch $LOCK_FILE
-	if [ "$?" != 0 ]; then
-		msgerr "Cant create lock file in '$LOCK_FILE'"
-		exit 1
-	fi
-fi
+}
 
 BASEPKGNAME=$(basename $PKGNAME)
 
 # check existence of package file
-if [ ! -f "$PKGNAME" ]; then
+[ -f "$PKGNAME" ] || {
 	msgerr "Package '$1' not exist!"
 	ret 1
-fi
+}
 
 noextname=${BASEPKGNAME%*.spkg.tar.*}
 release=${noextname##*-}
@@ -197,18 +184,15 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	fi
 fi
 
-echo -ne "Loading $BASEPKGNAME...\033[0K\r"
-
-TMP_PKGADD="$(mktemp)"         || exit 1
-TMP_PKGINSTALL="$(mktemp)"     || exit 1
+TMP_PKGADD="/tmp/.tmp_pkgadd.$$"
+TMP_PKGINSTALL="/tmp/.tmp_pkginstall.$$"
+TMP_CONFLICT="/tmp/.tmp_conflict.$$"
 
 # check integrity of package and save list file/dirs to install in the meantime
-tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null
-if [ $? != 0 ]; then
+tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null || {
 	msgerr "Package '$1' is corrupted!"
 	ret 1
-fi
-echo -ne "\033[0K"
+}
 
 # set operation whether install/upgrade/reinstall
 # install is default
@@ -219,24 +203,24 @@ echo "$opr: $name-$version-$release..."
 
 # check for file conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
-	while read -r line; do
+	grep -Ev "^.pkg*" "$TMP_PKGADD" | grep -v '/$' | while read -r line; do
 		if [ "$line" = "${line%.*}.spkgnew" ]; then
 			line=${line%.*}
 		fi
 		if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-				if [ ! "$(grep -Fx "$line" "$INDEX_DIR/$name/.files")" ]; then
-					echo "$line $owner"
-					conflictedfile=yes
+				if ! grep -Fqx "$line" "$INDEX_DIR/$name/.files"; then
+					echo "$line"
+					touch "$TMP_CONFLICT"
 				fi
 			else
 				echo "$line"
-				conflictedfile=yes
+				touch "$TMP_CONFLICT"
 			fi
 		fi
-	done < <(grep -Ev ^.pkg* $TMP_PKGADD | grep -v '/$')
+	done
 	
-	if [ "$conflictedfile" = "yes" ]; then
+	if [ -e "$TMP_CONFLICT" ]; then
 		msgerr "File conflict found!"
 		ret 1
 	fi
@@ -244,27 +228,30 @@ fi
 
 # pre-install and pre-upgrade script
 if grep -qx .pkginstall $TMP_PKGADD; then
+	TMP_PKGINSTALL_SCRIPT="/tmp/.tmp_pkgadd_installscript.$$"
+	tar -xf "$PKGNAME" .pkginstall -O > "$TMP_PKGINSTALL_SCRIPT"
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		pushd "$ROOT_DIR"/ >/dev/null
-			sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-install "$version"
-		popd >/dev/null
+		(cd "$ROOT_DIR"/
+			sh "$TMP_PKGINSTALL_SCRIPT" pre-install "$version"
+		)
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		pushd "$ROOT_DIR"/ >/dev/null
-			sh <(tar -xf "$PKGNAME" .pkginstall -O) pre-upgrade "$version" "$iversion"
-		popd >/dev/null
+		(cd "$ROOT_DIR"/
+			sh "$TMP_PKGINSTALL_SCRIPT" pre-upgrade "$version" "$iversion"
+		)
 	fi
+	rm -f "$TMP_PKGINSTALL_SCRIPT"
 fi
 
 # exclude .pkg* files when extract into system
-for i in $(grep ^.pkg* $TMP_PKGADD); do
+for i in $(grep "^.pkg*" $TMP_PKGADD); do
 	excludefile="$excludefile --exclude=$i"
 done
 
 rm -f $TMP_PKGINSTALL
 
 # extract package into ROOT_DIR
-tar --keep-directory-symlink -p -x -v -f $PKGNAME -C "$ROOT_DIR"/ $excludefile | while read -r line; do
+tar --keep-directory-symlink -p -x -v -f "$PKGNAME" -C "$ROOT_DIR"/ $excludefile | while read -r line; do
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		line=${line%.*}
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
@@ -281,47 +268,47 @@ done
 
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-	rmlist_file=$(mktemp)
-	rmlist_dir=$(mktemp)
-	reserve_dir=$(mktemp)
-	rmlist_all=$(mktemp)
+	rmlist_file="/tmp/.rmlist_file.$$"
+	rmlist_dir="/tmp/.rmlist_dir.$$"
+	reserve_dir="/tmp/.reserve_dir.$$"
+	rmlist_all="/tmp/.rmlist_all.$$"
 	grep '/$' $INDEX_DIR/*/.files | grep -v $INDEX_DIR/$name/.files | awk -F : '{print $2}' | sort | uniq > $reserve_dir # get list reserved dirs
-	grep -Fxv -f $TMP_PKGINSTALL $INDEX_DIR/$name/.files > $rmlist_all                                            # get list files and dirs to remove
-	grep -v '/$' $rmlist_all | tac > $rmlist_file                                                                 # get files only to remove
-	grep -Fxv -f $reserve_dir $rmlist_all | grep '/$' | tac > $rmlist_dir                                         # get dirs only (safe) to remove
-	pushd "$ROOT_DIR"/ >/dev/null
-		[ -s $rmlist_file ] && xargs -a $rmlist_file -d'\n' rm $VERBOSE_INSTALL
-		[ -s $rmlist_dir ]  && xargs -a $rmlist_dir -d'\n' rmdir $VERBOSE_INSTALL
-	popd >/dev/null
-	rm -f $rmlist_file $rmlist_dir $reserve_dir $rmlist_all
+	grep -Fxv -f "$TMP_PKGINSTALL" $INDEX_DIR/$name/.files > $rmlist_all                                                 # get list files and dirs to remove
+	grep -v '/$' "$rmlist_all" | tac > "$rmlist_file"                                                                    # get files only to remove
+	grep -Fxv -f "$reserve_dir" "$rmlist_all" | grep '/$' | tac > "$rmlist_dir"                                          # get dirs only (safe) to remove
+	(cd "$ROOT_DIR"/
+		[ -s $rmlist_file ] && xargs -a $rmlist_file -d'\n' rm "$VERBOSE_INSTALL"
+		[ -s $rmlist_dir ]  && xargs -a $rmlist_dir -d'\n' rmdir "$VERBOSE_INSTALL"
+	)
+	rm -f "$rmlist_file" "$rmlist_dir" "$reserve_dir" "$rmlist_all"
 fi
 
 # register package into database
-rm -fr $INDEX_DIR/$name 
-mkdir $INDEX_DIR/$name
-echo "name = $name" > $INDEX_DIR/$name/.pkginfo
-echo "version = $version" >> $INDEX_DIR/$name/.pkginfo
-echo "release = $release" >> $INDEX_DIR/$name/.pkginfo
-install -m644 $TMP_PKGINSTALL $INDEX_DIR/$name/.files
+rm -fr "$INDEX_DIR/$name"
+mkdir "$INDEX_DIR/$name"
+echo "name = $name" > "$INDEX_DIR/$name/.pkginfo"
+echo "version = $version" >> "$INDEX_DIR/$name/.pkginfo"
+echo "release = $release" >> "$INDEX_DIR/$name/.pkginfo"
+install -m644 "$TMP_PKGINSTALL" "$INDEX_DIR/$name/.files"
 
 for ii in $(grep ^.pkg* $TMP_PKGADD); do
 	pkgfiles="$pkgfiles $ii"
 done
 
 if [ "$pkgfiles" ]; then
-	tar -x -f $PKGNAME -C $INDEX_DIR/$name $pkgfiles >/dev/null 2>&1
+	tar -x -f "$PKGNAME" -C "$INDEX_DIR/$name" $pkgfiles >/dev/null 2>&1
 fi
 
-if [ -f $INDEX_DIR/$name/.pkginstall ]; then
+if [ -f "$INDEX_DIR/$name/.pkginstall" ]; then
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		pushd "$ROOT_DIR"/ >/dev/null
-			sh $INDEX_DIR/$name/.pkginstall post-install "$version"
-		popd >/dev/null
+		(cd "$ROOT_DIR"/
+			sh "$INDEX_DIR/$name/.pkginstall" post-install "$version"
+		)
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-		pushd "$ROOT_DIR"/ >/dev/null
-			sh $INDEX_DIR/$name/.pkginstall post-upgrade "$version" "$iversion"
-		popd >/dev/null
+		(cd "$ROOT_DIR"/
+			sh "$INDEX_DIR/$name/.pkginstall" post-upgrade "$version" "$iversion"
+		)
 	fi
 fi
 

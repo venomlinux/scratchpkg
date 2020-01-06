@@ -733,18 +733,16 @@ scratch_build() {
 		shift
 	done
 	for P in ${PKGNAME[@]}; do
-		pushd $(getportpath $P)
-		if [ $? = 0 ]; then
-			settermtitle "Building $P..."
-			pkgbuild ${OPTS[@]} || {
-				settermtitle "Building $P failed"
-				return 1
-			}
-			settermtitle "Building $P done"
-		else
+		pushd $(getportpath $P) || {
 			echo "Package '$P' not found."
 			return 1
-		fi
+		}
+		settermtitle "Building $P..."
+		pkgbuild ${OPTS[@]} || {
+			settermtitle "Building $P failed"
+			return 1
+		}
+		settermtitle "Building $P done"
 		popd
 	done
 }
