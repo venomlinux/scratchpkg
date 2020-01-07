@@ -1,15 +1,33 @@
 #!/bin/sh
+#
+#  scratchpkg
+#
+#  Copyright (c) 2018 by Emmett1  (emmett1.2miligrams@gmail.com)
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
 msg() {
 	echo "==> $1"
 }
 
 msgerr() {
-	msg "ERROR: $@"
+	msg "ERROR: $*"
 }
 
 msgwarn() {
-	msg "WARNING: $@"
+	msg "WARNING: $*"
 }
 
 msginst() {
@@ -21,7 +39,7 @@ msgmiss() {
 }
 
 msgnoinst() {
-	echo "[ ] $1"
+	echo "[-] $1"
 }
 
 needarg() {
@@ -41,6 +59,12 @@ isinstalled() {
 
 allinstalled() {	
 	grep ^name "$INDEX_DIR"/*/.pkginfo | awk '{print $3}'
+}
+
+installed_pkg_info() {	
+	if isinstalled $1; then
+		grep ^$2 "$INDEX_DIR/$1/.pkginfo" | cut -d " " -f3-
+	fi
 }
 
 getdepends() {
@@ -63,30 +87,19 @@ getportpath() {
 }
 
 pkg_dependent() {
-	needarg $@	
-	for repo in $REPO; do
-		if [ -d $repo ]; then
-			for all in $repo/*/$BUILD_SCRIPT; do
-				[ -f $all ] || continue
-				depend=$(grep "^# depends[[:blank:]]*:" $all | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
-				for dep in ${depend[@]}; do
-					if [ $dep = $1 ]; then
-						GDP=yes
-						pname=$(dirname $all)
-						pname=${pname##*/}
-						if isinstalled $pname; then
-							msginst "$pname"
-						else
-							msgnoinst "$pname"
-						fi
-						break
-					fi
-				done
-			done
-		fi
-	done
-	
-	[ "$GDP" ] && return 0 || return 1
+	needarg $@
+	if port=$(getportpath $1); then
+		grep -R "# depends[[:blank:]]*:" $REPO \
+		| sed "s,:# depends[[:blank:]]*:[[:blank:]]*,#|,;s, ,|,g;s,$,|,g" \
+		| grep "|$1|" \
+		| awk -F "#" '{print $1}' \
+		| rev \
+		| awk -F / '{print $2}' \
+		| rev
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
 }
 
 pkg_orphan() {
@@ -101,6 +114,87 @@ pkg_orphan() {
 	rm "$tmpalldep" "$tmpallpkg"
 }
 
+pkg_dup() {	
+	dup=$(find $REPO -type d -print | grep -Exv "($(echo $REPO | tr ' ' '|'))" | \
+		rev | cut -d '/' -f1 | rev | sort | uniq -d)
+	
+	if [ "$dup" ]; then
+		for dp in $dup; do
+			for repo in $REPO; do
+				[ -d $repo/$dp ] && echo "$repo/$dp"
+			done
+		done
+	else
+		msg "No duplicate ports found."
+	fi	
+}
+
+pkg_foreign() {
+	for pkg in $(allinstalled); do
+		if ! getportpath $pkg >/dev/null; then
+			iname=$(installed_pkg_info $pkg name)
+			iversion=$(installed_pkg_info $pkg version)
+			irelease=$(installed_pkg_info $pkg release)
+			echo "$iname $iversion-$irelease"
+		fi
+		unset iname iversion irelease
+	done	
+}
+
+pkg_search() {
+	needarg $@
+	arg=$@
+	for repo in $REPO; do
+		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}')
+		[ "$out" ] || continue
+		for line in $out; do
+			repo=$(echo $line | rev | awk -F / '{print $3}' | rev)
+			desc=$(grep "^# description[[:blank:]]*:" $line | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+			name=$(grep "^name=" $line | awk -F = '{print $2}')
+			version=$(grep "^version=" $line | awk -F = '{print $2}')
+			release=$(grep "^release=" $line | awk -F = '{print $2}')
+			echo "($repo) $name $version-$release: $desc"
+			unset repo desc name version release
+		done
+		unset out
+	done
+}
+
+pkg_locked() {
+	for pkg in $(allinstalled); do
+		[ -f "$INDEX_DIR/$pkg/.lock" ] && echo "$pkg"
+	done
+}
+
+pkg_installed() {
+	for all in $(allinstalled); do		
+		printf "%s" "$all "
+		grep -e ^version -e ^release $INDEX_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
+		echo
+	done
+}
+
+pkg_missingdep() {
+	for pkg in $(allinstalled); do
+		if getportpath "$pkg" >/dev/null; then
+			depends=$(getdepends $pkg)
+		fi
+		if [ "$depends" ]; then
+			for d in $depends; do
+				if ! isinstalled $d; then
+					if [ -z "$msd" ]; then
+						msd="$d"
+					else
+						msd="$msd $d"
+					fi
+				fi
+			done
+		fi
+		[ "$msd" ] && echo "$pkg: $msd"
+		unset depends msd
+	done
+}
+
 pkg_info() {
 	needarg $@
 	ppath=$(getportpath $1) || return 1
@@ -111,14 +205,14 @@ pkg_info() {
 	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
 	deps=$(getdepends $1 | tr '\n' ' ')
 	
-	echo -e "Name:         $1"
-	echo -e "Path:         $ppath"
-	echo -e "Version:      $version"
-	echo -e "Release:      $release"
-	echo -e "Description:  $desc"
-	echo -e "Homepage:     $url"
-	echo -e "Maintainer:   $maint"
-	echo -e "Dependencies: $deps"
+	echo "Name:         $1"
+	echo "Path:         $ppath"
+	echo "Version:      $version"
+	echo "Release:      $release"
+	echo "Description:  $desc"
+	echo "Homepage:     $url"
+	echo "Maintainer:   $maint"
+	echo "Dependencies: $deps"
 }
 
 pkg_depends() {
@@ -175,26 +269,6 @@ pkg_readme() {
 	fi
 }
 
-scratch_info() {
-	needarg $@
-	ppath=$(getportpath $pkg) || return 1
-	
-	. $ppath/$BUILD_SCRIPT
-	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
-	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
-	deps=$(get_depends $pkg | tr '\n' ' ')
-	
-	echo -e "Name:         $pkg"
-	echo -e "Path:         $ppath"
-	echo -e "Version:      $version"
-	echo -e "Release:      $release"
-	echo -e "Description:  $desc"
-	echo -e "Homepage:     $url"
-	echo -e "Maintainer:   $maint"
-	echo -e "Dependencies: $deps"
-}
-
 pkg_files() {	
 	needarg $@
 	if isinstalled $1; then
@@ -214,6 +288,32 @@ pkg_cat() {
 	fi
 }
 
+pkg_help() {
+	cat << EOF
+Usage:
+    $(basename $0) <options> [<arg>]
+    
+Options:
+    search    <pattern>    find ports in repo
+    cat       <port>       print spkgbuild
+    depends   <port>       print dependencies
+    dependent <port>       print dependent
+    path      <port>       print path in repo
+    provide   <files>      print port's provided files
+    readme    <port>       print readme file, if exist
+    files     <port>       print files installed
+    info      <port>       print information
+    dup                    print duplicate ports in repo
+    installed              print all installed ports
+    locked                 print loacked ports
+    missingdep             print missing dependencies
+    orphan                 print orphan installed ports
+    foreign                print foreign ports
+    help                   print this help msg
+    
+EOF
+}
+
 BUILD_SCRIPT="spkgbuild"
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 REPO_FILE="/etc/scratchpkg.repo"
@@ -224,11 +324,11 @@ if [ -f "$REPO_FILE" ]; then
 	done
 fi
 
-OP=$1
+opts=$1
 shift
 
-if [ $(type -t pkg_$OP) ]; then
-	pkg_$OP $@
+if [ $(type -t pkg_$opts) ]; then
+	pkg_$opts "$@"
 else
 	pkg_help
 	exit 1
