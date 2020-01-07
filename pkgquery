@@ -314,6 +314,10 @@ Options:
 EOF
 }
 
+print_runhelp_msg() {
+	echo "Run '$(basename $0) help' to see available options."
+}
+
 BUILD_SCRIPT="spkgbuild"
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 REPO_FILE="/etc/scratchpkg.repo"
@@ -325,13 +329,19 @@ if [ -f "$REPO_FILE" ]; then
 fi
 
 opts=$1
+
+if [ -z "$opts" ]; then
+	print_runhelp_msg
+	exit 2
+fi
+
 shift
 
 if [ $(type -t pkg_$opts) ]; then
 	pkg_$opts "$@"
 else
-	pkg_help
-	exit 1
+	print_runhelp_msg
+	exit 2
 fi
 
 exit $?
