@@ -1,0 +1,237 @@
+#!/bin/sh
+
+msg() {
+	echo "==> $1"
+}
+
+msgerr() {
+	msg "ERROR: $@"
+}
+
+msgwarn() {
+	msg "WARNING: $@"
+}
+
+msginst() {
+	echo "[i] $1"
+}
+
+msgmiss() {
+	echo "[m] $1"
+}
+
+msgnoinst() {
+	echo "[ ] $1"
+}
+
+needarg() {
+	[ "$*" ] || {
+		msgerr "This operation required an arguments!"
+		exit 1
+	}
+}
+
+isinstalled() {
+	if [ -s "$INDEX_DIR/$1/.pkginfo" ] && [ "$(grep $1 $INDEX_DIR/$1/.pkginfo)" ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+allinstalled() {	
+	grep ^name "$INDEX_DIR"/*/.pkginfo | awk '{print $3}'
+}
+
+getdepends() {
+	ppath=$(getportpath $1) || return 0
+	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
+	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
+	| tr ' ' '\n' \
+	| awk '!a[$0]++' \
+	| sed 's/,//'
+}
+
+getportpath() {
+	for repo in $REPO; do
+		if [ -f $repo/$1/$BUILD_SCRIPT ]; then
+			dirname $repo/$1/$BUILD_SCRIPT
+			return 0
+		fi
+	done
+	return 1	
+}
+
+pkg_dependent() {
+	needarg $@	
+	for repo in $REPO; do
+		if [ -d $repo ]; then
+			for all in $repo/*/$BUILD_SCRIPT; do
+				[ -f $all ] || continue
+				depend=$(grep "^# depends[[:blank:]]*:" $all | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
+				for dep in ${depend[@]}; do
+					if [ $dep = $1 ]; then
+						GDP=yes
+						pname=$(dirname $all)
+						pname=${pname##*/}
+						if isinstalled $pname; then
+							msginst "$pname"
+						else
+							msgnoinst "$pname"
+						fi
+						break
+					fi
+				done
+			done
+		fi
+	done
+	
+	[ "$GDP" ] && return 0 || return 1
+}
+
+pkg_orphan() {
+	tmpallpkg="/tmp/.pkgquery_allpkg.$$"
+	tmpalldep="/tmp/.pkgquery_alldep.$$"
+	for pkg in $(allinstalled); do
+		echo $pkg >> $tmpallpkg
+		dep="$dep $(getdepends $pkg)"
+	done
+	echo $dep | tr ' ' '\n' | sort | uniq > "$tmpalldep"
+	grep -xvF -f "$tmpalldep" "$tmpallpkg"
+	rm "$tmpalldep" "$tmpallpkg"
+}
+
+pkg_info() {
+	needarg $@
+	ppath=$(getportpath $1) || return 1
+	
+	. $ppath/$BUILD_SCRIPT
+	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
+	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
+	deps=$(getdepends $1 | tr '\n' ' ')
+	
+	echo -e "Name:         $1"
+	echo -e "Path:         $ppath"
+	echo -e "Version:      $version"
+	echo -e "Release:      $release"
+	echo -e "Description:  $desc"
+	echo -e "Homepage:     $url"
+	echo -e "Maintainer:   $maint"
+	echo -e "Dependencies: $deps"
+}
+
+pkg_depends() {
+	needarg $@	
+	if getportpath "$1" >/dev/null; then
+		depends=$(getdepends $1)
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
+	
+	for dep in $depends; do
+		if isinstalled $dep; then
+			msginst "$dep"
+		elif getportpath $dep >/dev/null; then
+			msgnoinst "$dep"
+		else
+			msgmiss "$dep"
+		fi
+	done
+}
+
+pkg_path() {
+	needarg $@
+	if PPATH=$(getportpath "$1"); then
+		echo "$PPATH"
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
+}
+
+pkg_provide() {
+	needarg $@
+	arg=$(echo $1 | sed "s/^\///")
+	grep -R "$arg" $INDEX_DIR/*/.files \
+	| sed "s:$INDEX_DIR/::" \
+	| sed "s:/.files::" \
+	| tr : " " \
+	| column -t
+}
+
+pkg_readme() {
+	needarg $@	
+	if PPATH=$(getportpath "$1"); then
+		if [ -f "$PPATH/readme" ]; then
+			cat "$PPATH/readme"
+		else
+			msgerr "Port '$1' does not have readme."
+		fi
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+}
+
+scratch_info() {
+	needarg $@
+	ppath=$(getportpath $pkg) || return 1
+	
+	. $ppath/$BUILD_SCRIPT
+	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
+	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
+	deps=$(get_depends $pkg | tr '\n' ' ')
+	
+	echo -e "Name:         $pkg"
+	echo -e "Path:         $ppath"
+	echo -e "Version:      $version"
+	echo -e "Release:      $release"
+	echo -e "Description:  $desc"
+	echo -e "Homepage:     $url"
+	echo -e "Maintainer:   $maint"
+	echo -e "Dependencies: $deps"
+}
+
+pkg_files() {	
+	needarg $@
+	if isinstalled $1; then
+		cat "$INDEX_DIR/$1/.files"
+	else
+		msg "Package '$1' not installed."
+	fi	
+}
+
+pkg_cat() {	
+	needarg $@
+	if PPATH=$(getportpath "$1"); then
+		cat "$PPATH/$BUILD_SCRIPT"
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
+}
+
+BUILD_SCRIPT="spkgbuild"
+INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
+REPO_FILE="/etc/scratchpkg.repo"
+
+if [ -f "$REPO_FILE" ]; then
+	for repodir in $(grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1}'); do
+		REPO="$REPO $repodir"
+	done
+fi
+
+OP=$1
+shift
+
+if [ $(type -t pkg_$OP) ]; then
+	pkg_$OP $@
+else
+	pkg_help
+	exit 1
+fi
+
+exit $?
