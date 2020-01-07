@@ -35,31 +35,31 @@ nocolor() {
 }
 
 msg() {
-	echo -e "${GREEN}==>${CRESET} $1"
+	printf "${GREEN}==>${CRESET} $1\n"
 }
 
 msgerr() {
-	echo -e "${RED}==> ERROR:${CRESET} $1"
+	printf "${RED}==> ERROR:${CRESET} $1\n"
 }
 
 msginst() {
-	echo -e "[${GREEN}i${CRESET}] $1"
+	printf "[${GREEN}i${CRESET}] $1\n"
 }
 
 msgmiss() {
-	echo -e "[${YELLOW}m${CRESET}] $1"
+	printf "[${YELLOW}m${CRESET}] $1\n"
 }
 
 msgnoinst() {
-	echo -e "[ ] $1"
+	printf "[-] $1\n"
 }
 
 msgwarn() {
-	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
+	printf "${YELLOW}==> WARNING:${CRESET} $1\n"
 }
 
 needroot() {	
-	if [ $UID != 0 ]; then
+	if [ $(uid -u) != 0 ]; then
 		if [ "$#" -eq 0 ]; then
 			needroot "This operation"
 		else
@@ -139,15 +139,6 @@ needarg() {
 	fi
 }
 
-scratch_cat() {	
-	if PPATH=$(getportpath "$1"); then
-		cat "$PPATH/$BUILD_SCRIPT"
-	else
-		msgerr "Port '$1' not exist."
-		exit 1
-	fi
-}
-
 isinstalled() {
 	if [ -s $INDEX_DIR/$1/.pkginfo ] && [[ $(grep $1 $INDEX_DIR/$1/.pkginfo) ]]; then
 		return 0
@@ -157,28 +148,7 @@ isinstalled() {
 }
 
 settermtitle() {
-	echo -en "\033]0;$*\a"
-}
-
-scratch_missingdep() {
-	local pkg d
-	
-	for pkg in $(allinstalled); do
-		if [ $(getportpath "$pkg") ]; then
-			depends=$(get_depends $pkg)
-		fi
-		if [ "$depends" ]; then
-			for d in ${depends[@]}; do
-				if ! isinstalled $d; then
-					msd+=($d)
-				fi
-			done
-		fi
-		if [ ${#msd[@]} -gt 0 ]; then
-			echo -e "${GREEN}$pkg${CRESET} missing ${RED}${msd[@]}${CRESET}"
-		fi
-		unset depends msd
-	done
+	printf "\033]0;$*\a"
 }
 
 scratch_integrity() {
@@ -226,32 +196,8 @@ scratch_integrity() {
 	[ ! "$MISSING_FILE" ] && msg "$p files is consistent with package tree."
 }
 
-scratch_listinst() {
-	for all in $(allinstalled); do		
-		echo -ne "$all "
-		grep -e ^version -e ^release $INDEX_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
-		echo
-	done
-}
-
-scratch_listorphan() {
-	local pkg dep
-	tmpallpkg=$(mktemp)
-	tmpalldep=$(mktemp)
-	for pkg in $(allinstalled); do
-		echo $pkg >> $tmpallpkg
-		dep="$dep $(get_depends $pkg)"
-	done
-	echo $dep | tr ' ' '\n' | sort | uniq > $tmpalldep
-	grep -xvF -f $tmpalldep $tmpallpkg
-	rm $tmpalldep $tmpallpkg
-}
-
 scratch_lock() {
-	local pkg
-	
-	needroot "Locking package"
-	
+	needroot "Locking package"	
 	for pkg in "$@"; do
 		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' is not installed."
@@ -264,10 +210,7 @@ scratch_lock() {
 }
 
 scratch_unlock() {
-	local pkg
-	
-	needroot "Unlocking package"
-	
+	needroot "Unlocking package"	
 	for pkg in "$@"; do
 		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' is not installed."
@@ -277,36 +220,6 @@ scratch_unlock() {
 			rm -f $INDEX_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
 		fi
 	done	
-}
-
-scratch_listlocked() {
-	local pkg	
-	for pkg in $(allinstalled); do
-		if [ -f "$INDEX_DIR"/$pkg/.lock ]; then
-			echo -e "$pkg"
-		fi
-	done
-}
-
-scratch_depends() {
-	local dep
-	
-	if [ $(getportpath "$1") ]; then
-		depends=$(get_depends $1)
-	else
-		msgerr "Port '$1' not exist."
-		exit 1
-	fi
-	
-	for dep in ${depends[@]}; do
-		if isinstalled $dep; then
-			msginst "$dep"
-		elif getportpath $dep >/dev/null; then
-			msgnoinst "$dep"
-		else
-			msgmiss "$dep"
-		fi
-	done
 }
 
 scratch_isorphan() {	
@@ -325,50 +238,6 @@ scratch_isorphan() {
 		unset depend dep
 	done
 	return 0
-}
-
-scratch_dependent() {
-	local port all dep pname
-	
-	needarg $1
-	
-	for port in ${PORT_REPO[@]}; do
-		if [ -d $port ]; then
-			for all in $port/*/$BUILD_SCRIPT; do
-				[ -f $all ] || continue
-				depend=$(grep "^# depends[[:blank:]]*:" $all | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
-				for dep in ${depend[@]}; do
-					if [ $dep = $1 ]; then
-						GDP=yes
-						pname=$(dirname $all)
-						pname=${pname##*/}
-						if isinstalled $pname; then
-							msginst "$pname"
-						else
-							msgnoinst "$pname"
-						fi
-						break
-					fi
-				done
-			done
-		fi
-	done
-	
-	[ "$GDP" ] && return 0 || return 1
-}
-
-scratch_own() {
-	local arg
-	arg=$(echo $1 | sed "s/^\///")
-	grep -R $arg $INDEX_DIR/*/.files | sed "s:$INDEX_DIR/::" | sed "s:/.files::" | tr : " " | column -t
-}
-
-scratch_files() {	
-	if ! isinstalled $1; then
-		msg "Package'$1' not installed."
-	else
-		cat $INDEX_DIR/$1/.files
-	fi	
 }
 
 scratch_sync() {	
@@ -393,97 +262,6 @@ scratch_sync() {
 			fi
 		fi
 	done < "$REPO_FILE"
-}
-
-scratch_readme() {
-	needarg $@
-	
-	if PPATH=$(getportpath "$1"); then
-		if [ -f "$PPATH/readme" ]; then
-			cat "$PPATH/readme"
-		else
-			msgerr "Port '$1' does not have readme."
-		fi
-	else
-		msgerr "Port '$1' not exist."
-		exit 1
-	fi
-}
-
-scratch_search() {
-	needarg $@
-	
-	case $1 in
-		-*) msgerr "Invalid pattern '$1'"
-			return 1 ;;
-	esac
-	
-	local port found OUTPUT
-	
-	for port in ${PORT_REPO[@]}; do
-		if [ -d $port ]; then
-			pushd $port
-				OUTPUT=$(grep -R description | grep "$BUILD_SCRIPT:# description[[:blank:]]*:" | sed "s/$BUILD_SCRIPT:# description[[:blank:]]*://" | grep -i "$1" | cut -d '/' -f1 | sort)
-			popd
-			if [ -n "$OUTPUT" ]; then
-				found=yes
-				for out in ${OUTPUT[@]}; do
-					if [ -f $port/$out/$BUILD_SCRIPT ]; then
-						pushd $port/$out
-							description=$(grep "^# description[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-							. $BUILD_SCRIPT
-						popd
-						if [ -n "$name" ] && [ -n "$version" ] && [ -n "$release" ]; then
-							portname=$(basename $port)
-							search_result="${PURPLE}($portname)${CRESET} $name ${CYAN}$version-$release${CRESET} $description"
-							if isinstalled $name; then
-								echo -e "[${GREEN}*${CRESET}] $search_result"
-							else
-								echo -e "[ ] $search_result"
-							fi
-							unset description name version release
-						fi
-					fi
-				done
-			fi
-		fi
-	done
-	if [ ! "$found" ]; then
-		msg "No matching package found."
-	fi
-}
-
-scratch_foreignpkg() {
-	for pkg in $(allinstalled); do
-		if ! getportpath $pkg >/dev/null; then
-			iname=$(installed_pkg_info name $pkg)
-			iversion=$(installed_pkg_info version $pkg)
-			irelease=$(installed_pkg_info release $pkg)
-			echo -e "$iname ${GREEN}$iversion${CRESET}-${CYAN}$irelease${CRESET}"
-		fi
-		unset iname iversion irelease
-	done	
-}
-
-scratch_info() {
-	needarg $@
-	local pkg=$1
-	ppath=$(getportpath $pkg) || return 1
-	
-	. $ppath/$BUILD_SCRIPT
-	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
-	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
-	deps=$(get_depends $pkg | tr '\n' ' ')
-	
-	echo -e "Name:         $pkg"
-	echo -e "Path:         $ppath"
-	echo -e "Version:      $version"
-	echo -e "Release:      $release"
-	echo -e "Description:  $desc"
-	echo -e "Homepage:     $url"
-	echo -e "Maintainer:   $maint"
-	echo -e "Dependencies: $deps"
 }
 
 scratch_trigger() {
@@ -599,9 +377,7 @@ post_triggers() {
 	fi
 }
 
-pre_triggers() {
-	local pkg
-	
+pre_triggers() {	
 	# mime db
 	if [ "$trig_1" != "1" ]; then
 		for pkg in $@; do
@@ -748,8 +524,6 @@ scratch_build() {
 }
 
 scratch_install() {
-	local pkg i int pkgcount count IPKG OPTS REINSTALL done_pkg
-	
 	needroot "Installing package"
 	
 	while [ "$1" ]; do
@@ -1308,32 +1082,6 @@ scratch_cache() {
 		needroot "Clear old caches"
 		clearpkgcache
 	fi
-}
-
-scratch_path() {
-	needarg $@
-	
-	if PPATH=$(getportpath "$1"); then
-		echo "$PPATH"
-	else
-		msgerr "Port '$1' not exist."
-		exit 1
-	fi	
-}
-
-scratch_dup() {	
-	dup=$(find ${PORT_REPO[@]} -type d -print | grep -Exv "($(echo ${PORT_REPO[@]} | tr ' ' '|'))" | \
-		rev | cut -d '/' -f1 | rev | sort | uniq -d)
-	
-	if [ "$dup" ]; then
-		for dp in $dup; do
-			for repo in ${PORT_REPO[@]}; do
-				[ -d $repo/$dp ] && echo "$repo/$dp"
-			done
-		done
-	else
-		msg "No duplicate ports found."
-	fi	
 }
 
 scratch_deplist() {
