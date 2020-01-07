@@ -26,16 +26,16 @@ The example of `spkgbuild` as follows:
     name=foobar
     version=1.0.0
     release=1
-    backup=(etc/example.conf etc/foobar.conf)
-    noextract=(foobar.tar.xz)
-    options=(!strip libtool)
-    source=(https://dl.example.com/foobar.tar.xz
+    backup="etc/example.conf etc/foobar.conf"
+    noextract="foobar.tar.xz"
+    options="!strip libtool"
+    source="https://dl.example.com/foobar.tar.xz
             $name-$version.tar.gz::https://github.com/achieve/$version.tar.gz
-            example.conf)
-    nostrip=(lib.*/ld-.*\.so$
+            example.conf"
+    nostrip="lib.*/ld-.*\.so$
             lib.*/libc-.*\.so$
             lib.*/libpthread-.*\.so$
-            lib.*/libthread_db-.*\.so$)
+            lib.*/libthread_db-.*\.so$"
 	
     build() {
         cd $name-$version
@@ -68,15 +68,15 @@ The example of `spkgbuild` as follows:
   
 This options is set in `/etc/scratchpkg.conf` for global options:
 
-  `OPTIONS=()`
+  `OPTIONS=""`
   
 For per package, set options in package's spkgbuild:
 
-  `options=()`
+  `options=""`
 
 Add `!` in front of options to disable it, example for disable strip and remove empty directory in package (per package) as follows:
 
-`options=(!strip !emptydirs)`
+`options="!strip !emptydirs"`
     
 Available options:
 
@@ -315,13 +315,12 @@ Example of install script for `dbus`:
     #    <repo directory> <repo url for sync>
     #
 
-    /usr/ports/core  https://raw.githubusercontent.com/venomlinux/ports/master/core
-    /usr/ports/xorg  https://raw.githubusercontent.com/venomlinux/ports/master/xorg
-    /usr/ports/extra https://raw.githubusercontent.com/venomlinux/ports/master/extra
-    /usr/ports/xfce4 https://raw.githubusercontent.com/venomlinux/ports/master/xfce4
-    /usr/ports/kf5   https://raw.githubusercontent.com/venomlinux/ports/master/kf5
-    /usr/ports/lxde  https://raw.githubusercontent.com/venomlinux/ports/master/lxde
-    
+	/usr/ports/core      https://raw.githubusercontent.com/venomlinux/ports/master/core
+	/usr/ports/xorg      https://raw.githubusercontent.com/venomlinux/ports/master/xorg
+	/usr/ports/extra     https://raw.githubusercontent.com/venomlinux/ports/master/extra
+	/usr/ports/multilib  https://raw.githubusercontent.com/venomlinux/ports/master/multilib
+	/usr/ports/community https://raw.githubusercontent.com/venomlinux/ports/master/community 
+
 *Note: url is optional. Add if need to sync it.*
 
 
