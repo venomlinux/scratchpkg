@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 #  scratchpkg
 #
@@ -46,7 +46,8 @@ EOF
 }
 
 confirm() {
-	read -r -p "$1 (Y/n) " response
+	printf "$1 (Y/n) "
+	read -r response
 	case "$response" in
 		[Nn][Oo]|[Nn]) echo "$2"; exit 2 ;;
 		*) : ;;
@@ -105,11 +106,11 @@ rebuild() {
 rev_exclude() {
 	# excluded dirs
 	EXCLUDE_DIRS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep /$ | uniq | sed 's/\/*$//g')"
-	EXCLUDE_DIRS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep /$ | uniq | sed 's/\/*$//g')"
+	EXCLUDE_DIRS="$EXCLUDE_DIRS $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep /$ | uniq | sed 's/\/*$//g')"
 
 	for dd in $EXCLUDE_DIRS; do
 		if [ -d $dd ]; then
-			_DIRS+=" $dd"
+			_DIRS="$_DIRS $dd"
 			ged="$ged -e ^$dd"
 		fi
 	done
@@ -117,16 +118,16 @@ rev_exclude() {
 	EXCLUDE_DIRS=$(echo $_DIRS | tr ' ' '\n' | sort | uniq)
 
 	for d in $EXCLUDE_DIRS; do
-		EXCLUDED_DIRS+="-path $d -prune -o "
+		EXCLUDED_DIRS="$EXCLUDED_DIRS -path $d -prune -o "
 	done
 
 	# excluded files
 	EXCLUDE_FILES="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v /$ | grep ^/)"
-	EXCLUDE_FILES+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep -v /$ | grep ^/)"
+	EXCLUDE_FILES="$EXCLUDE_FILES $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null | cut -d : -f2 | grep -v /$ | grep ^/)"
 
 	for ff in $EXCLUDE_FILES; do
 		if [ -f $ff ]; then
-			_FILES+=" $ff"
+			_FILES="$_FILES $ff"
 			gef="$gef -e ^$ff$"
 		fi
 	done
@@ -134,17 +135,17 @@ rev_exclude() {
 	EXCLUDE_FILES=$(echo $_FILES | tr ' ' '\n' | sort | uniq)
 
 	for f in $EXCLUDE_FILES; do
-		EXCLUDED_FILES+="! -path $f "
+		EXCLUDED_FILES="$EXCLUDED_FILES ! -path $f "
 	done
 
 	# excluded libraries
 	EXCLUDE_LIBS="$(grep -v ^# /etc/revdep.conf 2>/dev/null | grep -v ^/ | uniq | grep ".*.so.*")"
-	EXCLUDE_LIBS+=" $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null  | cut -d : -f2 | grep -v ^/ | uniq | grep ".*.so.*")"
+	EXCLUDE_LIBS="$EXCLUDE_LIBS $(grep -v ^# /etc/revdep.d/*.conf 2>/dev/null  | cut -d : -f2 | grep -v ^/ | uniq | grep ".*.so.*")"
 
 	EXCLUDED_LIBS=$(echo $EXCLUDE_LIBS | tr ' ' '\n' | sort | uniq)
 }
 
-trap "interrupted" SIGHUP SIGINT SIGQUIT SIGTERM
+trap "interrupted" 1 2 3 15
 
 # package database directory
 INDEX_DIR="/var/lib/scratchpkg/index"
@@ -152,7 +153,7 @@ SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/lib64 /usr/
 
 parse_opt $@
 
-if [ "$UID" != 0 ] && [ "$REBUILD" = 1 ]; then
+if [ "$(id -u)" != 0 ] && [ "$REBUILD" = 1 ]; then
 	echo "$(basename $0) need to run as root to rebuild & reinstall package"
 	exit 1
 fi
@@ -165,16 +166,16 @@ fi
 
 # get search extra dirs
 while read -r line; do
-	if [[ "${line::1}" = "/" ]]; then
-		EXTRA_SEARCH_DIRS+="$line "
+	if [ "$(echo $line | cut -c 1)" = "/" ]; then
+		EXTRA_SEARCH_DIRS="$EXTRA_SEARCH_DIRS $line "
 	fi
 done < /etc/ld.so.conf
 
 if [ -d /etc/ld.so.conf.d/ ]; then
 	for dir in /etc/ld.so.conf.d/*.conf; do
 		while read -r line; do
-			if [[ "${line::1}" = "/" ]]; then
-				EXTRA_SEARCH_DIRS+="$line "
+			if [ "$(echo $line | cut -c 1)" = "/" ]; then
+				EXTRA_SEARCH_DIRS="$EXTRA_SEARCH_DIRS $line "
 			fi
 		done < $dir
 	done
@@ -187,12 +188,12 @@ fi
 # search dirs
 TARGET_SEARCH_DIRS="$SEARCH_DIRS $EXTRA_SEARCH_DIRS"
 
-FILE_LIST=$(mktemp) || { echo "Can't create temporary file .Aborting..."; exit 1; }
+FILE_LIST="/tmp/.revdep.$$"
 
 echo "SEARCH DIRS:"
 for d in $TARGET_SEARCH_DIRS; do
 	if [ -d $d ]; then
-		SEARCH_DIRS+=" $d"
+		SEARCH_DIRS="$SEARCH_DIRS $d"
 		echo " $d"
 	fi
 done
@@ -231,11 +232,11 @@ if [ "$PKG" ]; then
 	else
 		filterdir=cat
 	fi
-	echo -n "Find '$PKG' files... "
+	printf "Find '$PKG' files... "
 	sed 's/^/\//' $INDEX_DIR/$PKG/.files | grep $gx | $filterfile | $filterdir > $FILE_LIST
 else
-	echo -n "Find all files... "
-	find ${SEARCH_DIRS[@]} $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
+	printf "Find all files... "
+	find $SEARCH_DIRS $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
 fi
 
 total=$(wc -l $FILE_LIST | awk '{print $1}')
@@ -245,36 +246,36 @@ echo "$total files found"
 
 echo "Checking for broken linkage..."
 
-while IFS=' ' read -r line; do
+while read -r line; do
 	count=$(( count + 1 ))
 	libname=$(basename "$line")
-	echo -ne " $(( 100*count/total ))% $libname\033[0K\r"
+	printf " $(( 100*count/total ))%% $libname\033[0K\r"
 	case "$(file -bi "$line")" in
 		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
 			if ldd $line 2>/dev/null | grep -q "not found"; then
 				LIB_NAME=$(ldd $line 2>/dev/null | grep "not found" | sort | uniq | awk '{print $1}')
 				for l in $LIB_NAME; do
 					if ! echo $EXCLUDED_LIBS | grep -qw $l; then
-						NEW_LIB_NAME+=" $l"
+						NEW_LIB_NAME="$NEW_LIB_NAME $l"
 					fi
 				done
 				LIB_NAME=$NEW_LIB_NAME
-				[[ $LIB_NAME ]] || continue
+				[ "$LIB_NAME" ] || continue
 				PKG_NAME=$(echo $line | sed 's#^/##')
 				PKG_NAME=$(grep -Rx $PKG_NAME "$INDEX_DIR"/*/.files | cut -d : -f1)
-				[[ $PKG_NAME ]] || continue
+				[ "$PKG_NAME" ] || continue
 				PKG_NAME=$(dirname $PKG_NAME)
 				PKG_NAME=$(basename $PKG_NAME)
 				echo $expkg | tr ' ' '\n' | grep -qx $PKG_NAME && continue
 				REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
 				for i in $LIB_NAME; do
-					[ "$PRINTALL" = 1 ] && echo -e " $PKG_NAME -> $line (requires $i)"
+					[ "$PRINTALL" = 1 ] && echo " $PKG_NAME -> $line (requires $i)"
 					if echo $REQ_LIB | tr ' ' '\n' | grep -qx $i; then
-						[ "$PRINTALL" = 1 ] || echo -e " $PKG_NAME -> $line (requires $i)"
-						if echo "${ALLPKG[@]}" | tr ' ' '\n' | grep -qx "$PKG_NAME"; then
+						[ "$PRINTALL" = 1 ] || echo " $PKG_NAME -> $line (requires $i)"
+						if echo "$ALLPKG" | tr ' ' '\n' | grep -qx "$PKG_NAME"; then
 							continue
 						else
-							ALLPKG+="$PKG_NAME "
+							ALLPKG="$ALLPKG $PKG_NAME"
 						fi
 					fi
 				done
@@ -284,13 +285,13 @@ while IFS=' ' read -r line; do
 	unset NEW_LIB_NAME
 done < $FILE_LIST
 
-echo -ne "\033[0K"
+printf "\033[0K"
 	
 if [ "$ALLPKG" ]; then
 	echo
 	echo "Broken package(s):"
 	for rebuild in $ALLPKG; do
-		echo -e " $rebuild"
+		echo " $rebuild"
 	done
 	if [ "$REBUILD" = 1 ]; then
 		rebuild

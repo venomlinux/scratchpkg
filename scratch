@@ -71,8 +71,8 @@ needroot() {
 
 getportpath() {	
 	for repo in $PORT_REPO; do
-		if [[ -f $repo/$1/$BUILD_SCRIPT ]]; then
-			dirname $repo/$1/$BUILD_SCRIPT
+		if [ -f "$repo/$1/$BUILD_SCRIPT" ]; then
+			dirname "$repo/$1/$BUILD_SCRIPT"
 			return 0
 		fi
 	done
@@ -82,7 +82,7 @@ getportpath() {
 vercomp() {	
 	if [ "$1" = "$2" ]; then
 		return 0 # same version
-	elif [ "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]; then
+	elif [ "$1" = "$(echo "$1\n$2" | sort -V | head -n1)" ]; then
 		return 1 # $1 lower than $2
 	else
 		return 2 # $1 higher than $2
@@ -100,7 +100,6 @@ allinstalled() {
 }
 
 get_depends() {
-	local pkg=$1
 	ppath=$(getportpath $pkg) || return 0
 	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
 	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
@@ -110,7 +109,8 @@ get_depends() {
 }
 
 confirm() {
-	read -r -p "$1 (Y/n) " response
+	printf "$1 (Y/n) "
+	read -r response
 	case "$response" in
 		[Nn][Oo]|[Nn]) echo "$2"; return 2 ;;
 		*) : ;;
@@ -133,7 +133,7 @@ needarg() {
 }
 
 isinstalled() {
-	if [ -s $INDEX_DIR/$1/.pkginfo ] && [[ $(grep $1 $INDEX_DIR/$1/.pkginfo) ]]; then
+	if [ -s "$INDEX_DIR/$1/.pkginfo" ] && [ "$(grep $1 $INDEX_DIR/$1/.pkginfo)" ]; then
 		return 0
 	else
 		return 1
@@ -151,9 +151,9 @@ scratch_integrity() {
 				cat $INDEX_DIR/$1/.files | while read -r line; do
 					if [ ! -e "$line" ]; then
 						if [ -L "$line" ]; then
-							echo -e "${YELLOW}broken symlink${CRESET} $1: /$line"
+							printf "${YELLOW}broken symlink${CRESET} $1: /$line"
 						else
-							echo -e "${RED}file missing${CRESET} $1: /$line"
+							printf "${RED}file missing${CRESET} $1: /$line"
 						fi
 					fi
 				done
@@ -168,16 +168,15 @@ scratch_integrity() {
 				cat $INDEX_DIR/$pkg/.files | while read -r line; do
 					if [ ! -e "$line" ]; then
 						if [ -L "$line" ]; then
-							echo -e "${YELLOW}broken symlink${CRESET} $pkg: /$line"
+							printf "${YELLOW}broken symlink${CRESET} $pkg: /$line"
 						else
-							echo -e "${RED}file missing${CRESET} $pkg: /$line"
+							printf "${RED}file missing${CRESET} $pkg: /$line"
 						fi
 					fi
 				done
 			done
 		cd - >/dev/null
-	fi
-	
+	fi	
 	[ "$(id -u)" != "0" ] && msg "${YELLOW}(check integrity is recommended run as root or using sudo)${CRESET}"
 }
 
@@ -232,12 +231,11 @@ scratch_sync() {
 	fi
 
 	grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1,$2}' | while read -r repodir repourl; do
-		if [ -n "$repodir" ] && [ -n "$repourl" ]; then
-			httpup sync $repourl $repodir
-			if [ $? != 0 ]; then
+		if [ "$repodir" ] && [ "$repourl" ]; then
+			httpup sync $repourl $repodir || {
 				msgerr "Failed sync from $repourl"
 				exit 1
-			fi
+			}
 		fi
 	done
 }
@@ -267,13 +265,13 @@ post_triggers() {
 			if [ -e "$dir" ]; then
 				if [ "$uid" != '-' ]; then
 					getent passwd $uid >/dev/null
-					if [[ "$?" = 0 ]]; then
+					if [ "$?" = 0 ]; then
 						chown "$uid" "$dir"
 					fi
 				fi
 				if [ "$gid" != '-' ]; then
 					getent group $gid >/dev/null
-					if [[ "$?" = 0 ]]; then
+					if [ "$?" = 0 ]; then
 						chgrp "$gid" "$dir"
 					fi
 				fi
@@ -319,7 +317,7 @@ post_triggers() {
 	if [ "$trig_5" = 1 ] && [ $(type -p gtk-update-icon-cache) ]; then
 		echo "trigger: Updating icon theme caches..."
 		for dir in /usr/share/icons/* ; do
-			if [[ -e $dir/index.theme ]]; then
+			if [ -e $dir/index.theme ]; then
 				gtk-update-icon-cache -q $dir &>/dev/null
 			else
 				rm -f $dir/icon-theme.cache
@@ -338,7 +336,7 @@ post_triggers() {
 		for dir in $(find /usr/share/fonts -maxdepth 1 -type d \( ! -path /usr/share/fonts -a ! -name X11 \)) /usr/share/fonts/X11/*; do
 			rm -f $dir/fonts.{scale,dir} $dir/.uuid
 			rmdir --ignore-fail-on-non-empty $dir
-			[[ -d $dir ]] || continue
+			[ -d "$dir" ] || continue
 			mkfontdir $dir
 			mkfontscale $dir
 		done
@@ -478,7 +476,6 @@ pre_triggers() {
 }
 
 scratch_build() {
-	needarg $@
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u|-r|-g|-p) ;;
@@ -488,7 +485,7 @@ scratch_build() {
 		shift
 	done
 	[ "$PKGNAME" ] || {
-		echo "Please specify package(s) to install."
+		echo "Please specify package(s) to build."
 		return 1
 	}
 	for pkg in $PKGNAME; do
@@ -508,7 +505,6 @@ scratch_build() {
 
 scratch_install() {
 	needroot "Installing package"
-	needarg $@	
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u) ;;
@@ -554,6 +550,7 @@ scratch_install() {
 		return "$error"
 	fi
 	if [ "$NO_DEP" = 1 ]; then
+		error=0
 		for ii in $PKGNAME; do
 			if [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
@@ -567,14 +564,14 @@ scratch_install() {
 						error=1
 						break
 					}
-					done_pkg+="$done_pkg $ii"
+					done_pkg="$done_pkg $ii"
 				cd - >/dev/null
 			fi
 		done
 		settermtitle "Triggering install hook"
 		[ "$done_pkg" ] && scratch_trigger $done_pkg
 		settermtitle "Installing done"
-		[ "$error" = 1 ] && return 1 || return 0
+		return "$error"
 	fi
 	for i in $PKGNAME; do
 		if [ ! $(getportpath $i) ]; then
@@ -629,26 +626,8 @@ scratch_install() {
 	fi
 }
 
-outdatepkg() {
-	for pkg in $(allinstalled); do
-		if [ ! -e "$INDEX_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
-			. $(getportpath $pkg)/$BUILD_SCRIPT
-			if [ -z "$name" ] || [ -z "$version" ]; then
-				continue
-			fi
-			iversion=$(installed_pkg_info version $pkg)
-			irelease=$(installed_pkg_info release $pkg)
-			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
-				echo $name
-			fi
-			unset iversion irelease version release
-		fi
-	done
-}
-
 scratch_remove() {
 	needroot "Removing package"
-	needarg $@	
 	while [ "$1" ]; do
 		case $1 in
 			-y|--yes) NOCONFIRM=1;;
@@ -702,9 +681,25 @@ scratch_remove() {
 	settermtitle "$pkgcount package(s) removed"
 }
 
+outdatepkg() {
+	for pkg in $(allinstalled); do
+		if [ ! -e "$INDEX_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
+			. $(getportpath $pkg)/$BUILD_SCRIPT
+			if [ -z "$name" ] || [ -z "$version" ]; then
+				continue
+			fi
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
+				echo $name
+			fi
+			unset iversion irelease version release
+		fi
+	done
+}
+
 scratch_sysup() {
-	needroot "Upgrading package"
-	
+	needroot "Upgrading package"	
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u|-r) ;;
@@ -811,7 +806,7 @@ scratch_upgrade() {
 			msgerr "Package '$pkg' not exist."
 			continue
 		else
-			source $(getportpath $pkg)/$BUILD_SCRIPT
+			. $(getportpath $pkg)/$BUILD_SCRIPT
 			if [ "$(installed_pkg_info version $pkg)-$(installed_pkg_info release $pkg)" = "$version-$release" ]; then
 				msg "Package '$pkg' is up to date."
 				continue
@@ -847,7 +842,7 @@ scratch_upgrade() {
 		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled." || exit $?
 		echo
 	}
-	total=$(( tup + tnew))
+	total=$(( tup + tnew ))
 	count=0
 	error=0
 	if [ "$newpkg" ]; then
@@ -897,19 +892,19 @@ scratch_outdate() {
 			if [ "$version" !=  "$iversion" ]; then
 				vercomp $version $iversion
 				if [ $? = 2 ]; then
-					echo -e "$outdatemsg"
+					echo "$outdatemsg"
 					OUTDATE=yes
 				elif [ $? = 1 ]; then
-					echo -e "$newerinstmsg"
+					echo "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			elif [ "$release" !=  "$irelease" ]; then
 				vercomp $release $irelease
 				if [ $? = 2 ]; then
-					echo -e "$outdatemsg"
+					echo "$outdatemsg"
 					OUTDATE=yes
 				elif [ $? = 1 ]; then
-					echo -e "$newerinstmsg"
+					echo "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			fi
@@ -918,20 +913,6 @@ scratch_outdate() {
 	done
 	
 	[ ! "$OUTDATE" ] && msg "All packages are up to date."
-}
-
-clearpkgcache() {	
-	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
-		for pkg in ${ALL_PACKAGES[@]}; do
-			rm -v $PACKAGE_DIR/$pkg
-		done
-	fi
-	
-	if [ ${#ALL_SOURCES[@]} -gt 0 ]; then
-		for src in ${ALL_SOURCES[@]}; do
-			rm -v $SOURCE_DIR/$src
-		done
-	fi	
 }
 
 scratch_cache() {
@@ -946,7 +927,13 @@ scratch_cache() {
 	
 	[ -f /etc/scratchpkg.conf ] && . /etc/scratchpkg.conf
 	
-	touch $allcachepkg $allcachesrc
+	touch \
+		$allcachepkg \
+		$allcachesrc \
+		$keepcachepkg \
+		$keepcachesrc \
+		$diffcachepkg \
+		$diffcachesrc
 	
 	if [ "$(find $PACKAGE_DIR -mindepth 1 -print -quit 2>/dev/null)" ]; then
 		for list in "$PACKAGE_DIR"/*; do
@@ -965,7 +952,7 @@ scratch_cache() {
 			for port in $repo/*/$BUILD_SCRIPT; do
 				. $port
 				echo "$name-$version-$release.spkg.tar.$COMPRESSION_MODE" >> "$keepcachepkg"
-				if [ -n "$source" ]; then
+				if [ "$source" ]; then
 					for src in $source; do
 						if echo $src | grep -Eq "(ftp|http|https)://"; then
 							if echo $src | grep -Eq "::(ftp|http|https)://"; then
@@ -1010,10 +997,10 @@ scratch_cache() {
 		confirm "Clear old caches?" "Old caches is kept."
 		[ $? = 0 ] && {
 			for i in $(cat $diffcachepkg); do
-				[ -e "$PACKAGE_DIR/$i" ] && echo "rm - $i"
+				[ -e "$PACKAGE_DIR/$i" ] && rm -v "$PACKAGE_DIR/$i"
 			done
 			for i in $(cat $diffcachesrc); do
-				[ -e "$SOURCE_DIR/$i" ] && echo "rm - $i"
+				[ -e "$SOURCE_DIR/$i" ] && rm -v "$SOURCE_DIR/$i"
 			done
 		}
 	fi
@@ -1084,7 +1071,7 @@ deplist() {
 	
 	# check currently process package for loop
 	if [ "$CHECK" ]; then
-		if [ "$(echo $CHECK | tr " " "\n" | grep -x $1)" == "$1" ]; then
+		if [ "$(echo $CHECK | tr " " "\n" | grep -x $1)" = "$1" ]; then
 			return 0
 		fi
 	fi
@@ -1323,6 +1310,11 @@ for opt in $@; do
 		--nocolor) nocolor;;
 		 --repo=*) PORT_REPO="$PORT_REPO ${opt#*=}";;
 		 --root=*) ROOT_DIR="${opt#*=}";;
+		       -*) char=${#opt}; count=1
+		           while [ "$count" != "$char" ]; do
+				      count=$((count+1))
+		              MAINOPTS="$MAINOPTS -$(echo $opt | cut -c $count)"
+				   done;;
 		        *) MAINOPTS="$MAINOPTS $opt";;
 	esac
 	shift

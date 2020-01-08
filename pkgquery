@@ -320,7 +320,7 @@ print_runhelp_msg() {
 }
 
 BUILD_SCRIPT="spkgbuild"
-INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
+INDEX_DIR="/var/lib/scratchpkg/index"
 REPO_FILE="/etc/scratchpkg.repo"
 
 if [ -f "$REPO_FILE" ]; then
