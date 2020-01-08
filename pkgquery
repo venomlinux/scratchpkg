@@ -316,6 +316,7 @@ EOF
 
 print_runhelp_msg() {
 	echo "Run '$(basename $0) help' to see available options."
+	exit 2
 }
 
 BUILD_SCRIPT="spkgbuild"
@@ -332,7 +333,6 @@ opts=$1
 
 if [ -z "$opts" ]; then
 	print_runhelp_msg
-	exit 2
 fi
 
 shift
@@ -341,7 +341,6 @@ if [ $(type -t pkg_$opts) ]; then
 	pkg_$opts "$@"
 else
 	print_runhelp_msg
-	exit 2
 fi
 
 exit $?
