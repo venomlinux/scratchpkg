@@ -301,7 +301,10 @@ packaging() {
 	
 	cd $PKG >/dev/null
 	
-	rm -f usr/{,share/}info/dir
+	# remove possible conflict junks
+	rm -f usr/share/info/dir usr/info/dir
+	rm -f usr/lib/charset.alias # on musl system
+	find . \( -name perllocal.pod -o -name .packlist \) -delete
 	
 	[ "$KEEP_EMPTYDIR" = 0 ] && removeemptydirs
 	[ "$KEEP_LIBTOOL" = 0 ]  && removelibtool
@@ -544,7 +547,7 @@ main() {
 	parse_opts $(extract_opts "$@")
 	
 	if [ -f "$PKGBUILD_CONF" ]; then
-		source "$PKGBUILD_CONF"
+		. "$PKGBUILD_CONF"
 	else
 		msgerr "Config file not found ('$PKGBUILD_CONF')"
 		exit 1
@@ -564,7 +567,7 @@ main() {
 	
 	if [ -f "$PKGBUILD_BSCRIPT" ]; then
 		description=$(grep "^# description[[:blank:]]*:" $PKGBUILD_BSCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-		source ./$PKGBUILD_BSCRIPT	
+		. ./$PKGBUILD_BSCRIPT	
 	else
 		msgerr "'$PKGBUILD_BSCRIPT' file not found."
 		exit 1

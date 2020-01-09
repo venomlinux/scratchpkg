@@ -54,6 +54,22 @@ confirm() {
 	esac
 }
 
+extract_opts() {
+	while [ "$1" ]; do
+		case $1 in
+			--*) opts="$opts $1";;
+			-*) char=${#1}; count=1
+			    while [ "$count" != "$char" ]; do
+					count=$((count+1))
+					opts="$opts -$(echo $1 | cut -c $count)"
+				done;;
+			*) opts="$opts $1"
+		esac
+		shift
+	done
+	echo $opts
+}
+
 parse_opt() {
 	while [ $1 ]; do
 		case $1 in
@@ -151,7 +167,7 @@ trap "interrupted" 1 2 3 15
 INDEX_DIR="/var/lib/scratchpkg/index"
 SEARCH_DIRS="/bin /usr/bin /sbin /usr/sbin /lib /usr/lib /lib64 /usr/lib64 /usr/libexec"
 
-parse_opt $@
+parse_opt $(extract_opts "$@")
 
 if [ "$(id -u)" != 0 ] && [ "$REBUILD" = 1 ]; then
 	echo "$(basename $0) need to run as root to rebuild & reinstall package"

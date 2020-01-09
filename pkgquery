@@ -88,7 +88,7 @@ getportpath() {
 
 pkg_dependent() {
 	needarg $@
-	if port=$(getportpath $1); then
+	if [ "$(getportpath $1)" ]; then
 		grep -R "# depends[[:blank:]]*:" $REPO \
 		| sed "s,:# depends[[:blank:]]*:[[:blank:]]*,#|,;s, ,|,g;s,$,|,g" \
 		| grep "|$1|" \
@@ -143,7 +143,7 @@ pkg_foreign() {
 
 pkg_search() {
 	needarg $@
-	arg=$@
+	arg=$*
 	for repo in $REPO; do
 		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}')
 		[ "$out" ] || continue

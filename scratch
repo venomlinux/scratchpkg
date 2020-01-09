@@ -100,7 +100,7 @@ allinstalled() {
 }
 
 get_depends() {
-	ppath=$(getportpath $pkg) || return 0
+	ppath=$(getportpath $1) || return 0
 	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
 	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
 	| tr ' ' '\n' \
@@ -119,7 +119,7 @@ confirm() {
 }
 
 checktool() {	
-	if ! type -p $1 &>/dev/null; then
+	if ! type -p $1 >/dev/null; then
 		msgerr "'$1' not exist in your system!"
 		exit 1
 	fi	
@@ -243,8 +243,8 @@ scratch_sync() {
 scratch_trigger() {
 	needroot "Run trigger"
 	if [ -z "$*" ]; then
-		for i in trig_{1..12}; do
-			eval $i=1
+		for i in $(seq 12); do
+			eval trig_$i=1
 		done
 	else
 		pre_triggers $@
@@ -257,31 +257,20 @@ post_triggers() {
 		echo "trigger: Running mkdirs..."
 		for mkd in $INDEX_DIR/*/.pkgmkdirs; do
 			[ -s $mkd ] || continue
-			while read dir mode uid gid junk; do
-			# Ignore comments and blank lines
-			case "$dir" in
-				""|\#*) continue ;;
-			esac
-			if [ -e "$dir" ]; then
-				if [ "$uid" != '-' ]; then
-					getent passwd $uid >/dev/null
-					if [ "$?" = 0 ]; then
-						chown "$uid" "$dir"
+			grep -Ev '^(#|$)' $mkd | while read -r dir mode uid gid junk; do
+				if [ -e "$dir" ]; then
+					if [ "$uid" != '-' ]; then
+						getent passwd $uid >/dev/null && chown "$uid" "$dir"
+					fi
+					if [ "$gid" != '-' ]; then
+						getent group $gid >/dev/null && chgrp "$gid" "$dir"
+					fi
+					if [ "$mode" != '-' ]; then
+						chmod "$mode" "$dir"
 					fi
 				fi
-				if [ "$gid" != '-' ]; then
-					getent group $gid >/dev/null
-					if [ "$?" = 0 ]; then
-						chgrp "$gid" "$dir"
-					fi
-				fi
-				if [ "$mode" != '-' ]; then
-					chmod "$mode" "$dir"
-				fi
-			fi
-		done < "$mkd"
-	done
-
+			done
+		done
 	fi
 	
 	if [ "$trig_11" = 1 ] && [ $(type -p fc-cache) ]; then
@@ -318,7 +307,7 @@ post_triggers() {
 		echo "trigger: Updating icon theme caches..."
 		for dir in /usr/share/icons/* ; do
 			if [ -e $dir/index.theme ]; then
-				gtk-update-icon-cache -q $dir &>/dev/null
+				gtk-update-icon-cache -q $dir 2>/dev/null
 			else
 				rm -f $dir/icon-theme.cache
 				rmdir --ignore-fail-on-non-empty $dir
@@ -334,7 +323,7 @@ post_triggers() {
 	if [ "$trig_3" = 1 ] && [ $(type -p mkfontdir) ] && [ $(type -p mkfontscale) ]; then
 		echo "trigger: Updating X fontdir indices..."
 		for dir in $(find /usr/share/fonts -maxdepth 1 -type d \( ! -path /usr/share/fonts -a ! -name X11 \)) /usr/share/fonts/X11/*; do
-			rm -f $dir/fonts.{scale,dir} $dir/.uuid
+			rm -f $dir/fonts.scale $dir/fonts.dir $dir/.uuid
 			rmdir --ignore-fail-on-non-empty $dir
 			[ -d "$dir" ] || continue
 			mkfontdir $dir
@@ -377,7 +366,7 @@ pre_triggers() {
 	# mkfontdir
 	if [ "$trig_3" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/[^/]*/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_3=1
 				break
 			fi
@@ -397,7 +386,7 @@ pre_triggers() {
 	# icon caches
 	if [ "$trig_5" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/icons/[^/]*/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/icons/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_5=1
 				break
 			fi
@@ -457,7 +446,7 @@ pre_triggers() {
 	# font caches
 	if [ "$trig_11" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/[^/]*/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_11=1
 				break
 			fi
@@ -508,7 +497,7 @@ scratch_install() {
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u) ;;
-			-r) REINSTALL=1;;
+			-r|--reinstall) REINSTALL=1;;
 			-y|--yes) NOCONFIRM=1;;
 			-n|--no-dep) NO_DEP=1;;
 			--exclude=*) EXOPT=$1;;
@@ -521,10 +510,6 @@ scratch_install() {
 		echo "Please specify package(s) to install."
 		return 1
 	}
-	# use custom root location
-	if [ "$ROOT_DIR" ]; then
-		OPTS="$OPTS --root=$ROOT_DIR"
-	fi
 	# if reinstall, dont calculate dep, just reinstall it then exit
 	if [ "$REINSTALL" = 1 ]; then
 		error=0
@@ -640,10 +625,6 @@ scratch_remove() {
 		echo "Please specify package(s) to remove."
 		return 1
 	}
-	# use custom root location
-	if [ "$ROOT_DIR" ]; then
-		OPTS="$OPTS --root=$ROOT_DIR"
-	fi	
 	for i in $PKGNAME; do
 		if ! isinstalled $i; then
 			echo "Package '$i' not installed."
@@ -704,14 +685,12 @@ scratch_sysup() {
 		case $1 in
 			-i|-u|-r) ;;
 			-y|--yes) NOCONFIRM=1;;
-			-d|--no-dep) NODEP=1;;
+			-n|--no-dep) NODEP=1;;
 			--exclude=*) EXOPT=$1;;
 			-*) OPTS="$OPTS $1";;
 		esac
 		shift
-	done	
-	# use custom root location
-	[ "$ROOT_DIR" ] && OPTS="$OPTS --root=$ROOT_DIR"	
+	done
 	echo "Checking for outdated packages..."
 	PKGOUTDATE=$(outdatepkg)	
 	[ "$PKGOUTDATE" ] || {
@@ -729,7 +708,7 @@ scratch_sysup() {
 				printf "[${GREEN}u${CRESET}] $d  "
 				WILLINSTALL="$WILLINSTALL $d"
 				UPGPKG=$(( UPGPKG + 1 ))
-			elif ! isinstalled $d && [ $(getportpath "$d") ]; then
+			elif ! isinstalled $d && [ "$(getportpath "$d")" ]; then
 				prinf "[${CYAN}n${CRESET}] $d  "
 				WILLINSTALL="$WILLINSTALL $d"
 				NEWPKG=$(( NEWPKG + 1 ))
@@ -784,6 +763,7 @@ scratch_upgrade() {
 	needroot "Upgrading package"	
 	while [ "$1" ]; do
 		case $1 in
+			-i|-r) ;;
 			-y|--yes) NOCONFIRM=1;;
 			-d|--no-dep) NO_DEP=1;;
 			--exclude=*) EXOPT=$1;;
@@ -795,9 +775,7 @@ scratch_upgrade() {
 	[ "$PKGNAME" ] || {
 		echo "Please specify package(s) to upgrade."
 		return 1
-	}	
-	# use custom root location
-	[ "$ROOT_DIR" ] && OPTS="$OPTS --root=$ROOT_DIR"
+	}
 	for pkg in $PKGNAME; do
 		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' not installed."
@@ -817,10 +795,10 @@ scratch_upgrade() {
 	[ "$upkg" ] || return 0
 	[ "$NO_DEP" ] || {
 		echo "Resolving dependencies..."
-		DEP=$(scratch_deplist $upkg} $EXOPT | awk '{print $2}')
+		DEP=$(scratch_deplist $upkg $EXOPT | awk '{print $2}')
 		for dep in $DEP; do
 			if ! isinstalled $dep; then
-				[ $(getportpath $dep) ] && newpkg="$newpkg $dep"
+				[ "$(getportpath $dep)" ] && newpkg="$newpkg $dep"
 			fi
 		done
 	}
@@ -879,7 +857,7 @@ scratch_upgrade() {
 
 scratch_outdate() {
 	for pkg in $(allinstalled); do
-		if [ $(getportpath $pkg) ]; then
+		if [ "$(getportpath $pkg)" ]; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
 			if [ -z "$name" ] || [ -z "$version" ]; then
 				continue
@@ -994,8 +972,7 @@ scratch_cache() {
 	
 	if [ -s "$diffcachepkg" ] || [ -s "$diffcachesrc" ]; then
 		echo
-		confirm "Clear old caches?" "Old caches is kept."
-		[ $? = 0 ] && {
+		confirm "Clear old caches?" "Old caches is kept." && {
 			for i in $(cat $diffcachepkg); do
 				[ -e "$PACKAGE_DIR/$i" ] && rm -v "$PACKAGE_DIR/$i"
 			done
@@ -1019,7 +996,7 @@ scratch_deplist() {
 	IFS=,
 	while [ "$1" ]; do
 		case $1 in
-			-q) quick=1;;
+			-q|--quick) quick=1;;
 			--exclude=*) for i in ${1#*=}; do exclude="$exclude $i"; done;;
 			-*) ;;
 			*) PKG="$PKG $1";;
@@ -1032,7 +1009,7 @@ scratch_deplist() {
 		return 1
 	}
 	for p in $PKG; do
-		if [ $(getportpath $p) ]; then
+		if [ "$(getportpath $p)" ]; then
 			PPKG="$PPKG $p"
 		else
 			[ "$quick" = 1 ] || msgerr "Package '$p' not exist."
@@ -1065,16 +1042,17 @@ scratch_deplist() {
 
 deplist() {
 	# skip excluded dependencies
-	if [ "$(echo $exclude | tr " " "\n" | grep -x $1)" ]; then
+	if echo $exclude | tr " " "\n" | grep -qx $1; then
 		return 0
 	fi
 	
-	# check currently process package for loop
-	if [ "$CHECK" ]; then
-		if [ "$(echo $CHECK | tr " " "\n" | grep -x $1)" = "$1" ]; then
+	# check currently process for circular dependencies
+	# for circular dependencies, found first will take precedence
+	[ "$CHECK" ] && {
+		if echo $CHECK | tr " " "\n" | grep -qx $1; then
 			return 0
 		fi
-	fi
+	}
 	
 	# add package to currently process
 	CHECK="$CHECK $1"
@@ -1084,7 +1062,7 @@ deplist() {
 		if [ "$quick" = 1 ] && isinstalled $i; then
 			continue
 		else
-			if [ "$(echo $DEP | tr " " "\n" | grep -x $i)" = "" ]; then
+			if ! echo $DEP | tr " " "\n" | grep -qx $i; then
 				if ! getportpath $i >/dev/null; then
 					MISSINGDEP="$MISSINGDEP $i($1)"
 				else
@@ -1095,11 +1073,11 @@ deplist() {
 	done
 	
 	# add dependency to list checked dep
-	if [ "$(echo $DEP | tr " " "\n" | grep -x $1)" = "" ]; then
-		if [ "$quick" != 1 ]; then
-			DEP="$DEP $1"
-		else
+	if ! echo $DEP | tr " " "\n" | grep -qx $1; then
+		if [ "$quick" = 1 ]; then
 			isinstalled $1 || DEP="$DEP $1"
+		else
+			DEP="$DEP $1"
 		fi
 	fi
 	
@@ -1107,190 +1085,51 @@ deplist() {
 	CHECK=$(echo $CHECK | sed "s/$1//")
 }
 
-usage_extra() {
+scratch_help() {
 	cat << EOF
 Usage:
-    $(basename $0) <operation> [ <port/pattern/file> ]
-    
-Operation:
-    depends   <port>       show depends of a package
-    search    <pattern>    search packages in port's repos
-    lock      <port>       lock packages from upgrade
-    unlock    <port>       unlock packages from upgrade
-    cat       <port>       view a package build scripts
-    dependent <port>       show package's dependent
-    own       <file>       show package's owner of file
-    files     <port>       show list files of installed package
-    path      <port>       show package's buildscripts path
-    readme    <port>       print readme file if exist
-    info      <port>       print ports info
-    sync                   update port's repo
-    dup                    print duplicate ports in repo
-    listinst               list installed package in system
-    listorphan             list orphan package
-    integrity              check integrity of package's files
-    outdate                check for outdated packages
-    cache                  print leftover cache
-    missingdep             check for mising dependency of installed package
-    foreignpkg             print package installed without port in repo
-    listlocked             print locked packages
-    
-EOF
-}
-
-usage_build() {
-	cat << EOF
-Usage:
-    $(basename $0) build [ <pkgname> <options> ]
+    $(basename $0) <options> [<arg>]
     
 Options:
-    -f, --force-rebuild    force rebuild
-    -m, --skip-mdsum       skip md5sum check for sources
-    -x, --extract          extract only
-    -w, --keep-work        keep woring directory
-    -o, --download         download source files only
-    -l, --log              log build process
-    --redownload           re-download source files
-    --srcdir=<path>        override default SOURCE_DIR
-    --pkgdir=<path>        override default PACKAGE_DIR
-    --logdir=<path>        override default LOG_DIR
-    --workdir=<path>       override default WORK_DIR
-    
-EOF
-}
+    install <ports> <arg>    install ports (use pkgbuild arg, except '-i' & '-u')
+                             -r|--reinstall   reinstall
+                             -n|--no-dep      skip dependencies
+                             -y|--yes         skip ask user permission
+                             --exclude=*      exclude dependencies, comma separated
+                             
+    upgrade <ports> <arg>    upgrade ports (use pkgbuild arg, except '-i' & '-r')
+                             -n|--no-dep      skip dependencies
+                             -y|--yes         skip ask user permission
+                             --exclude=*      exclude dependencies, comma separated
+				             
+    remove  <ports> <arg>    remove installed ports (use pkgdel arg)
+                             -y|--yes         skip ask user permission
+                             
+    sysup           <arg>    full system upgrade (use pkgbuild arg, except '-i', '-r'  & '-u')
+                             -n|--no-dep      skip dependencies
+                             -y|--yes         skip ask user permission
+                             --exclude=*      exclude dependencies, comma separated
+                             
+    deplist <ports>          print all dependencies for ports
+                             -q|--quick       skip installed ports
+                             --exclude=*      exclude dependencies, comma separated
+				
+    build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
 
-usage_upgrade() {
-	cat << EOF
-Usage:
-    $(basename $0) upgrade [ <pkgname> <options> ]
-    
-Options:
-    -d, --no-dep           skip installing dependencies (new dependencies)
-    -c, --ignore-conflict  skip file conflict check
-    -v, --verbose          print install process
-    -y, --yes              dont ask confirmation
-    -l, --log              log build process
-    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
-    --no-backup            skip backup configuration file
-    --no-preupgrade        skip pre-upgrade script
-    --no-postupgrade       skip post-upgrade script
-    --srcdir=<path>        override default SOURCE_DIR
-    --pkgdir=<path>        override default PACKAGE_DIR
-    --logdir=<path>        override default LOG_DIR
-    --workdir=<path>       override default WORK_DIR
-    
-EOF
-}
-
-usage_sysup() {
-	cat << EOF
-Usage:
-    $(basename $0) sysup <options>
-    
-Options:
-    -d, --no-dep           skip installing dependencies (new dependencies)
-    -c, --ignore-conflict  skip file conflict check
-    -v, --verbose          print install process
-    -s, --sync             sync ports before upgrades
-    -y, --yes              dont ask confirmation
-    -l, --log              log build process
-    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
-    --no-backup            skip backup configuration file
-    --no-preupgrade        skip pre-upgrade script
-    --no-postupgrade       skip post-upgrade script
-    --srcdir=<path>        override default SOURCE_DIR
-    --pkgdir=<path>        override default PACKAGE_DIR
-    --logdir=<path>        override default LOG_DIR
-    --workdir=<path>       override default WORK_DIR
-    
-EOF
-}
-
-usage_remove() {
-	cat << EOF
-Usage:
-    $(basename $0) remove [ <pkgname> <options> ]
-    
-Options:
-    -v, --verbose          print removed files
-    -y, --yes              dont ask confirmation
-    --no-preremove         skip pre-remove script
-    --no-postremove        skip post-remove script
-    
-EOF
-}
-
-usage_install() {
-	cat << EOF
-Usage:
-    $(basename $0) install [ <pkgname> <options> ]
-    
-Options:
-    -d, --no-dep           skip installing dependencies
-    -c, --ignore-conflict  skip file conflict check
-    -r, --reinstall        reinstall installed package
-    -v, --verbose          print install files
-    -l, --log              log build process
-    -y, --yes              dont ask confirmation
-    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
-    --no-backup            skip backup configuration file (use with -r/--reinstall)
-    --no-preinstall        skip pre-install script
-    --no-postinstall       skip post-install script
-    --srcdir=<path>        override default SOURCE_DIR
-    --pkgdir=<path>        override default PACKAGE_DIR
-    --logdir=<path>        override default LOG_DIR
-    --workdir=<path>       override default WORK_DIR
-    
-EOF
-}
-
-usage_deplist() {
-	cat << EOF
-Usage:
-    $(basename $0) deplist [ <pkgname> <options> ]
-    
-Options:
-    -q, --quick            print only not-installed pkg in quick format
-    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
-	
-EOF
-}
-
-
-usage_help() {
-	cat << EOF
-Usage:
-    $(basename $0) help <operation>
-    
-Operations:
-    build           build package
-    install         install packages
-    upgrade         upgrade packages
-    sysup           full system upgrades
-    remove          remove packages
-    deplist         list all dependencies
-    extra           various extra options
+    lock    <ports>          locking ports prevent upgrade
+    unlock  <ports>          unlock locked ports
+    trigger [ports]          run system trigger
+    sync                     update ports database
+    outdate                  print outdated ports
+    cache                    print and clear old pkg and src caches
+    integrity                check installed port integrity
+    help                     print this help msg
     
 Global options:
-    --repo=<path>   add custom local repo path
-    --root=<path>   use custom root path
-    --nocolor       disable colour output
+    --repo=<repo path>       add custom repo path
+    --nocolor                disable colour for output
     
 EOF
-}
-
-scratch_help() {
-	if [ -z "$1" ]; then
-		usage_help
-		return 0
-	else
-		if [ "$(type -t usage_$1)" ]; then
-			usage_$1
-		else
-			usage_help
-		fi
-	fi
-	return 0
 }
 
 print_runhelp_msg() {
@@ -1298,18 +1137,28 @@ print_runhelp_msg() {
 	exit 2
 }
 
+BUILD_SCRIPT="spkgbuild"
+INDEX_DIR="/var/lib/scratchpkg/index"
+REPO_FILE="/etc/scratchpkg.repo"
+
+# default value from pkgbuild
+SOURCE_DIR="/var/cache/scratchpkg/sources"
+PACKAGE_DIR="/var/cache/scratchpkg/packages"
+COMPRESSION_MODE="xz"
+
 mode=$1
-shift
 
 if [ -z "$mode" ]; then
 	print_runhelp_msg
 fi
 
+shift
+
 for opt in $@; do
 	case $opt in
 		--nocolor) nocolor;;
 		 --repo=*) PORT_REPO="$PORT_REPO ${opt#*=}";;
-		 --root=*) ROOT_DIR="${opt#*=}";;
+		      --*) MAINOPTS="$MAINOPTS $opt";;
 		       -*) char=${#opt}; count=1
 		           while [ "$count" != "$char" ]; do
 				      count=$((count+1))
@@ -1319,15 +1168,6 @@ for opt in $@; do
 	esac
 	shift
 done
-
-BUILD_SCRIPT="spkgbuild"
-INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
-REPO_FILE="/etc/scratchpkg.repo"
-
-# default value from pkgbuild
-SOURCE_DIR="/var/cache/scratchpkg/sources"
-PACKAGE_DIR="/var/cache/scratchpkg/packages"
-COMPRESSION_MODE="xz"
 
 if [ -f "$REPO_FILE" ]; then
 	for repodir in $(grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1}'); do
