@@ -168,16 +168,15 @@ scratch_integrity() {
 				cat $INDEX_DIR/$pkg/.files | while read -r line; do
 					if [ ! -e "$line" ]; then
 						if [ -L "$line" ]; then
-							printf "${YELLOW}broken symlink${CRESET} $pkg: /$line"
+							echo "broken symlink $pkg: /$line"
 						else
-							printf "${RED}file missing${CRESET} $pkg: /$line"
+							echo "missing file $pkg: /$line"
 						fi
 					fi
 				done
 			done
 		cd - >/dev/null
-	fi	
-	[ "$(id -u)" != "0" ] && msg "${YELLOW}(check integrity is recommended run as root or using sudo)${CRESET}"
+	fi
 }
 
 scratch_lock() {
@@ -865,8 +864,8 @@ scratch_outdate() {
 			iversion=$(installed_pkg_info version $pkg)
 			irelease=$(installed_pkg_info release $pkg)
 			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
-			outdatemsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${CYAN}$ITSLOCK${CRESET}"
-			newerinstmsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${YELLOW}[newer installed]${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+			outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
+			newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
 			if [ "$version" !=  "$iversion" ]; then
 				vercomp $version $iversion
 				if [ $? = 2 ]; then
