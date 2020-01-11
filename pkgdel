@@ -124,8 +124,8 @@ fi
 	ret 0
 }
 
-# check for root access
-[ "$(id -u)" = "0" ] || {
+# check for root access, non-root only allowed if use custom --root= location
+[ "$(id -u)" = "0" ] || [ "$ROOT_DIR" ] || {
 	echo "Removing package need root access!"
 	ret 1
 }

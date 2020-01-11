@@ -306,6 +306,9 @@ packaging() {
 	rm -f usr/lib/charset.alias # on musl system
 	find . \( -name perllocal.pod -o -name .packlist \) -delete
 	
+	# remove pseudo directories
+	rm -fr dev sys proc run tmp
+	
 	[ "$KEEP_EMPTYDIR" = 0 ] && removeemptydirs
 	[ "$KEEP_LIBTOOL" = 0 ]  && removelibtool
 	[ "$STRIP_BINARY" = 1 ]  && strip_files

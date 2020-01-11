@@ -691,11 +691,16 @@ scratch_sysup() {
 		shift
 	done
 	echo "Checking for outdated packages..."
-	PKGOUTDATE=$(outdatepkg)	
+	PKGOUTDATE=$(outdatepkg)
 	[ "$PKGOUTDATE" ] || {
 		echo "All packages are up to date."
 		return 0
-	}	
+	}
+	[ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x scratchpkg)" ] && {
+		echo
+		msgwarn "Please upgrade 'scratchpkg' first.'"
+		return 1
+	}
 	UPGPKG=0
 	NEWPKG=0	
 	if [ "$NODEP" != 1 ]; then

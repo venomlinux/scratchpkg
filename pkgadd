@@ -143,8 +143,8 @@ fi
 	ret 1
 }
 
-# check for root access
-[ "$(id -u)" = "0" ] || {
+# check for root access, non-root only allowed if use custom --root= location
+[ "$(id -u)" = "0" ] || [ "$ROOT_DIR" ] || {
 	msgerr "Installing package need root access!"
 	ret 1
 }
@@ -292,6 +292,9 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	grep -Fxv -f "$TMP_PKGINSTALL" $INDEX_DIR/$name/.files > $rmlist_all                                                 # get list files and dirs to remove
 	grep -v '/$' "$rmlist_all" | tac > "$rmlist_file"                                                                    # get files only to remove
 	grep -Fxv -f "$reserve_dir" "$rmlist_all" | grep '/$' | tac > "$rmlist_dir"                                          # get dirs only (safe) to remove
+	# remove pseudo fs from remove list
+	sed '/^dev\//d;/^sys\//d;/^proc\//d;/^run\//d;/^tmp\//d' -i $rmlist_file
+	sed '/^dev\//d;/^sys\//d;/^proc\//d;/^run\//d;/^tmp\//d' -i $rmlist_dir
 	(cd "$ROOT_DIR"/
 		[ -s $rmlist_file ] && xargs -a $rmlist_file -d'\n' rm $VERBOSE_INSTALL
 		[ -s $rmlist_dir ]  && xargs -a $rmlist_dir -d'\n' rmdir $VERBOSE_INSTALL
