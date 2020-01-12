@@ -629,7 +629,7 @@ main() {
 	}
 	
 	# create lock file
-	touch "$LOCK_FILE" || {
+	touch "$LOCK_FILE" 2>/dev/null || {
 		msgerr "Cant create lock file in '$LOCK_FILE'."
 		exit 1
 	}

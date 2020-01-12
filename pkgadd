@@ -155,7 +155,7 @@ fi
 	msgerr "remove '$LOCK_FILE' if no install/remove package process running."
 }
 
-touch "$LOCK_FILE" || {
+touch "$LOCK_FILE" 2>/dev/null || {
 	msgerr "Cant create lock file in '$LOCK_FILE'."
 	exit 1
 }
