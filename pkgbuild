@@ -305,7 +305,9 @@ packaging() {
 	rm -f usr/share/info/dir usr/info/dir
 	rm -f usr/lib/charset.alias # on musl system
 	find . \( -name perllocal.pod -o -name .packlist \) -delete
-	find usr/share/fonts \( -name fonts.dir -o -name fonts.scale \) -delete
+	[ -d usr/share/fonts ] && {
+		find usr/share/fonts \( -name fonts.dir -o -name fonts.scale \) -delete
+	}
 	
 	# remove pseudo directories
 	#rm -fr dev sys proc run tmp
