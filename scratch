@@ -897,6 +897,34 @@ scratch_outdate() {
 	[ ! "$OUTDATE" ] && msg "All packages are up to date."
 }
 
+scratch_search() {
+	needarg $@
+	arg=$*
+	for repo in $PORT_REPO; do
+		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}')
+		[ "$out" ] || continue
+		found=1
+		for line in $out; do
+			repo=$(echo $line | rev | awk -F / '{print $3}' | rev)
+			desc=$(grep "^# description[[:blank:]]*:" $line | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+			name=$(grep "^name=" $line | awk -F = '{print $2}')
+			version=$(grep "^version=" $line | awk -F = '{print $2}')
+			release=$(grep "^release=" $line | awk -F = '{print $2}')
+			if isinstalled $name; then
+				ins="[${GREEN}*${CRESET}]"
+			else
+				ins="[ ]"
+			fi
+			printf "$ins ${PURPLE}($repo)${CRESET} $name ${CYAN}$version-$release${CRESET}: $desc\n"
+			unset repo desc name version release
+		done
+		unset out
+	done
+	if [ ! "$found" ]; then
+		msg "No matching package found."
+	fi
+}
+
 scratch_cache() {
 	needroot "Clear old caches"
 	
@@ -1124,6 +1152,7 @@ Options:
     unlock  <ports>          unlock locked ports
     trigger [ports]          run system trigger
     sync                     update ports database
+    search  <pattern>        find ports in repo
     outdate                  print outdated ports
     cache                    print and clear old pkg and src caches
     integrity                check installed port integrity
