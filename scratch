@@ -478,15 +478,15 @@ scratch_build() {
 	}
 	for pkg in $PKGNAME; do
 		cd $(getportpath $pkg) || {
-			echo "Package '$P' not found."
+			echo "Package '$pkg' not found."
 			return 1
 		}
-		settermtitle "Building $P..."
+		settermtitle "Building $pkg..."
 		pkgbuild $OPTS || {
-			settermtitle "Building $P failed"
+			settermtitle "Building $pkg failed."
 			return 1
 		}
-		settermtitle "Building $P done"
+		settermtitle "Building $pkg done."
 		cd - >/dev/null
 	done
 }
@@ -528,9 +528,9 @@ scratch_install() {
 				cd - >/dev/null
 			fi
 		done
-		settermtitle "Triggering install hook"
+		settermtitle "Triggering install hook..."
 		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "Reinstalling done"
+		settermtitle "Reinstalling done."
 		return "$error"
 	fi
 	if [ "$NO_DEP" = 1 ]; then
@@ -552,9 +552,9 @@ scratch_install() {
 				cd - >/dev/null
 			fi
 		done
-		settermtitle "Triggering install hook"
+		settermtitle "Triggering install hook..."
 		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "Installing done"
+		settermtitle "Installing done."
 		return "$error"
 	fi
 	for i in $PKGNAME; do
@@ -603,9 +603,9 @@ scratch_install() {
 			fi
 			unset portpathh
 		done
-		settermtitle "Triggering install hook"
+		settermtitle "Triggering install hook..."
 		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "$count/$total package(s) installed"
+		settermtitle "$count/$total package(s) installed."
 		return "$error"
 	fi
 }
@@ -656,9 +656,9 @@ scratch_remove() {
 			break
 		}
 	done
-	settermtitle "Triggering remove hook"
+	settermtitle "Triggering remove hook..."
 	post_triggers
-	settermtitle "$pkgcount package(s) removed"
+	settermtitle "$pkgcount package(s) removed."
 }
 
 outdatepkg() {
@@ -757,9 +757,9 @@ scratch_sysup() {
 		cd - >/dev/null
 		done_pkg="$done_pkg $inst"
 	done
-	settermtitle "Triggering install hook"
+	settermtitle "Triggering install hook."
 	[ "$done_pkg" ] && scratch_trigger $done_pkg
-	settermtitle "$count/$total package(s) upgraded"
+	settermtitle "$count/$total package(s) upgraded."
 	return "$error"
 }
 
@@ -853,9 +853,9 @@ scratch_upgrade() {
 			done_pkg="$done_pkg $pkg"
 		cd - >/dev/null
 	done
-	settermtitle "triggering upgrade hook"
+	settermtitle "triggering upgrade hook..."
 	[ "$done_pkg" ] && scratch_trigger $done_pkg
-	settermtitle "$count/$total package(s) upgraded"
+	settermtitle "$count/$total package(s) upgraded."
 	return "$error"
 }
 
