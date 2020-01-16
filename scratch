@@ -907,16 +907,14 @@ scratch_search() {
 		for line in $out; do
 			repo=$(echo $line | rev | awk -F / '{print $3}' | rev)
 			desc=$(grep "^# description[[:blank:]]*:" $line | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-			name=$(grep "^name=" $line | awk -F = '{print $2}')
-			version=$(grep "^version=" $line | awk -F = '{print $2}')
-			release=$(grep "^release=" $line | awk -F = '{print $2}')
+			. $line
 			if isinstalled $name; then
 				ins="[${GREEN}*${CRESET}]"
 			else
 				ins="[ ]"
 			fi
 			printf "$ins ${PURPLE}($repo)${CRESET} $name ${CYAN}$version-$release${CRESET}: $desc\n"
-			unset repo desc name version release
+			unset repo desc name version release build
 		done
 		unset out
 	done
