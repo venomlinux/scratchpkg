@@ -477,10 +477,11 @@ scratch_build() {
 		return 1
 	}
 	for pkg in $PKGNAME; do
-		cd $(getportpath $pkg) || {
+		ppath=$(getportpath $pkg) || {
 			echo "Package '$pkg' not found."
 			return 1
 		}
+		cd $ppath
 		settermtitle "Building $pkg..."
 		pkgbuild $OPTS || {
 			settermtitle "Building $pkg failed."
