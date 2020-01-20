@@ -356,7 +356,7 @@ generate_pkgfiles() {
 	
 	msg "Generating .pkgfiles..."
 	tar -tvf "$PACKAGE_DIR/$PKGNAME" $excludefile \
-	| awk '{print $1,$2,$6}' \
+	| awk '{$3=$4=$5=""; print $0}' \
 	| sed "s,lib/modules/$(uname -r),lib/modules/<kernelversion>,g" \
 	| sort -k 3 > .pkgfiles
 }
