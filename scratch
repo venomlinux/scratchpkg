@@ -902,7 +902,7 @@ scratch_search() {
 	needarg $@
 	arg=$*
 	for repo in $PORT_REPO; do
-		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}')
+		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}' | sort)
 		[ "$out" ] || continue
 		found=1
 		for line in $out; do

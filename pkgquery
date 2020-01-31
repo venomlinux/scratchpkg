@@ -145,7 +145,7 @@ pkg_search() {
 	needarg $@
 	arg=$*
 	for repo in $REPO; do
-		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}')
+		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}' | sort)
 		[ "$out" ] || continue
 		for line in $out; do
 			repo=$(echo $line | rev | awk -F / '{print $3}' | rev)
