@@ -67,13 +67,27 @@ installed_pkg_info() {
 	fi
 }
 
+deps_alias() {
+	[ -f $ALIAS_FILE ] || {
+		echo $@
+		return
+	}
+	while [ "$1" ]; do
+		getalias=$(grep -w $1 $ALIAS_FILE | awk '{print $2}')
+		echo ${getalias:-$1}
+		shift
+	done
+	unset getalias
+}
+
 getdepends() {
 	ppath=$(getportpath $1) || return 0
-	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
+	deps=$(grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
 	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
 	| tr ' ' '\n' \
 	| awk '!a[$0]++' \
-	| sed 's/,//'
+	| sed 's/,//')
+	deps_alias $deps
 }
 
 getportpath() {
@@ -320,6 +334,7 @@ print_runhelp_msg() {
 BUILD_SCRIPT="spkgbuild"
 INDEX_DIR="/var/lib/scratchpkg/index"
 REPO_FILE="/etc/scratchpkg.repo"
+ALIAS_FILE="/etc/scratchpkg.alias"
 
 if [ -f "$REPO_FILE" ]; then
 	for repodir in $(grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1}'); do
