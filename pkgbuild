@@ -291,6 +291,24 @@ backupconf() {
 	done
 }
 
+removedocs() {
+	for i in doc gtk-doc info; do
+		rm -fr \
+			usr/share/$i \
+			usr/$i \
+			usr/local/$i \
+			usr/local/share/$i
+	done
+}
+
+removelocales() {
+	rm -fr \
+		usr/share/locale \
+		usr/locale \
+		usr/local/locale \
+		usr/local/share/locale
+}
+
 packaging() {
 	for FILE in $INCLUDEINPKG; do
 		if [ -f $FILE ]; then
@@ -316,6 +334,8 @@ packaging() {
 	[ "$KEEP_LIBTOOL" = 0 ]  && removelibtool
 	[ "$STRIP_BINARY" = 1 ]  && strip_files
 	[ "$ZIP_MAN" = 1 ]       && compressinfomanpages
+	[ "$KEEP_DOCS" = 0 ]     && removedocs
+	[ "$KEEP_LOCALES" = 0 ]  && removelocales
 	
 	if [ "${#backup[@]}" -gt 0 ]; then
 		backupconf
@@ -427,6 +447,10 @@ set_options() {
 			!makeflags)  MAKE_FLAGS=0   ;;
 			checksum)    CHECK_MDSUM=1  ;;
 			!checksum)   CHECK_MDSUM=0  ;;
+			docs)        KEEP_DOCS=1    ;;
+			!docs)       KEEP_DOCS=0    ;;
+			locales)     KEEP_LOCALES=1 ;;
+			!locales)    KEEP_LOCALES=0 ;;
 		esac
 	done
 }
@@ -669,7 +693,7 @@ WORK_DIR="/var/cache/scratchpkg/work"
 DOWNLOAD_PROG="wget"
 COMPRESSION_MODE="xz"
 
-OPTIONS="!libtool emptydirs strip zipman buildflags makeflags checksum"
+OPTIONS="!libtool emptydirs strip zipman buildflags makeflags checksum !docs !locales"
 
 INCLUDEINPKG="install readme mkdirs"
 

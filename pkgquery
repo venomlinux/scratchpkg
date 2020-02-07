@@ -73,7 +73,7 @@ deps_alias() {
 		return
 	}
 	while [ "$1" ]; do
-		getalias=$(grep -w $1 $ALIAS_FILE | awk '{print $2}')
+		getalias=$(grep -w ^$1 $ALIAS_FILE | awk '{print $2}')
 		echo ${getalias:-$1}
 		shift
 	done
