@@ -665,6 +665,7 @@ main() {
 			abort 0
 		fi
 	else
+		msg "Building '$name-$version-$release'..."
 		download_src
 		prepare_src
 		run_build

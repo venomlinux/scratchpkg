@@ -107,16 +107,19 @@ isinstalled() {
 	fi
 }
 
+run_scripts() {
+	if [ "$ROOT_DIR" ]; then
+		xchroot "$ROOT_DIR" sh $@
+	else
+		sh $@
+	fi
+}
+
 parse_opts $(extract_opts "$@")
 
+PKG_DB="/var/lib/scratchpkg/index"
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
-
-# disable pre/post remove script when remove from custom root location
-if [ "$ROOT_DIR" != "" ]; then
-	NO_PREREMOVE=yes
-	NO_POSTREMOVE=yes
-fi
 	
 # show help page
 [ "$SHOWHELP" ] || [ -z "$RMNAME" ] && {
@@ -124,8 +127,8 @@ fi
 	ret 0
 }
 
-# check for root access, non-root only allowed if use custom --root= location
-[ "$(id -u)" = "0" ] || [ "$ROOT_DIR" ] || {
+# check for root access
+[ "$(id -u)" = "0" ] || {
 	echo "Removing package need root access!"
 	ret 1
 }
@@ -172,7 +175,7 @@ echo "remove: $name-$version-$release..."
 # pre-remove script
 if [ ! "$NO_PREREMOVE" ] && [ -f "$INDEX_DIR/$name/.pkginstall" ]; then
 	(cd "$ROOT_DIR"/
-		sh "$INDEX_DIR/$name/.pkginstall" pre-remove "$version"
+		run_scripts "$PKG_DB/$name/.pkginstall" pre-remove "$version"
 	)
 fi
 
@@ -187,7 +190,7 @@ rm -f "$reserve" "$dirs" "$remove" "$files"
 # post-remove script	
 if [ ! "$NO_POSTREMOVE" ] && [ -f "$INDEX_DIR/$name/.pkginstall" ]; then
 	(cd "$ROOT_DIR"/
-		sh "$INDEX_DIR/$name/.pkginstall" post-remove "$version"
+		run_scripts "$PKG_DB/$name/.pkginstall" post-remove "$version"
 	)
 fi
 

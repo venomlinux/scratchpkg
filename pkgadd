@@ -119,18 +119,19 @@ isinstalled() {
 	fi
 }
 
+run_scripts() {
+	if [ "$ROOT_DIR" ]; then
+		xchroot "$ROOT_DIR" sh $@
+	else
+		sh $@
+	fi
+}
+
 parse_opts $(extract_opts "$@")
 
+PKG_DB="/var/lib/scratchpkg/index"
 INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
 LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
-
-# disable pre/post install/upgrade script when install to custom root location
-if [ "$ROOT_DIR" != "" ]; then
-	NO_PREINSTALL=yes
-	NO_POSTINSTALL=yes
-	NO_PREUPGRADE=yes
-	NO_POSTUPGRADE=yes
-fi
 
 # show help page
 [ "$SHOWHELP" ] || [ -z "$PKGNAME" ] && {
@@ -244,19 +245,20 @@ fi
 
 # pre-install and pre-upgrade script
 if grep -qx .pkginstall $TMP_PKGADD; then
-	TMP_PKGINSTALL_SCRIPT="/tmp/.tmp_pkgadd_installscript.$$"
-	tar -xf "$PKGNAME" .pkginstall -O > "$TMP_PKGINSTALL_SCRIPT"
+	SCRATCHPKG_DIR="/var/lib/scratchpkg/"
+	TMP_PKGINSTALL_SCRIPT="$SCRATCHPKG_DIR/pkgadd_installscript"
+	tar -xf "$PKGNAME" .pkginstall -O > "$ROOT_DIR/$TMP_PKGINSTALL_SCRIPT"
 	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		(cd "$ROOT_DIR"/
-			sh "$TMP_PKGINSTALL_SCRIPT" pre-install "$version"
+			run_scripts "$TMP_PKGINSTALL_SCRIPT" pre-install "$version"
 		)
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
 		(cd "$ROOT_DIR"/
-			sh "$TMP_PKGINSTALL_SCRIPT" pre-upgrade "$version" "$iversion"
+			run_scripts "$TMP_PKGINSTALL_SCRIPT" pre-upgrade "$version" "$iversion"
 		)
 	fi
-	rm -f "$TMP_PKGINSTALL_SCRIPT"
+	rm -f "$ROOT_DIR/$TMP_PKGINSTALL_SCRIPT"
 fi
 
 # exclude .pkg* files when extract into system
@@ -321,12 +323,12 @@ fi
 if [ -f "$INDEX_DIR/$name/.pkginstall" ]; then
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		(cd "$ROOT_DIR"/
-			sh "$INDEX_DIR/$name/.pkginstall" post-install "$version"
+			run_scripts "$PKG_DB/$name/.pkginstall" post-install "$version"
 		)
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
 		(cd "$ROOT_DIR"/
-			sh "$INDEX_DIR/$name/.pkginstall" post-upgrade "$version" "$iversion"
+			run_scripts "$PKG_DB/$name/.pkginstall" post-upgrade "$version" "$iversion"
 		)
 	fi
 fi

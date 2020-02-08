@@ -5,5 +5,5 @@
 #    <real package> <aliased package>
 #
 # example:
-#    <openssl> <libressl>
+#    openssl libressl
 #
