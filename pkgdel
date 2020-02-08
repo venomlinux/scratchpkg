@@ -74,7 +74,7 @@ extract_opts() {
 	echo $opts
 }
 
-parse_opts() {	
+parse_opts() {
 	if [ -z "$1" ]; then
 		SHOWHELP=yes
 	else
@@ -83,24 +83,24 @@ parse_opts() {
 			-h |              --help) SHOWHELP=yes ;;
 			-v |           --verbose) VERBOSE_REMOVE="-v" ;;
 			          --no-preremove) NO_PREREMOVE=yes ;;
-				     --no-postremove) NO_POSTREMOVE=yes ;;
-		                    --root=*) ROOT_DIR="${1#*=}" ;;
-		                          -*) msg "Invalid option: ($1)"; exit 1 ;;
-					               *) RMNAME=$1 ;;
+			         --no-postremove) NO_POSTREMOVE=yes ;;
+			                --root=*) ROOT_DIR="${1#*=}" ;;
+			                      -*) msg "Invalid option: ($1)"; exit 1 ;;
+			                       *) RMNAME=$1 ;;
 			esac
 			shift
 		done
-	fi	
+	fi
 }
 
 ret() {
 	# remove lock file on exit
-	rm -f "$LOCK_FILE" "$reserve" "$dirs" "$remove" "$files"
+	rm -f "$ROOT_DIR/$LOCK_FILE" "$reserve" "$dirs" "$remove" "$files"
 	exit $1
 }
 
 isinstalled() {
-	if [ -s "$INDEX_DIR/$1/.pkginfo" ] && grep -q "$1" "$INDEX_DIR/$1/.pkginfo"; then
+	if [ -s "$ROOT_DIR/$INDEX_DIR/$1/.pkginfo" ] && grep -q "$1" "$ROOT_DIR/$INDEX_DIR/$1/.pkginfo"; then
 		return 0
 	else
 		return 1
@@ -117,10 +117,9 @@ run_scripts() {
 
 parse_opts $(extract_opts "$@")
 
-PKG_DB="/var/lib/scratchpkg/index"
-INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
-LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
-	
+INDEX_DIR="var/lib/scratchpkg/index"
+LOCK_FILE="var/lib/scratchpkg/spkg.lock"
+
 # show help page
 [ "$SHOWHELP" ] || [ -z "$RMNAME" ] && {
 	help
@@ -134,14 +133,14 @@ LOCK_FILE="$ROOT_DIR/var/lib/scratchpkg/spkg.lock"
 }
 
 # check for lock file
-[ -f "$LOCK_FILE" ] && {
+[ -f "$ROOT_DIR/$LOCK_FILE" ] && {
 	msgerr "Cant install/remove package simultaneously."
-	msgerr "remove '$LOCK_FILE' if no install/remove package process running."
+	msgerr "remove '$ROOT_DIR/$LOCK_FILE' if no install/remove package process running."
 	exit 1
 }
 
-touch "$LOCK_FILE" 2>/dev/null || {
-	msgerr "Cant create lock file in '$LOCK_FILE'"
+touch "$ROOT_DIR/$LOCK_FILE" 2>/dev/null || {
+	msgerr "Cant create lock file in '$ROOT_DIR/$LOCK_FILE'"
 	exit 1
 }
 
@@ -150,11 +149,11 @@ if ! isinstalled "$RMNAME"; then
 	ret 1
 fi
 
-name=$(grep ^name $INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
-version=$(grep ^version $INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
-release=$(grep ^release $INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+name=$(grep ^name $ROOT_DIR/$INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+version=$(grep ^version $ROOT_DIR/$INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+release=$(grep ^release $ROOT_DIR/$INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
 
-if [ -z $name ] && [ -z $version ] && [ -z $release ]; then
+if [ -z "$name" ] && [ -z "$version" ] && [ -z "$release" ]; then
 	msgerr "Package '$RMNAME' not installed but exist in database."
 	ret 1
 fi
@@ -165,17 +164,21 @@ remove="/tmp/.pkgdel_remove.$$"
 dirs="/tmp/.pkgdel_dirs.$$"
 files="/tmp/.pkgdel_files.$$"
 
-grep '/$' $INDEX_DIR/*/.files | grep -v "$INDEX_DIR/$name" | awk -F : '{print $2}' | sort | uniq > "$reserve"
-grep '/$' "$INDEX_DIR/$name/.files" > "$remove"
+grep '/$' $ROOT_DIR/$INDEX_DIR/*/.files \
+	| grep -v "$ROOT_DIR/$INDEX_DIR/$name" \
+	| awk -F : '{print $2}' \
+	| sort \
+	| uniq > "$reserve"
+grep '/$' "$ROOT_DIR/$INDEX_DIR/$name/.files" > "$remove"
 grep -Fxv -f "$reserve" "$remove" | tac > "$dirs"
-grep -v '/$' "$INDEX_DIR/$name/.files" | tac >> "$files"
+grep -v '/$' "$ROOT_DIR/$INDEX_DIR/$name/.files" | tac >> "$files"
 
 echo "remove: $name-$version-$release..."
 
 # pre-remove script
-if [ ! "$NO_PREREMOVE" ] && [ -f "$INDEX_DIR/$name/.pkginstall" ]; then
+if [ ! "$NO_PREREMOVE" ] && [ -f "$ROOT_DIR/$INDEX_DIR/$name/.pkginstall" ]; then
 	(cd "$ROOT_DIR"/
-		run_scripts "$PKG_DB/$name/.pkginstall" pre-remove "$version"
+		run_scripts "$INDEX_DIR/$name/.pkginstall" pre-remove "$version"
 	)
 fi
 
@@ -187,15 +190,15 @@ fi
 
 rm -f "$reserve" "$dirs" "$remove" "$files"
 
-# post-remove script	
-if [ ! "$NO_POSTREMOVE" ] && [ -f "$INDEX_DIR/$name/.pkginstall" ]; then
+# post-remove script
+if [ ! "$NO_POSTREMOVE" ] && [ -f "$ROOT_DIR/$INDEX_DIR/$name/.pkginstall" ]; then
 	(cd "$ROOT_DIR"/
-		run_scripts "$PKG_DB/$name/.pkginstall" post-remove "$version"
+		run_scripts "$INDEX_DIR/$name/.pkginstall" post-remove "$version"
 	)
 fi
 
 # remove from database
-rm -rf "$INDEX_DIR/$name"
+rm -rf "$ROOT_DIR/$INDEX_DIR/$name"
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then

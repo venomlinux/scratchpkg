@@ -21,7 +21,7 @@
 EDITOR=${EDITOR:-vi}
 
 type -p $EDITOR >/dev/null || {
-	echo "Editor '$EDITOR' not exist..."
+	echo "Editor '$EDITOR' not exist. Append 'EDITOR=<your editor>' to ${0##*/}."
 	exit 2
 }
 
