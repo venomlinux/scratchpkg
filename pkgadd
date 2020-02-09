@@ -129,8 +129,8 @@ run_scripts() {
 
 parse_opts $(extract_opts "$@")
 
-INDEX_DIR="var/lib/scratchpkg/index"
 SCRATCHPKG_DIR="var/lib/scratchpkg"
+INDEX_DIR="$SCRATCHPKG_DIR/index"
 LOCK_FILE="$SCRATCHPKG_DIR/spkg.lock"
 
 # show help page
@@ -285,10 +285,10 @@ done
 
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-	rmlist_file="/tmp/.rmlist_file.$$"
-	rmlist_dir="/tmp/.rmlist_dir.$$"
-	reserve_dir="/tmp/.reserve_dir.$$"
-	rmlist_all="/tmp/.rmlist_all.$$"
+	rmlist_file="$SCRATCHPKG_DIR/.rmlist_file"
+	rmlist_dir="$SCRATCHPKG_DIR/.rmlist_dir"
+	reserve_dir="$SCRATCHPKG_DIR/.reserve_dir"
+	rmlist_all="$SCRATCHPKG_DIR/.rmlist_all"
 	grep '/$' $ROOT_DIR/$INDEX_DIR/*/.files \
 		| grep -v $ROOT_DIR/$INDEX_DIR/$name/.files \
 		| awk -F : '{print $2}' \

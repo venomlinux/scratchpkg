@@ -159,10 +159,10 @@ if [ -z "$name" ] && [ -z "$version" ] && [ -z "$release" ]; then
 fi
 
 # create list for reserve and remove (dirs and files)
-reserve="/tmp/.pkgdel_reserve.$$"
-remove="/tmp/.pkgdel_remove.$$"
-dirs="/tmp/.pkgdel_dirs.$$"
-files="/tmp/.pkgdel_files.$$"
+reserve="$SCRATCHPKG_DIR/.pkgdel_reserve"
+remove="$SCRATCHPKG_DIR/.pkgdel_remove"
+dirs="$SCRATCHPKG_DIR/.pkgdel_dirs"
+files="$SCRATCHPKG_DIR/.pkgdel_files"
 
 grep '/$' $ROOT_DIR/$INDEX_DIR/*/.files \
 	| grep -v "$ROOT_DIR/$INDEX_DIR/$name" \
