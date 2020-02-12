@@ -140,7 +140,7 @@ LOCK_FILE="$SCRATCHPKG_DIR/spkg.lock"
 }
 
 [ -d "$ROOT_DIR/$INDEX_DIR" ] || {
-	msgerr "Package's database directory not exist! ($ROOT_DIR$/INDEX_DIR)"
+	msgerr "Package's database directory not exist! ($ROOT_DIR/$INDEX_DIR)"
 	ret 1
 }
 
