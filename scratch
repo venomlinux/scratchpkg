@@ -1209,7 +1209,7 @@ for opt in $@; do
 		       -*) char=${#opt}; count=1
 		           while [ "$count" != "$char" ]; do
 				      count=$((count+1))
-		              MAINOPTS="$MAINOPTS -$(echo $opt | cut -c $count)"
+		              MAINOPTS="$MAINOPTS -$(printf '%s' $opt | cut -c $count)"
 				   done;;
 		        *) MAINOPTS="$MAINOPTS $opt";;
 	esac
