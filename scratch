@@ -133,7 +133,7 @@ confirm() {
 }
 
 checktool() {	
-	if ! type -p $1 >/dev/null; then
+	if ! command -v $1 >/dev/null; then
 		msgerr "'$1' not exist in your system!"
 		exit 1
 	fi	
@@ -286,37 +286,37 @@ post_triggers() {
 		done
 	fi
 	
-	if [ "$trig_11" = 1 ] && [ $(type -p fc-cache) ]; then
+	if [ "$trig_11" = 1 ] && [ $(command -v fc-cache) ]; then
 		echo "trigger: Updating fontconfig cache..."
 		fc-cache -s
 	fi
 	
-	if [ "$trig_10" = 1 ] && [ $(type -p gdk-pixbuf-query-loaders) ]; then
+	if [ "$trig_10" = 1 ] && [ $(command -v gdk-pixbuf-query-loaders) ]; then
 		echo "trigger: Probing GDK-Pixbuf loader modules..."
 		gdk-pixbuf-query-loaders --update-cache
 	fi
 	
-	if [ "$trig_9" = 1 ] && [ $(type -p gio-querymodules) ]; then
+	if [ "$trig_9" = 1 ] && [ $(command -v gio-querymodules) ]; then
 		echo "trigger: Updating GIO module cache..."
 		gio-querymodules /usr/lib/gio/modules
 	fi
 	
-	if [ "$trig_8" = 1 ] && [ $(type -p glib-compile-schemas) ]; then
+	if [ "$trig_8" = 1 ] && [ $(command -v glib-compile-schemas) ]; then
 		echo "trigger: Compiling GSettings XML schema files..."
 		glib-compile-schemas /usr/share/glib-2.0/schemas
 	fi
 	
-	if [ "$trig_7" = 1 ] && [ $(type -p gtk-query-immodules-2.0) ]; then
+	if [ "$trig_7" = 1 ] && [ $(command -v gtk-query-immodules-2.0) ]; then
 		echo "trigger: Probing GTK2 input method modules..."
 		gtk-query-immodules-2.0 --update-cache
 	fi
 	
-	if [ "$trig_6" = 1 ] && [ $(type -p gtk-query-immodules-3.0) ]; then
+	if [ "$trig_6" = 1 ] && [ $(command -v gtk-query-immodules-3.0) ]; then
 		echo "trigger: Probing GTK3 input method modules..."
 		gtk-query-immodules-3.0 --update-cache
 	fi
 	
-	if [ "$trig_5" = 1 ] && [ $(type -p gtk-update-icon-cache) ]; then
+	if [ "$trig_5" = 1 ] && [ $(command -v gtk-update-icon-cache) ]; then
 		echo "trigger: Updating icon theme caches..."
 		for dir in /usr/share/icons/* ; do
 			if [ -e $dir/index.theme ]; then
@@ -328,12 +328,12 @@ post_triggers() {
 		done
 	fi
 	
-	if [ "$trig_4" = 1 ] && [ $(type -p udevadm) ]; then
+	if [ "$trig_4" = 1 ] && [ $(command -v udevadm) ]; then
 		echo "trigger: Updating hardware database..."
 		udevadm hwdb --update
 	fi
 	
-	if [ "$trig_3" = 1 ] && [ $(type -p mkfontdir) ] && [ $(type -p mkfontscale) ]; then
+	if [ "$trig_3" = 1 ] && [ $(command -v mkfontdir) ] && [ $(command -v mkfontscale) ]; then
 		echo "trigger: Updating X fontdir indices..."
 		for dir in $(find /usr/share/fonts -maxdepth 1 -type d \( ! -path /usr/share/fonts -a ! -name X11 \)) /usr/share/fonts/X11/*; do
 			rm -f $dir/fonts.scale $dir/fonts.dir $dir/.uuid
@@ -344,12 +344,12 @@ post_triggers() {
 		done
 	fi
 	
-	if [ "$trig_2" = 1 ] && [ $(type -p update-desktop-database) ]; then
+	if [ "$trig_2" = 1 ] && [ $(command -v update-desktop-database) ]; then
 		echo "trigger: Updating desktop file MIME type cache..."
 		update-desktop-database --quiet
 	fi
 	
-	if [ "$trig_1" = 1 ] && [ $(type -p update-mime-database) ]; then
+	if [ "$trig_1" = 1 ] && [ $(command -v update-mime-database) ]; then
 		echo "trigger: Updating the MIME type database..."
 		update-mime-database /usr/share/mime
 	fi
@@ -1195,9 +1195,9 @@ COMPRESSION_MODE="xz"
 
 mode=$1
 
-if [ -z "$mode" ]; then
+[ "$mode" ] || {
 	print_runhelp_msg
-fi
+}
 
 shift
 
@@ -1222,7 +1222,7 @@ if [ -f "$REPO_FILE" ]; then
 	done
 fi
 
-if [ "$(type -t scratch_$mode)" = "function" ]; then
+if [ "$(command -v scratch_$mode)" ]; then
 	scratch_$mode $MAINOPTS
 else
 	print_runhelp_msg
