@@ -158,7 +158,7 @@ prepare_src() {
 			if [ "$FILENAME" != "$FILE" ] && [ "$nxt" != 1 ]; then
 				case $FILENAME in
 					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
-						if [ $(type -p bsdtar) ]; then
+						if [ $(command -v bsdtar) ]; then
 							COMMAND="bsdtar -p -o -C $SRC -xf $FILENAME"
 						else
 							COMMAND="tar -p -o -C $SRC -xf $FILENAME"
@@ -415,7 +415,7 @@ check_buildscript() {
 	elif [ -z "$release" ]; then
 		msgerr "'release' is empty!"
 		exit 1
-	elif [ "$(type -t build)" != "function" ]; then
+	elif [ ! "$(command -v build)" ]; then
 		msgerr "'build' function not exist!"
 		exit 1
 	elif echo "$version" | grep -q '-'; then

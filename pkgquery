@@ -350,7 +350,7 @@ fi
 
 shift
 
-if [ $(type -t pkg_$opts) ]; then
+if [ $(command -v pkg_$opts) ]; then
 	pkg_$opts "$@"
 else
 	print_runhelp_msg
