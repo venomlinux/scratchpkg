@@ -98,9 +98,14 @@ download_src() {
 			FILENAME=$(basename $FILE)
 			SRCURL=$FILE
 		fi
+		[ "$DOWNLOAD_PROG" = "auto" ] && {
+			command -v curl >/dev/null && DOWNLOAD_PROG=curl
+			command -v wget >/dev/null && DOWNLOAD_PROG=wget
+		}
 		case $DOWNLOAD_PROG in
 			curl) DLCMD="curl -C - -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $SOURCE_DIR/$FILENAME.partial $CURL_OPTS" ;;
 			wget) DLCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial $WGET_OPTS" ;;
+			*) msgerr "No download agent found"; abort 1;;
 		esac
 		if [ "$FILENAME" != "$FILE" ]; then
 			if [ ! -f "$SOURCE_DIR/$FILENAME" ] || [ "$REDOWNLOAD_SOURCE" ]; then
@@ -691,7 +696,7 @@ PKGBUILD_BSCRIPT="spkgbuild"
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
 WORK_DIR="/var/cache/scratchpkg/work"
-DOWNLOAD_PROG="wget"
+DOWNLOAD_PROG="auto"
 COMPRESSION_MODE="xz"
 
 OPTIONS="!libtool emptydirs strip zipman buildflags makeflags checksum !docs !locales"
