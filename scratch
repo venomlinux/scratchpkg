@@ -797,78 +797,79 @@ scratch_upgrade() {
 	}
 	for pkg in $PKGNAME; do
 		if ! isinstalled $pkg; then
-			msgerr "Package '$pkg' not installed."
+			echo "Package '$pkg' not installed."
 			continue
 		elif [ ! $(getportpath $pkg) ]; then
-			msgerr "Package '$pkg' not exist."
+			echo "Package '$pkg' not exist."
 			continue
 		else
 			. $(getportpath $pkg)/$BUILD_SCRIPT
 			if [ "$(installed_pkg_info version $pkg)-$(installed_pkg_info release $pkg)" = "$version-$release" ]; then
-				msg "Package '$pkg' is up to date."
+				echo "Package '$pkg' is up to date."
 				continue
 			fi
 		fi
 		upkg="$upkg $pkg"
 	done
 	[ "$upkg" ] || return 0
-	[ "$NO_DEP" ] || {
+	
+	UPGPKG=0
+	NEWPKG=0	
+	if [ "$NODEP" != 1 ]; then
 		echo "Resolving dependencies..."
 		DEP=$(scratch_deplist $upkg $EXOPT | awk '{print $2}')
-		for dep in $DEP; do
-			if ! isinstalled $dep; then
-				[ "$(getportpath $dep)" ] && newpkg="$newpkg $dep"
+		echo
+		for d in $DEP; do
+			if [ "$(echo $upkg | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
+				printf "[${GREEN}u${CRESET}] $d  "
+				WILLINSTALL="$WILLINSTALL $d"
+				UPGPKG=$(( UPGPKG + 1 ))
+			elif ! isinstalled $d && [ "$(getportpath "$d")" ]; then
+				printf "[${CYAN}n${CRESET}] $d  "
+				WILLINSTALL="$WILLINSTALL $d"
+				NEWPKG=$(( NEWPKG + 1 ))
 			fi
 		done
-	}
-	echo
-	tnew=0
-	tup=0
-	for i in $newpkg; do
-		tnew=$(( tnew + 1 ))
-		printf "[${CYAN}n${CRESET}] $i  "
-	done
-	for i in $upkg; do
-		tup=$(( tup + 1 ))
-		printf "[${GREEN}u${CRESET}] $i  "
-	done
+	else
+		echo
+		for dd in $upkg; do
+			printf "[${GREEN}u${CRESET}] $dd  "
+			WILLINSTALL="$WILLINSTALL $dd"
+			UPGPKG=$(( UPGPKG + 1 ))
+		done
+	fi
 	echo; echo
-	echo "( $tup upgrade, $tnew new install )"
+	echo "( $UPGPKG upgrade, $NEWPKG new install )"
 	echo
 	[ "$NOCONFIRM" ] || {
 		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled." || exit $?
 		echo
 	}
-	total=$(( tup + tnew ))
-	count=0
 	error=0
-	if [ "$newpkg" ]; then
-		for pkg in $newpkg; do	
-			count=$(( count + 1 ))		
-			cd $(getportpath $pkg)
-				settermtitle "[ $count/$total ] Installing $pkg..."
-				pkgbuild -i $OPTS || {
-					error=1
-					count=$(( count - 1 ))
-					break
-				}
-				done_pkg="$done_pkg $pkg"
-			cd - >/dev/null
-		done
-	fi
-	for pkg in $upkg; do # upgrade all target packages
+	count=0
+	total=$(echo $WILLINSTALL | wc -w)
+	for inst in $WILLINSTALL; do # install all required dependencies and target packages itself
 		count=$(( count + 1 ))
-		cd $(getportpath $pkg)
-			settermtitle "[ $count/$total ] Upgrading $pkg..."
+		cd $(getportpath $inst)
+		if ! isinstalled $inst; then
+			settermtitle "[ $count/$total ] Installing $inst..."
+			pkgbuild -i $OPTS || {
+				error=1
+				count=$(( count - 1 ))
+				break
+			}
+		else
+			settermtitle "[ $count/$total ] Upgrading $inst..."
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
-			done_pkg="$done_pkg $pkg"
+		fi
 		cd - >/dev/null
+		done_pkg="$done_pkg $inst"
 	done
-	settermtitle "triggering upgrade hook..."
+	settermtitle "Triggering install hook."
 	[ "$done_pkg" ] && scratch_trigger $done_pkg
 	settermtitle "$count/$total package(s) upgraded."
 	return "$error"
