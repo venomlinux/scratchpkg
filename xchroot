@@ -78,13 +78,13 @@ retval=$?
 	mv $TARGET/etc/resolv.conf.tmp $TARGET/etc/resolv.conf
 }
 
-umount $TARGET/dev/pts
-umount $TARGET/dev
-umount $TARGET/run
-umount $TARGET/proc
+umount -l $TARGET/dev/pts
+umount -l $TARGET/dev
+umount -l $TARGET/run
+umount -l $TARGET/proc
 if [ -n "$EFI_SYSTEM" ]; then
-	umount $TARGET/sys/firmware/efi/efivars
+	umount -l $TARGET/sys/firmware/efi/efivars
 fi
-umount $TARGET/sys
+umount -l $TARGET/sys
 
 exit $retval
