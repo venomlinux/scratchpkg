@@ -481,7 +481,6 @@ scratch_build() {
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u|-r|-g|-p) ;;
-			--log) LOGBUILD=1;;
 			-*) OPTS="$OPTS $1";;
 			 *) PKGNAME="$PKGNAME $1";;
 		esac
@@ -498,12 +497,7 @@ scratch_build() {
 		}
 		cd $ppath
 		settermtitle "Building $pkg..."
-		if [ "$LOGBUILD" = 1 ]; then
-			pkgbuild $OPTS | tee $LOG_DIR/$pkg.log
-		else
-			pkgbuild $OPTS
-		fi
-		[ "$?" = 0 ] || {
+		pkgbuild $OPTS || {
 			settermtitle "Building $pkg failed."
 			return 1
 		}
@@ -520,7 +514,6 @@ scratch_install() {
 			-r|--reinstall) REINSTALL=1;;
 			-y|--yes) NOCONFIRM=1;;
 			-n|--no-dep) NO_DEP=1;;
-			--log) LOGBUILD=1;;
 			--exclude=*) EXOPT=$1;;
 			-*) OPTS="$OPTS $1";;
 			*) PKGNAME="$PKGNAME $1";;
@@ -542,12 +535,7 @@ scratch_install() {
 			else
 				cd $(getportpath $ii)
 					settermtitle "Reinstalling $ii..."
-					if [ "$LOGBUILD" = 1 ]; then
-						pkgbuild $OPTS -r | tee $LOG_DIR/$ii.log
-					else
-						pkgbuild $OPTS -r
-					fi
-					[ "$?" = 0 ] || {
+					pkgbuild $OPTS -r || {
 						error=1
 						break
 					}
@@ -571,12 +559,7 @@ scratch_install() {
 			else
 				cd $(getportpath $ii)
 					settermtitle "Installing $ii..."
-					if [ "$LOGBUILD" = 1 ]; then
-						pkgbuild $OPTS -i | tee $LOG_DIR/$ii.log
-					else
-						pkgbuild $OPTS -i
-					fi
-					[ "$?" = 0 ] || {
+					pkgbuild -i $OPTS || {
 						error=1
 						break
 					}
@@ -623,12 +606,7 @@ scratch_install() {
 			if portpathh=$(getportpath $int); then
 				cd $portpathh
 					settermtitle "[ $count/$total ] installing $int..."
-					if [ "$LOGBUILD" = 1 ]; then
-						pkgbuild $OPTS -i | tee $LOG_DIR/$int.log
-					else
-						pkgbuild $OPTS -i
-					fi
-					[ "$?" = 0 ] || {
+					pkgbuild -i $OPTS || {
 						error=1
 						count=$(( count - 1 ))
 						break
@@ -722,7 +700,6 @@ scratch_sysup() {
 			-i|-u|-r) ;;
 			-y|--yes) NOCONFIRM=1;;
 			-n|--no-dep) NODEP=1;;
-			--log) LOGBUILD=1;;
 			--exclude=*) EXOPT=$1;;
 			-*) OPTS="$OPTS $1";;
 		esac
@@ -779,24 +756,14 @@ scratch_sysup() {
 		cd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
-			if [ "$LOGBUILD" = 1 ]; then
-				pkgbuild $OPTS -i | tee $LOG_DIR/$inst.log
-			else
-				pkgbuild $OPTS -i
-			fi
-			[ "$?" = 0 ]  || {
+			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
-			if [ "$LOGBUILD" = 1 ]; then
-				pkgbuild $OPTS -u | tee $LOG_DIR/$inst.log
-			else
-				pkgbuild $OPTS-u 
-			fi
-			[ "$?" = 0 ]  || {
+			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
@@ -818,7 +785,6 @@ scratch_upgrade() {
 			-i|-r) ;;
 			-y|--yes) NOCONFIRM=1;;
 			-d|--no-dep) NO_DEP=1;;
-			--log) LOGBUILD=1;;
 			--exclude=*) EXOPT=$1;;
 			-*) OPTS="$OPTS $1";;
 			*) PKGNAME="$PKGNAME $1";;
@@ -887,24 +853,14 @@ scratch_upgrade() {
 		cd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
-			if [ "$LOGBUILD" = 1 ]; then
-				pkgbuild $OPTS -i | tee $LOG_DIR/$inst.log
-			else
-				pkgbuild $OPTS -i
-			fi
-			[ "$?" = 0 ]  || {
+			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
-			if [ "$LOGBUILD" = 1 ]; then
-				pkgbuild $OPTS -u | tee $LOG_DIR/$inst.log
-			else
-				pkgbuild $OPTS -u
-			fi
-			[ "$?" = 0 ]  || {
+			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
@@ -1185,13 +1141,11 @@ Options:
                              -r|--reinstall   reinstall
                              -n|--no-dep      skip dependencies
                              -y|--yes         skip ask user permission
-                             --log            log build process
                              --exclude=*      exclude dependencies, comma separated
                              
     upgrade <ports> <arg>    upgrade ports (use pkgbuild arg, except '-i' & '-r')
                              -n|--no-dep      skip dependencies
                              -y|--yes         skip ask user permission
-                             --log            log build process
                              --exclude=*      exclude dependencies, comma separated
 				             
     remove  <ports> <arg>    remove installed ports (use pkgdel arg)
@@ -1200,7 +1154,6 @@ Options:
     sysup           <arg>    full system upgrade (use pkgbuild arg, except '-i', '-r'  & '-u')
                              -n|--no-dep      skip dependencies
                              -y|--yes         skip ask user permission
-                             --log            log build process
                              --exclude=*      exclude dependencies, comma separated
                              
     deplist <ports>          print all dependencies for ports
@@ -1208,7 +1161,6 @@ Options:
                              --exclude=*      exclude dependencies, comma separated
 				
     build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
-                             --log            log build process
 
     lock    <ports>          locking ports prevent upgrade
     unlock  <ports>          unlock locked ports
@@ -1240,7 +1192,6 @@ ALIAS_FILE="/etc/scratchpkg.alias"
 # default value from pkgbuild
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
-LOG_DIR="/var/cache/scratchpkg/log"
 COMPRESSION_MODE="xz"
 
 mode=$1
