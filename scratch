@@ -1131,6 +1131,189 @@ deplist() {
 	CHECK=$(echo $CHECK | sed "s/$1//")
 }
 
+scratch_cat() {	
+	needarg $@
+	if PPATH=$(getportpath "$1"); then
+		cat "$PPATH/$BUILD_SCRIPT"
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
+}
+
+scratch_dependent() {
+	needarg $@
+	if [ "$(getportpath $1)" ]; then
+		grep -R "# depends[[:blank:]]*:" $PORT_REPO \
+		| sed "s,:# depends[[:blank:]]*:[[:blank:]]*,#|,;s, ,|,g;s,$,|,g" \
+		| grep "|$1|" \
+		| awk -F "#" '{print $1}' \
+		| rev \
+		| awk -F / '{print $2}' \
+		| rev
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
+}
+
+scratch_depends() {
+	needarg $@	
+	if getportpath "$1" >/dev/null; then
+		depends=$(get_depends $1)
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
+	
+	for dep in $depends; do
+		if isinstalled $dep; then
+			msginst "$dep"
+		elif getportpath $dep >/dev/null; then
+			msgnoinst "$dep"
+		else
+			msgmiss "$dep"
+		fi
+	done
+}
+
+scratch_dup() {	
+	dup=$(find $PORT_REPO -type d -print | grep -Exv "($(echo $PORT_REPO | tr ' ' '|'))" | \
+		rev | cut -d '/' -f1 | rev | sort | uniq -d)
+	
+	if [ "$dup" ]; then
+		for dp in $dup; do
+			for repo in $PORT_REPO; do
+				[ -d $repo/$dp ] && echo "$repo/$dp"
+			done
+		done
+	else
+		msg "No duplicate ports found."
+	fi	
+}
+
+scratch_foreign() {
+	for pkg in $(allinstalled); do
+		if ! getportpath $pkg >/dev/null; then
+			iname=$(installed_pkg_info name $pkg)
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			echo "$iname $iversion-$irelease"
+		fi
+		unset iname iversion irelease
+	done	
+}
+
+scratch_info() {
+	needarg $@
+	ppath=$(getportpath $1) || return 1
+	
+	. $ppath/$BUILD_SCRIPT
+	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
+	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
+	deps=$(get_depends $1 | tr '\n' ' ')
+	
+	echo "Name:         $1"
+	echo "Path:         $ppath"
+	echo "Version:      $version"
+	echo "Release:      $release"
+	echo "Description:  $desc"
+	echo "Homepage:     $url"
+	echo "Maintainer:   $maint"
+	echo "Dependencies: $deps"
+}
+
+scratch_installed() {
+	for all in $(allinstalled); do		
+		printf "%s" "$all "
+		grep -e ^version -e ^release $INDEX_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
+		echo
+	done
+}
+
+scratch_missingdep() {
+	for pkg in $(allinstalled); do
+		if getportpath "$pkg" >/dev/null; then
+			depends=$(get_depends $pkg)
+		fi
+		if [ "$depends" ]; then
+			for d in $depends; do
+				if ! isinstalled $d; then
+					if [ -z "$msd" ]; then
+						msd="$d"
+					else
+						msd="$msd $d"
+					fi
+				fi
+			done
+		fi
+		[ "$msd" ] && echo "$pkg: $msd"
+		unset depends msd
+	done
+}
+
+scratch_locked() {
+	for pkg in $(allinstalled); do
+		[ -f "$INDEX_DIR/$pkg/.lock" ] && echo "$pkg"
+	done
+}
+
+scratch_orphan() {
+	tmpallpkg="/tmp/.pkgquery_allpkg.$$"
+	tmpalldep="/tmp/.pkgquery_alldep.$$"
+	for pkg in $(allinstalled); do
+		echo $pkg >> $tmpallpkg
+		dep="$dep $(get_depends $pkg)"
+	done
+	echo $dep | tr ' ' '\n' | sort | uniq > "$tmpalldep"
+	grep -xvF -f "$tmpalldep" "$tmpallpkg"
+	rm "$tmpalldep" "$tmpallpkg"
+}
+
+scratch_path() {
+	needarg $@
+	if PPATH=$(getportpath "$1"); then
+		echo "$PPATH"
+	else
+		msgerr "Port '$1' not exist."
+		return 1
+	fi
+}
+
+scratch_provide() {
+	needarg $@
+	arg=$(echo $1 | sed "s/^\///")
+	grep -R "$arg" $INDEX_DIR/*/.files \
+	| sed "s:$INDEX_DIR/::" \
+	| sed "s:/.files::" \
+	| tr : " " \
+	| column -t
+}
+
+scratch_readme() {
+	needarg $@	
+	if PPATH=$(getportpath "$1"); then
+		if [ -f "$PPATH/readme" ]; then
+			cat "$PPATH/readme"
+		else
+			msgerr "Port '$1' does not have readme."
+		fi
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+}
+
+scratch_files() {	
+	needarg $@
+	if isinstalled $1; then
+		cat "$INDEX_DIR/$1/.files"
+	else
+		msg "Package '$1' not installed."
+	fi	
+}
+
 scratch_help() {
 	cat << EOF
 Usage:
@@ -1162,14 +1345,28 @@ Options:
 				
     build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
 
-    lock    <ports>          locking ports prevent upgrade
-    unlock  <ports>          unlock locked ports
-    trigger [ports]          run system trigger
+    lock      <ports>        locking ports prevent upgrade
+    unlock    <ports>        unlock locked ports
+    trigger   [ports]        run system trigger
+    search    <pattern>      find ports in repo
+    cat       <port>         print spkgbuild
+    depends   <port>         print dependencies
+    dependent <port>         print dependent
+    path      <port>         print path in repo
+    provide   <files>        print port's provided files
+    readme    <port>         print readme file, if exist
+    files     <port>         print files installed
+    info      <port>         print information
     sync                     update ports database
-    search  <pattern>        find ports in repo
     outdate                  print outdated ports
     cache                    print and clear old pkg and src caches
     integrity                check installed port integrity
+    dup                      print duplicate ports in repo
+    installed                print all installed ports
+    locked                   print loacked ports
+    missingdep               print missing dependencies
+    orphan                   print orphan installed ports
+    foreign                  print foreign ports
     help                     print this help msg
     
 Global options:
