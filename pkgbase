@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# script to remove all packages other than base and any user input
+#
+
+parseopt() {
+	while [ "$1" ]; do
+		case $1 in
+			-n) dryrun=1;;
+			-y) yes=$1;;
+			-h) printhelp; exit 0;;
+			*)  pkg="$pkg $1"
+		esac
+		shift
+	done
+}
+
+printhelp() {
+	cat << EOF
+Usage:
+  $(basename $0) [options] [packages]
+  
+Options:
+  -n  dry-run
+  -y  dont ask user confirmation
+  -h  print this help msg
+  
+EOF
+}
+
+parseopt "$@"
+
+echo "Calculate packages to keep..."
+keep=$(scratch deplist base $pkg | awk '{print $2}')
+
+echo "Calculate selected packages to remove..."
+for pkg in $(scratch installed | awk '{print $1}'); do
+	echo $keep | tr ' ' '\n' | grep -qx $pkg || {
+		remove="$remove $pkg"
+	}
+done
+
+[ "$remove" ] && {
+	[ "$dryrun" = 1 ] && {
+		for i in $remove; do
+			echo "remove: $i..."
+		done
+		echo "This is dry-run, no real action is run!"
+	} || {
+		scratch remove $yes $remove
+	}
+}
+
+exit $?

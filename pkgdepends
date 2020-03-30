@@ -1,0 +1,55 @@
+#!/bin/sh
+
+#
+# script to check dependencies
+#
+
+get_libpath() {
+	ldd $1 2>/dev/null | grep $2 | awk '{print $3}'
+}
+
+scratch files $1 | while read -r line; do
+	case $line in
+		usr/share/gir-1.0/*.gir) extra_dep="$extra_dep gobject-introspection";;
+		usr/share/vala/vapi/*.vapi) extra_dep="$extra_dep vala";;
+	esac
+	case $line in
+		*/) continue;;
+	esac
+	case "$(file -bi /$line)" in
+		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
+			for NEEDED in $(objdump -x /$line | grep NEEDED | awk '{print $2}'); do
+				case $NEEDED in
+					libc.so|libc.so.6) continue;;
+				esac
+				[ "$NEEDED" ] || continue
+				[ -f /"$line" ] || continue
+				libs=$(get_libpath /$line $NEEDED)
+				[ "$libs" ] || continue
+				if ! echo $all_libs | grep -qw $libs; then
+					pkg=$(scratch provide $libs$ | awk '{print $1}' | head -n1)
+					case $pkg in
+						$1|gcc|glibc|musl) continue;;
+					esac
+					[ "$pkg" ] || continue
+					if ! echo $all_pkgs | grep -qw $pkg; then
+						echo $pkg
+						all_pkgs="$all_pkgs $pkg"
+						unset pkg
+					fi
+					all_libs="$all_libs $libs"
+					unset libs
+				fi
+			done ;;
+	esac
+	[ "$extra_dep" ] && {
+		for e in $extra_dep; do
+			if ! echo $all_pkgs | grep -qw $e; then
+				echo $e
+				all_pkgs="$all_pkgs $e"
+			fi
+		done
+	}
+done
+
+exit 0
