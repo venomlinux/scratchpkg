@@ -28,6 +28,8 @@ Options:
 EOF
 }
 
+error=0
+
 parseopt "$@"
 
 echo "Calculate packages to keep..."
@@ -47,8 +49,10 @@ done
 		done
 		echo "This is dry-run, no real action is run!"
 	} || {
-		scratch remove $yes $remove
+		scratch remove $yes $remove || error=1
 	}
+} || {
+	echo "Already on base, nothing to remove."
 }
 
-exit $?
+exit $error
