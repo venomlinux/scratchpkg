@@ -311,7 +311,8 @@ removelocales() {
 		usr/share/locale \
 		usr/locale \
 		usr/local/locale \
-		usr/local/share/locale
+		usr/local/share/locale \
+		usr/lib/locale
 }
 
 packaging() {
