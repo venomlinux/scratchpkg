@@ -206,6 +206,13 @@ scratch_lock() {
 	done	
 }
 
+scratch_locate() {
+	needarg $@
+	for repo in $PORT_REPO; do
+		grep -R $@ $repo/*/.pkgfiles | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}' | column -t
+	done
+}
+
 scratch_unlock() {
 	needroot "Unlocking package"	
 	for pkg in "$@"; do
@@ -1357,6 +1364,7 @@ Options:
     readme    <port>         print readme file, if exist
     files     <port>         print files installed
     info      <port>         print information
+    locate    <files>        print location of files in ports repo
     sync                     update ports database
     outdate                  print outdated ports
     cache                    print and clear old pkg and src caches
