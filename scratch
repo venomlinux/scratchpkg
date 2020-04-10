@@ -100,16 +100,20 @@ allinstalled() {
 }
 
 deps_alias() {
-	[ -f $ALIAS_FILE ] || {
+	[ -f "$ALIAS_FILE" ] || {
 		echo $@
 		return
 	}
 	while [ "$1" ]; do
-		getalias=$(grep -w ^$1 $ALIAS_FILE | awk '{print $2}')
-		echo ${getalias:-$1}
+		if [ "$(grep -w ^$1 $ALIAS_FILE)" ]; then
+			getalias=$(grep -w ^$1 $ALIAS_FILE | awk '{print $2}')
+			[ "$getalias" ] && echo "$getalias"
+		else
+			echo "$1"
+		fi
 		shift
+		unset getalias
 	done
-	unset getalias
 }
 
 get_depends() {
