@@ -1336,24 +1336,24 @@ Options:
                              -n|--no-dep      skip dependencies
                              -y|--yes         skip ask user permission
                              --exclude=*      exclude dependencies, comma separated
-                             
+
     upgrade <ports> <arg>    upgrade ports (use pkgbuild arg, except '-i' & '-r')
                              -n|--no-dep      skip dependencies
                              -y|--yes         skip ask user permission
                              --exclude=*      exclude dependencies, comma separated
-				             
+
     remove  <ports> <arg>    remove installed ports (use pkgdel arg)
                              -y|--yes         skip ask user permission
-                             
+
     sysup           <arg>    full system upgrade (use pkgbuild arg, except '-i', '-r'  & '-u')
                              -n|--no-dep      skip dependencies
                              -y|--yes         skip ask user permission
                              --exclude=*      exclude dependencies, comma separated
-                             
+
     deplist <ports>          print all dependencies for ports
                              -q|--quick       skip installed ports
                              --exclude=*      exclude dependencies, comma separated
-				
+
     build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
 
     lock      <ports>        locking ports prevent upgrade
@@ -1380,11 +1380,13 @@ Options:
     orphan                   print orphan installed ports
     foreign                  print foreign ports
     help                     print this help msg
-    
+
 Global options:
-    --repo=<repo path>       add custom repo path
-    --nocolor                disable colour for output
-    
+    --append-repo=<repo path>       append custom repo path
+    --prepend-repo=<repo path>      prepend custom repo path
+    --repo-file=<repo file>         use custom repo file (default: $REPO_FILE)
+    --nocolor                       disable colour for output
+
 EOF
 }
 
@@ -1392,16 +1394,6 @@ print_runhelp_msg() {
 	echo "Run '$(basename $0) help' to see available options."
 	exit 2
 }
-
-BUILD_SCRIPT="spkgbuild"
-INDEX_DIR="/var/lib/scratchpkg/index"
-REPO_FILE="/etc/scratchpkg.repo"
-ALIAS_FILE="/etc/scratchpkg.alias"
-
-# default value from pkgbuild
-SOURCE_DIR="/var/cache/scratchpkg/sources"
-PACKAGE_DIR="/var/cache/scratchpkg/packages"
-COMPRESSION_MODE="xz"
 
 mode=$1
 
@@ -1413,18 +1405,30 @@ shift
 
 for opt in $@; do
 	case $opt in
-		--nocolor) nocolor;;
-		 --repo=*) PORT_REPO="$PORT_REPO ${opt#*=}";;
-		      --*) MAINOPTS="$MAINOPTS $opt";;
-		       -*) char=${#opt}; count=1
-		           while [ "$count" != "$char" ]; do
-				      count=$((count+1))
-		              MAINOPTS="$MAINOPTS -$(printf '%s' $opt | cut -c $count)"
-				   done;;
-		        *) MAINOPTS="$MAINOPTS $opt";;
+	     --nocolor) nocolor;;
+	      --repo=*) PORT_REPO="$PORT_REPO ${opt#*=}";;
+	 --repo-file=*) REPO_FILE="${opt#*=}";;
+	--alias-file=*) ALIAS_FILE="${opt#*=}";;
+	           --*) MAINOPTS="$MAINOPTS $opt";;
+	            -*) char=${#opt}; count=1
+	                while [ "$count" != "$char" ]; do
+	                   count=$((count+1))
+	                   MAINOPTS="$MAINOPTS -$(printf '%s' $opt | cut -c $count)"
+	                done;;
+	             *) MAINOPTS="$MAINOPTS $opt";;
 	esac
 	shift
 done
+
+BUILD_SCRIPT="spkgbuild"
+INDEX_DIR="/var/lib/scratchpkg/index"
+REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
+ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
+
+# default value from pkgbuild
+SOURCE_DIR="/var/cache/scratchpkg/sources"
+PACKAGE_DIR="/var/cache/scratchpkg/packages"
+COMPRESSION_MODE="xz"
 
 if [ -f "$REPO_FILE" ]; then
 	for repodir in $(grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1}'); do
