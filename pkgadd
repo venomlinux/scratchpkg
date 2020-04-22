@@ -36,11 +36,11 @@ msg2() {
 }
 
 msgerr() {
-	echo "==> ERROR: $1"
+	echo "==> ERROR: $1" >&2
 }
 
 msgwarn() {
-	echo "==> WARNING: $1"
+	echo "==> WARNING: $1" >&2
 }
 
 help() {
@@ -140,7 +140,7 @@ LOCK_FILE="$SCRATCHPKG_DIR/spkg.lock"
 }
 
 [ -d "$ROOT_DIR/$INDEX_DIR" ] || {
-	msgerr "Package's database directory not exist! ($ROOT_DIR/$INDEX_DIR)"
+	msgerr "Package's database directory not exist: $ROOT_DIR/$INDEX_DIR"
 	ret 1
 }
 

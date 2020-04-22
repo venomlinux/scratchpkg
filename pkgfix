@@ -128,7 +128,8 @@ if [ "$REBUILD" = 1 ]; then
 		confirm "Continue rebuild & reinstall broken packages?" "Operation cancelled."
 	}
 	for p in $order; do
-		scratch build -f $p && scratch install -r $p || exit 1
+		scratch build -f $p || exit 1
+		scratch install -r $p || exit 1
 	done
 else
 	echo "Broken packages:"

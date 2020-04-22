@@ -24,8 +24,6 @@ if [ -d "$1" ]; then
 else
 	mkdir "$1"
 	echo "# description	: 
-# homepage	: 
-# maintainer	: 
 # depends	: 
 
 name=$1

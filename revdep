@@ -114,7 +114,8 @@ rebuild() {
 			confirm "Continue rebuild & reinstall broken packages?" "Operation cancelled."
 		fi
 		for p in $order; do
-			scratch build -f $p && scratch install -r $p || { cleanup; exit 1; }
+			scratch build -f $p   || { cleanup; exit 1; }
+			scratch install -r $p || { cleanup; exit 1; }
 		done
 	fi
 }

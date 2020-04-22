@@ -36,11 +36,11 @@ msg2() {
 }
 
 msgerr() {
-	echo "==> ERROR: $1"
+	echo "==> ERROR: $1" >&2
 }
 
 msgwarn() {
-	echo "==> WARNING: $1"
+	echo "==> WARNING: $1" >&2
 }
 
 help() {	

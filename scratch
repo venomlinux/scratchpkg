@@ -35,27 +35,27 @@ nocolor() {
 }
 
 msg() {
-	printf "${GREEN}==>${CRESET} $1\n"
-}
-
-msgerr() {
-	printf "${RED}==> ERROR:${CRESET} $1\n"
+	printf '%s\n' "${GREEN}==>${CRESET} $1\n"
 }
 
 msginst() {
-	printf "[${GREEN}i${CRESET}] $1\n"
+	printf '%s\n' "[${GREEN}i${CRESET}] $1\n"
 }
 
 msgmiss() {
-	printf "[${YELLOW}m${CRESET}] $1\n"
+	printf '%s\n' "[${YELLOW}m${CRESET}] $1\n"
 }
 
 msgnoinst() {
-	printf "[-] $1\n"
+	printf '%s\n' "[-] $1\n"
+}
+
+msgerr() {
+	printf '%s\n' "${RED}==> ERROR:${CRESET} $1\n" >&2
 }
 
 msgwarn() {
-	printf "${YELLOW}==> WARNING:${CRESET} $1\n"
+	printf '%s\n' "${YELLOW}==> WARNING:${CRESET} $1\n" >&2
 }
 
 needroot() {	
@@ -213,7 +213,7 @@ scratch_lock() {
 scratch_locate() {
 	needarg $@
 	for repo in $PORT_REPO; do
-		grep -R $@ $repo/*/.pkgfiles | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}' | column -t
+		grep -R $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}' | column -t
 	done
 }
 
@@ -928,6 +928,7 @@ scratch_search() {
 	needarg $@
 	arg=$*
 	for repo in $PORT_REPO; do
+		[ -d $repo ] || continue
 		out=$(grep -R "# description" $repo | grep $BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}' | sort)
 		[ "$out" ] || continue
 		found=1
