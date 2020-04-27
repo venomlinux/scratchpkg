@@ -91,12 +91,12 @@ vercomp() {
 
 installed_pkg_info() {	
 	if isinstalled $2; then
-		grep ^$1 $PKGDB_DIR/$2/.pkginfo | cut -d " " -f3-
+		grep ^$1 $PKGDB_DIR/$2/.pkginfo 2>/dev/null | cut -d " " -f3-
 	fi
 }
 
 allinstalled() {	
-	grep ^name "$PKGDB_DIR"/*/.pkginfo | awk '{print $3}'
+	grep ^name "$PKGDB_DIR"/*/.pkginfo 2>/dev/null | awk '{print $3}'
 }
 
 deps_alias() {
@@ -492,6 +492,7 @@ scratch_build() {
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u|-r|-g|-p) ;;
+			--log) LOG=1;;
 			-*) OPTS="$OPTS $1";;
 			 *) PKGNAME="$PKGNAME $1";;
 		esac
@@ -508,10 +509,17 @@ scratch_build() {
 		}
 		cd $ppath
 		settermtitle "Building $pkg..."
-		pkgbuild $OPTS || {
-			settermtitle "Building $pkg failed."
-			return 1
-		}
+		if [ "$LOG" ]; then
+			pkgbuild $OPTS | tee /var/log/pkgbuild.log || {
+				settermtitle "Building $pkg failed."
+				return 1
+			}
+		else
+			pkgbuild $OPTS || {
+				settermtitle "Building $pkg failed."
+				return 1
+			}
+		fi
 		settermtitle "Building $pkg done."
 		cd - >/dev/null
 	done
@@ -1356,6 +1364,7 @@ Options:
                              --exclude=*      exclude dependencies, comma separated
 
     build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
+                             --log            log build process (/var/log/pkgbuild.log)
 
     lock      <ports>        locking ports prevent upgrade
     unlock    <ports>        unlock locked ports
