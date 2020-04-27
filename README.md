@@ -129,7 +129,7 @@ Available options:
       
 ### pkgadd
 `pkgadd` is a tool to install and upgrade package created by `pkgbuild`. Install package is simply extract
-`<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `INDEX_DIR`.
+`<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `PKGDB_DIR`.
 Upgrading package is also using same extract as install, it will replace old files then compare list file from old and new
 package and remove old file which not exist in new package (like Slackware pkgtool does).
 
@@ -154,7 +154,7 @@ package and remove old file which not exist in new package (like Slackware pkgto
                                                          old configuration files and skip conflict check
                                                              
 ### pkgdel
-`pkgdel` is a tool to remove package from system. It will read file listed in package `INDEX_DIR` and remove it.
+`pkgdel` is a tool to remove package from system. It will read file listed in package `PKGDB_DIR` and remove it.
 
     Usage:
       pkgdel [ <options> <package name> ]

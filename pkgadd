@@ -59,6 +59,7 @@ Options:
       --no-preupgrade        skip preupgrade script before upgrade package
       --no-postupgrade       skip postupgrade script after upgrade package
       --no-backup            skip backup when upgrading package
+      --print-dbdir          print package database path
       --root=<path>          install to custom root directory
       
 EOF
@@ -96,6 +97,7 @@ parse_opts() {
 			         --no-preupgrade) NO_PREUPGRADE=yes ;;
 			        --no-postupgrade) NO_POSTUPGRADE=yes ;;
 			             --no-backup) NO_BACKUP=yes ;;
+			           --print-dbdir) PRINTDBDIR=yes ;;
 			                --root=*) ROOT_DIR="${1#*=}" ;;
 			            *.spkg.tar.*) PKGNAME="$(realpath $1)" ;;
 			                       *) msg "Invalid option! ($1)"; exit 1 ;;
@@ -112,7 +114,7 @@ ret() {
 }
 
 isinstalled() {
-	if [ -s "$ROOT_DIR/$INDEX_DIR/$1/.pkginfo" ] && grep -q "$1" "$ROOT_DIR/$INDEX_DIR/$1/.pkginfo"; then
+	if [ -s "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo" ] && grep -q "$1" "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo"; then
 		return 0
 	else
 		return 1
@@ -130,8 +132,15 @@ run_scripts() {
 parse_opts $(extract_opts "$@")
 
 SCRATCHPKG_DIR="var/lib/scratchpkg"
-INDEX_DIR="$SCRATCHPKG_DIR/index"
+PKGDB_DIR="$SCRATCHPKG_DIR/index"
 LOCK_FILE="$SCRATCHPKG_DIR/spkg.lock"
+
+ROOT_DIR="${ROOT_DIR%/}" # remove trailing slash
+
+[ "$PRINTDBDIR" ] && {
+	echo "$ROOT_DIR/$PKGDB_DIR"
+	ret 0
+}
 
 # show help page
 [ "$SHOWHELP" ] || [ -z "$PKGNAME" ] && {
@@ -139,8 +148,8 @@ LOCK_FILE="$SCRATCHPKG_DIR/spkg.lock"
 	ret 0
 }
 
-[ -d "$ROOT_DIR/$INDEX_DIR" ] || {
-	msgerr "Package's database directory not exist: $ROOT_DIR/$INDEX_DIR"
+[ -d "$ROOT_DIR/$PKGDB_DIR" ] || {
+	msgerr "Package's database directory not exist: $ROOT_DIR/$PKGDB_DIR"
 	ret 1
 }
 
@@ -178,8 +187,8 @@ name=${noextname%-*}
 
 # get package information if installed
 if isinstalled $name; then
-	iversion=$(grep ^version $ROOT_DIR/$INDEX_DIR/$name/.pkginfo | cut -d " " -f3-)
-	irelease=$(grep ^release $ROOT_DIR/$INDEX_DIR/$name/.pkginfo | cut -d " " -f3-)
+	iversion=$(grep ^version $ROOT_DIR/$PKGDB_DIR/$name/.pkginfo | cut -d " " -f3-)
+	irelease=$(grep ^release $ROOT_DIR/$PKGDB_DIR/$name/.pkginfo | cut -d " " -f3-)
 	ALREADYINSTALLED=yes
 fi
 
@@ -227,7 +236,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 		fi
 		if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-				if ! grep -Fqx "$line" "$ROOT_DIR/$INDEX_DIR/$name/.files"; then
+				if ! grep -Fqx "$line" "$ROOT_DIR/$PKGDB_DIR/$name/.files"; then
 					echo "$line"
 					touch "$TMP_CONFLICT"
 				fi
@@ -290,12 +299,12 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	rmlist_dir="$ROOT_DIR/$SCRATCHPKG_DIR/.rmlist_dir"
 	reserve_dir="$ROOT_DIR/$SCRATCHPKG_DIR/.reserve_dir"
 	rmlist_all="$ROOT_DIR/$SCRATCHPKG_DIR/.rmlist_all"
-	grep '/$' $ROOT_DIR/$INDEX_DIR/*/.files \
-		| grep -v $ROOT_DIR/$INDEX_DIR/$name/.files \
+	grep '/$' $ROOT_DIR/$PKGDB_DIR/*/.files \
+		| grep -v $ROOT_DIR/$PKGDB_DIR/$name/.files \
 		| awk -F : '{print $2}' \
 		| sort \
 		| uniq > $reserve_dir                                                        # get list reserved dirs
-	grep -Fxv -f "$TMP_PKGINSTALL" $ROOT_DIR/$INDEX_DIR/$name/.files > $rmlist_all   # get list files and dirs to remove
+	grep -Fxv -f "$TMP_PKGINSTALL" $ROOT_DIR/$PKGDB_DIR/$name/.files > $rmlist_all   # get list files and dirs to remove
 	grep -v '/$' "$rmlist_all" | tac > "$rmlist_file"                                # get files only to remove
 	grep -Fxv -f "$reserve_dir" "$rmlist_all" | grep '/$' | tac > "$rmlist_dir"      # get dirs only (safe) to remove
 	(cd "$ROOT_DIR"/
@@ -306,30 +315,30 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 fi
 
 # register package into database
-rm -fr "$ROOT_DIR/$INDEX_DIR/$name"
-mkdir "$ROOT_DIR/$INDEX_DIR/$name"
-echo "name = $name" > "$ROOT_DIR/$INDEX_DIR/$name/.pkginfo"
-echo "version = $version" >> "$ROOT_DIR/$INDEX_DIR/$name/.pkginfo"
-echo "release = $release" >> "$ROOT_DIR/$INDEX_DIR/$name/.pkginfo"
-install -m644 "$TMP_PKGINSTALL" "$ROOT_DIR/$INDEX_DIR/$name/.files"
+rm -fr "$ROOT_DIR/$PKGDB_DIR/$name"
+mkdir "$ROOT_DIR/$PKGDB_DIR/$name"
+echo "name = $name" > "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
+echo "version = $version" >> "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
+echo "release = $release" >> "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
+install -m644 "$TMP_PKGINSTALL" "$ROOT_DIR/$PKGDB_DIR/$name/.files"
 
 for ii in $(grep ^.pkg* $TMP_PKGADD); do
 	pkgfiles="$pkgfiles $ii"
 done
 
 if [ "$pkgfiles" ]; then
-	tar -x -f "$PKGNAME" -C "$ROOT_DIR/$INDEX_DIR/$name" $pkgfiles >/dev/null 2>&1
+	tar -x -f "$PKGNAME" -C "$ROOT_DIR/$PKGDB_DIR/$name" $pkgfiles >/dev/null 2>&1
 fi
 
-if [ -f "$ROOT_DIR/$INDEX_DIR/$name/.pkginstall" ]; then
+if [ -f "$ROOT_DIR/$PKGDB_DIR/$name/.pkginstall" ]; then
 	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
 		(cd "$ROOT_DIR"/
-			run_scripts "$INDEX_DIR/$name/.pkginstall" post-install "$version"
+			run_scripts "$PKGDB_DIR/$name/.pkginstall" post-install "$version"
 		)
 	fi
 	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
 		(cd "$ROOT_DIR"/
-			run_scripts "$INDEX_DIR/$name/.pkginstall" post-upgrade "$version" "$iversion"
+			run_scripts "$PKGDB_DIR/$name/.pkginstall" post-upgrade "$version" "$iversion"
 		)
 	fi
 fi

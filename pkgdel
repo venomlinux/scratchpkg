@@ -100,7 +100,7 @@ ret() {
 }
 
 isinstalled() {
-	if [ -s "$ROOT_DIR/$INDEX_DIR/$1/.pkginfo" ] && grep -q "$1" "$ROOT_DIR/$INDEX_DIR/$1/.pkginfo"; then
+	if [ -s "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo" ] && grep -q "$1" "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo"; then
 		return 0
 	else
 		return 1
@@ -115,9 +115,15 @@ run_scripts() {
 	fi
 }
 
+command -v pkgadd >/dev/null 2>&1 || {
+	msgerr "'pkgadd' not found in \$PATH!"
+	exit 1
+}
+
 parse_opts $(extract_opts "$@")
 
-INDEX_DIR="var/lib/scratchpkg/index"
+PKGDB_DIR="$(pkgadd --print-dbdir)"
+PKGDB_DIR="${PKGDB_DIR##/}"              # remove leading /
 LOCK_FILE="var/lib/scratchpkg/spkg.lock"
 
 # show help page
@@ -149,9 +155,9 @@ if ! isinstalled "$RMNAME"; then
 	ret 1
 fi
 
-name=$(grep ^name $ROOT_DIR/$INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
-version=$(grep ^version $ROOT_DIR/$INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
-release=$(grep ^release $ROOT_DIR/$INDEX_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+name=$(grep ^name $ROOT_DIR/$PKGDB_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+version=$(grep ^version $ROOT_DIR/$PKGDB_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+release=$(grep ^release $ROOT_DIR/$PKGDB_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
 
 if [ -z "$name" ] && [ -z "$version" ] && [ -z "$release" ]; then
 	msgerr "Package '$RMNAME' not installed but exist in database."
@@ -164,21 +170,21 @@ remove="$ROOT_DIR/$SCRATCHPKG_DIR/.pkgdel_remove"
 dirs="$ROOT_DIR/$SCRATCHPKG_DIR/.pkgdel_dirs"
 files="$ROOT_DIR/$SCRATCHPKG_DIR/.pkgdel_files"
 
-grep '/$' $ROOT_DIR/$INDEX_DIR/*/.files \
-	| grep -v "$ROOT_DIR/$INDEX_DIR/$name" \
+grep '/$' $ROOT_DIR/$PKGDB_DIR/*/.files \
+	| grep -v "$ROOT_DIR/$PKGDB_DIR/$name" \
 	| awk -F : '{print $2}' \
 	| sort \
 	| uniq > "$reserve"
-grep '/$' "$ROOT_DIR/$INDEX_DIR/$name/.files" > "$remove"
+grep '/$' "$ROOT_DIR/$PKGDB_DIR/$name/.files" > "$remove"
 grep -Fxv -f "$reserve" "$remove" | tac > "$dirs"
-grep -v '/$' "$ROOT_DIR/$INDEX_DIR/$name/.files" | tac >> "$files"
+grep -v '/$' "$ROOT_DIR/$PKGDB_DIR/$name/.files" | tac >> "$files"
 
 echo "remove: $name-$version-$release..."
 
 # pre-remove script
-if [ ! "$NO_PREREMOVE" ] && [ -f "$ROOT_DIR/$INDEX_DIR/$name/.pkginstall" ]; then
+if [ ! "$NO_PREREMOVE" ] && [ -f "$ROOT_DIR/$PKGDB_DIR/$name/.pkginstall" ]; then
 	(cd "$ROOT_DIR"/
-		run_scripts "$INDEX_DIR/$name/.pkginstall" pre-remove "$version"
+		run_scripts "$PKGDB_DIR/$name/.pkginstall" pre-remove "$version"
 	)
 fi
 
@@ -191,14 +197,14 @@ fi
 rm -f "$reserve" "$dirs" "$remove" "$files"
 
 # post-remove script
-if [ ! "$NO_POSTREMOVE" ] && [ -f "$ROOT_DIR/$INDEX_DIR/$name/.pkginstall" ]; then
+if [ ! "$NO_POSTREMOVE" ] && [ -f "$ROOT_DIR/$PKGDB_DIR/$name/.pkginstall" ]; then
 	(cd "$ROOT_DIR"/
-		run_scripts "$INDEX_DIR/$name/.pkginstall" post-remove "$version"
+		run_scripts "$PKGDB_DIR/$name/.pkginstall" post-remove "$version"
 	)
 fi
 
 # remove from database
-rm -rf "$ROOT_DIR/$INDEX_DIR/$name"
+rm -rf "$ROOT_DIR/$PKGDB_DIR/$name"
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then

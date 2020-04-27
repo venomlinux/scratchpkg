@@ -91,12 +91,12 @@ vercomp() {
 
 installed_pkg_info() {	
 	if isinstalled $2; then
-		grep ^$1 $INDEX_DIR/$2/.pkginfo | cut -d " " -f3-
+		grep ^$1 $PKGDB_DIR/$2/.pkginfo | cut -d " " -f3-
 	fi
 }
 
 allinstalled() {	
-	grep ^name "$INDEX_DIR"/*/.pkginfo | awk '{print $3}'
+	grep ^name "$PKGDB_DIR"/*/.pkginfo | awk '{print $3}'
 }
 
 deps_alias() {
@@ -151,7 +151,7 @@ needarg() {
 }
 
 isinstalled() {
-	if [ -s "$INDEX_DIR/$1/.pkginfo" ] && [ "$(grep $1 $INDEX_DIR/$1/.pkginfo)" ]; then
+	if [ -s "$PKGDB_DIR/$1/.pkginfo" ] && [ "$(grep $1 $PKGDB_DIR/$1/.pkginfo)" ]; then
 		return 0
 	else
 		return 1
@@ -165,8 +165,8 @@ settermtitle() {
 scratch_integrity() {
 	if [ "$1" ]; then
 		cd /
-			if [ -f $INDEX_DIR/$1/.files ]; then
-				cat $INDEX_DIR/$1/.files | while read -r line; do
+			if [ -f $PKGDB_DIR/$1/.files ]; then
+				cat $PKGDB_DIR/$1/.files | while read -r line; do
 					if [ ! -e "$line" ]; then
 						if [ -L "$line" ]; then
 							printf "${YELLOW}broken symlink${CRESET} $1: /$line"
@@ -183,7 +183,7 @@ scratch_integrity() {
 	else
 		cd /
 			for pkg in $(allinstalled); do
-				cat $INDEX_DIR/$pkg/.files | while read -r line; do
+				cat $PKGDB_DIR/$pkg/.files | while read -r line; do
 					if [ ! -e "$line" ]; then
 						if [ -L "$line" ]; then
 							echo "broken symlink $pkg: /$line"
@@ -202,10 +202,10 @@ scratch_lock() {
 	for pkg in "$@"; do
 		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' is not installed."
-		elif [ -f $INDEX_DIR/$pkg/.lock ]; then
+		elif [ -f $PKGDB_DIR/$pkg/.lock ]; then
 			msgerr "Package '$pkg' already locked."
 		else
-			touch $INDEX_DIR/$pkg/.lock && msg "Successfully locked package '$pkg'."
+			touch $PKGDB_DIR/$pkg/.lock && msg "Successfully locked package '$pkg'."
 		fi
 	done	
 }
@@ -222,10 +222,10 @@ scratch_unlock() {
 	for pkg in "$@"; do
 		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' is not installed."
-		elif [ ! -f $INDEX_DIR/$pkg/.lock ]; then
+		elif [ ! -f $PKGDB_DIR/$pkg/.lock ]; then
 			msgerr "Package '$pkg' is not locked."
 		else
-			rm -f $INDEX_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
+			rm -f $PKGDB_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
 		fi
 	done	
 }
@@ -279,7 +279,7 @@ scratch_trigger() {
 post_triggers() {
 	if [ "$trig_12" = 1 ]; then
 		echo "trigger: Running mkdirs..."
-		for mkd in $INDEX_DIR/*/.pkgmkdirs; do
+		for mkd in $PKGDB_DIR/*/.pkgmkdirs; do
 			[ -s $mkd ] || continue
 			grep -Ev '^(#|$)' $mkd | while read -r dir mode uid gid junk; do
 				if [ -e "$dir" ]; then
@@ -370,7 +370,7 @@ pre_triggers() {
 	# mime db
 	if [ "$trig_1" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/mime/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/mime/$ $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_1=1
 				break
 			fi
@@ -380,7 +380,7 @@ pre_triggers() {
 	# desktop db
 	if [ "$trig_2" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/applications/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/applications/$ $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_2=1
 				break
 			fi
@@ -390,7 +390,7 @@ pre_triggers() {
 	# mkfontdir
 	if [ "$trig_3" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_3=1
 				break
 			fi
@@ -400,7 +400,7 @@ pre_triggers() {
 	# hwdb
 	if [ "$trig_4" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^etc/udev/hwdb.d/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^etc/udev/hwdb.d/$ $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_4=1
 				break
 			fi
@@ -410,7 +410,7 @@ pre_triggers() {
 	# icon caches
 	if [ "$trig_5" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/icons/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/icons/$ $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_5=1
 				break
 			fi
@@ -420,7 +420,7 @@ pre_triggers() {
 	# gtk3 immodules
 	if [ "$trig_6" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-3.0/3.0.0/immodules/.*.so $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-3.0/3.0.0/immodules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_6=1
 				break
 			fi
@@ -430,7 +430,7 @@ pre_triggers() {
 	# gtk2 immodules
 	if [ "$trig_7" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-2.0/2.10.0/immodules/.*.so $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-2.0/2.10.0/immodules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_7=1
 				break
 			fi
@@ -440,7 +440,7 @@ pre_triggers() {
 	# gsettings schema
 	if [ "$trig_8" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/glib-2.0/schemas/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/glib-2.0/schemas/$ $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_8=1
 				break
 			fi
@@ -450,7 +450,7 @@ pre_triggers() {
 	# gio modules
 	if [ "$trig_9" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gio/modules/.*.so $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gio/modules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_9=1
 				break
 			fi
@@ -460,7 +460,7 @@ pre_triggers() {
 	# gdk-pixbuf
 	if [ "$trig_10" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/.*.so $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_10=1
 				break
 			fi
@@ -470,7 +470,7 @@ pre_triggers() {
 	# font caches
 	if [ "$trig_11" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $INDEX_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg/.files)" ]; then
 				trig_11=1
 				break
 			fi
@@ -480,7 +480,7 @@ pre_triggers() {
 	# makedirs
 	if [ "$trig_12" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$INDEX_DIR/$pkg/.pkgmkdirs" ]; then
+			if [ -s "$PKGDB_DIR/$pkg/.pkgmkdirs" ]; then
 				trig_12=1
 				break
 			fi
@@ -689,7 +689,7 @@ scratch_remove() {
 
 outdatepkg() {
 	for pkg in $(allinstalled); do
-		if [ ! -e "$INDEX_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
+		if [ ! -e "$PKGDB_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
 			if [ -z "$name" ] || [ -z "$version" ]; then
 				continue
@@ -895,7 +895,7 @@ scratch_outdate() {
 			fi
 			iversion=$(installed_pkg_info version $pkg)
 			irelease=$(installed_pkg_info release $pkg)
-			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
+			[ -f "$PKGDB_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
 			outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
 			newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
 			if [ "$version" !=  "$iversion" ]; then
@@ -1239,7 +1239,7 @@ scratch_info() {
 scratch_installed() {
 	for all in $(allinstalled); do		
 		printf "%s" "$all "
-		grep -e ^version -e ^release $INDEX_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
+		grep -e ^version -e ^release $PKGDB_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
 		echo
 	done
 }
@@ -1267,7 +1267,7 @@ scratch_missingdep() {
 
 scratch_locked() {
 	for pkg in $(allinstalled); do
-		[ -f "$INDEX_DIR/$pkg/.lock" ] && echo "$pkg"
+		[ -f "$PKGDB_DIR/$pkg/.lock" ] && echo "$pkg"
 	done
 }
 
@@ -1296,8 +1296,8 @@ scratch_path() {
 scratch_provide() {
 	needarg $@
 	arg=$(echo $1 | sed "s/^\///")
-	grep -R "$arg" $INDEX_DIR/*/.files \
-	| sed "s:$INDEX_DIR/::" \
+	grep -R "$arg" $PKGDB_DIR/*/.files \
+	| sed "s:$PKGDB_DIR/::" \
 	| sed "s:/.files::" \
 	| tr : " " \
 	| column -t
@@ -1320,7 +1320,7 @@ scratch_readme() {
 scratch_files() {	
 	needarg $@
 	if isinstalled $1; then
-		cat "$INDEX_DIR/$1/.files"
+		cat "$PKGDB_DIR/$1/.files"
 	else
 		msg "Package '$1' not installed."
 	fi	
@@ -1396,6 +1396,12 @@ print_runhelp_msg() {
 	exit 2
 }
 
+# check for 'pkgadd', required for package database path
+command -v pkgadd >/dev/null 2>&1 || {
+	echo "'pkgadd' not found in \$PATH!"
+	exit 1
+}
+
 mode=$1
 
 [ "$mode" ] || {
@@ -1422,7 +1428,7 @@ for opt in $@; do
 done
 
 BUILD_SCRIPT="spkgbuild"
-INDEX_DIR="/var/lib/scratchpkg/index"
+PKGDB_DIR="$(pkgadd --print-dbdir)"
 REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
 ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
 
