@@ -35,27 +35,27 @@ nocolor() {
 }
 
 msg() {
-	printf '%s\n' "${GREEN}==>${CRESET} $1\n"
+	printf "${GREEN}==>${CRESET} %s\n" "$1"
 }
 
 msginst() {
-	printf '%s\n' "[${GREEN}i${CRESET}] $1\n"
+	printf "[${GREEN}i${CRESET}] %s\n" "$1"
 }
 
 msgmiss() {
-	printf '%s\n' "[${YELLOW}m${CRESET}] $1\n"
+	printf "[${YELLOW}m${CRESET}] %s\n" "$1"
 }
 
 msgnoinst() {
-	printf '%s\n' "[-] $1\n"
+	printf "[-] %s\n" "$1"
 }
 
 msgerr() {
-	printf '%s\n' "${RED}==> ERROR:${CRESET} $1\n" >&2
+	printf "${RED}==> ERROR:${CRESET} %s\n" "$1" >&2
 }
 
 msgwarn() {
-	printf '%s\n' "${YELLOW}==> WARNING:${CRESET} $1\n" >&2
+	printf "${YELLOW}==> WARNING:${CRESET} %s\n" "$1" >&2
 }
 
 needroot() {	
