@@ -1230,7 +1230,6 @@ scratch_info() {
 	
 	. $ppath/$BUILD_SCRIPT
 	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
 	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
 	deps=$(get_depends $1 | tr '\n' ' ')
 	
@@ -1239,7 +1238,6 @@ scratch_info() {
 	echo "Version:      $version"
 	echo "Release:      $release"
 	echo "Description:  $desc"
-	echo "Homepage:     $url"
 	echo "Maintainer:   $maint"
 	echo "Dependencies: $deps"
 }
