@@ -1,0 +1,6 @@
+# exclude packages from sysup
+
+glibc
+gcc
+linux-api-headers
+binutils

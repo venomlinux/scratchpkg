@@ -697,18 +697,21 @@ scratch_remove() {
 
 outdatepkg() {
 	for pkg in $(allinstalled); do
-		if [ ! -e "$PKGDB_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
-			. $(getportpath $pkg)/$BUILD_SCRIPT
-			if [ -z "$name" ] || [ -z "$version" ]; then
-				continue
-			fi
-			iversion=$(installed_pkg_info version $pkg)
-			irelease=$(installed_pkg_info release $pkg)
-			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
-				echo $name
-			fi
-			unset iversion irelease version release
+		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
+			continue
 		fi
+		[ -e "$PKGDB_DIR/$pkg/.lock" ] && continue
+		getportpath $pkg >/dev/null || continue
+		. $(getportpath $pkg)/$BUILD_SCRIPT
+		if [ -z "$name" ] || [ -z "$version" ]; then
+			continue
+		fi
+		iversion=$(installed_pkg_info version $pkg)
+		irelease=$(installed_pkg_info release $pkg)
+		if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
+			echo $name
+		fi
+		unset iversion irelease version release
 	done
 }
 
@@ -903,7 +906,10 @@ scratch_outdate() {
 			fi
 			iversion=$(installed_pkg_info version $pkg)
 			irelease=$(installed_pkg_info release $pkg)
-			[ -f "$PKGDB_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
+			[ -f "$PKGDB_DIR/$pkg/.lock" ] && ITSLOCK="[masked]"
+			if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
+				ITSLOCK="[masked]"
+			fi
 			outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
 			newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
 			if [ "$version" !=  "$iversion" ]; then
@@ -1438,6 +1444,7 @@ BUILD_SCRIPT="spkgbuild"
 PKGDB_DIR="$(pkgadd --print-dbdir)"
 REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
 ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
+MASK_FILE="${MASK_FILE:-/etc/scratchpkg.mask}"
 
 # default value from pkgbuild
 SOURCE_DIR="/var/cache/scratchpkg/sources"
