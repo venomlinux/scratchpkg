@@ -697,7 +697,7 @@ scratch_remove() {
 
 outdatepkg() {
 	for pkg in $(allinstalled); do
-		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
+		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep -w $pkg) ]; then
 			continue
 		fi
 		[ -e "$PKGDB_DIR/$pkg/.lock" ] && continue
