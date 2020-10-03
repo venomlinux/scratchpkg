@@ -271,36 +271,53 @@ removelibtool() {
 }
 
 strip_files() {	
-	if [ "$nostrip" ]; then
-		for i in $nostrip; do
-			xstrip="$xstrip -e $i"
-		done
-		FILTER="grep -v $xstrip"
+
+	if [[ "$(type -t strip)" == "function" ]] ; then
+		msg "using strip function from $PKGBUILD_BSCRIPT"
+		strip || {
+			msgerr "failed to strip $name"
+			abort 1
+		}
 	else
-		FILTER="cat"
+		if [ "$nostrip" ]; then
+			for i in $nostrip; do
+				xstrip="$xstrip -e $i"
+			done
+			FILTER="grep -v $xstrip"
+		else
+			FILTER="cat"
+		fi
+				
+		find . -type f -printf "%P\n" 2>/dev/null | $FILTER | while read -r binary ; do
+			case "$(file -bi "$binary")" in
+				*application/x-sharedlib*)  # Libraries (.so)
+					${CROSS_COMPILE}strip --strip-unneeded "$binary" 2>/dev/null ;;
+				*application/x-pie-executable*)  # Libraries (.so)
+					${CROSS_COMPILE}strip --strip-unneeded "$binary" 2>/dev/null ;;
+				*application/x-archive*)    # Libraries (.a)
+					${CROSS_COMPILE}strip --strip-debug "$binary" 2>/dev/null ;;
+				*application/x-object*)
+					case "$binary" in
+						*.ko)                   # Kernel module
+							${CROSS_COMPILE}strip --strip-unneeded "$binary" 2>/dev/null ;;
+						*)
+							continue;;
+					esac;;
+				*application/x-executable*) # Binaries
+					${CROSS_COMPILE}strip --strip-all "$binary" 2>/dev/null ;;
+				*)
+					continue ;;
+			esac
+		done
+
+		if [[ "$(type -t post_strip)" == "function" ]] ; then
+			msg "using post_strip function from $PKGBUILD_BSCRIPT"
+			post_strip || {
+				msgerr "failed to post_strip $name"
+				abort 1
+			}
+		fi
 	fi
-			
-	find . -type f -printf "%P\n" 2>/dev/null | $FILTER | while read -r binary ; do
-		case "$(file -bi "$binary")" in
-			*application/x-sharedlib*)  # Libraries (.so)
-				${CROSS_COMPILE}strip --strip-unneeded "$binary" 2>/dev/null ;;
-			*application/x-pie-executable*)  # Libraries (.so)
-				${CROSS_COMPILE}strip --strip-unneeded "$binary" 2>/dev/null ;;
-			*application/x-archive*)    # Libraries (.a)
-				${CROSS_COMPILE}strip --strip-debug "$binary" 2>/dev/null ;;
-			*application/x-object*)
-				case "$binary" in
-					*.ko)                   # Kernel module
-						${CROSS_COMPILE}strip --strip-unneeded "$binary" 2>/dev/null ;;
-					*)
-						continue;;
-				esac;;
-			*application/x-executable*) # Binaries
-				${CROSS_COMPILE}strip --strip-all "$binary" 2>/dev/null ;;
-			*)
-				continue ;;
-		esac
-	done
 }
 
 compressinfomanpages() {
@@ -359,6 +376,14 @@ removelocales() {
 packaging() {
 	# lint $PKG before packaging
 	pkglint
+
+	if [[ "$(type -t package)" == "function" ]] ; then
+		msg "using package function from $PKGBUILD_BSCRIPT"
+		package || {
+			msgerr "failed to package $name"
+			abort 1
+		}
+	fi
 	
 	for FILE in $INCLUDEINPKG; do
 		if [ -f $FILE ]; then
