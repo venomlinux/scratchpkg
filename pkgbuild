@@ -445,6 +445,9 @@ check_buildscript() {
 	if [ -z "$name" ]; then
 		msgerr "'name' is empty!"
 		exit 1
+	elif [ "$(echo $name | grep -oP "\w*[A-Z]+\w*")" ]; then
+		msgerr "Capital letters for port name not allowed!"
+		exit 1
 	elif [ "$(basename $(pwd))" != "$name" ]; then
 		msgerr "Port name and Directory name is different!"
 		exit 1

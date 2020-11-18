@@ -735,7 +735,7 @@ scratch_sysup() {
 	}
 	[ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x scratchpkg)" ] && {
 		echo
-		msgwarn "Please upgrade 'scratchpkg' first.'"
+		msgerr "Please upgrade 'scratchpkg' first."
 		return 1
 	}
 	UPGPKG=0
