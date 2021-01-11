@@ -178,7 +178,7 @@ prepare_src() {
 			fi
 			if [ "$FILENAME" != "$FILE" ] && [ "$nxt" != 1 ]; then
 				case $FILENAME in
-					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
+					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tar.lz|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
 						if [ $(command -v bsdtar) ]; then
 							COMMAND="bsdtar -p -o -C $SRC -xf $FILENAME"
 						else
