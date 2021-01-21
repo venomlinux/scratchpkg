@@ -575,6 +575,7 @@ Usage:
   $(basename $0) [ <options> <arguments> ]
 
 Options:
+  -q  --quiet               show only status messages and errors
   -i, --install             install package into system
   -u, --upgrade             upgrade package
   -r, --reinstall           reinstall package
