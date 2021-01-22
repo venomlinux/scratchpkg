@@ -73,7 +73,9 @@ generatemdsum() {
 }
 
 checkmdsum() {
-	[ "$CHECK_MDSUM" = 0 ] || [ "$IGNORE_MDSUM" = yes ] && return 0
+	if [ "$IGNORE_MDSUM" = "yes" ] || [ "$IGNORE_MDSUM" = 1 ]; then
+		return 0
+	fi
 	TMPCHECKSUM=$WORK_DIR/checksumstmp.$$
 	ORICHECKSUM=$WORK_DIR/checksumsori.$$
 	DIFCHECKSUM=$WORK_DIR/checksumsdiff.$$
@@ -111,15 +113,7 @@ download_src() {
 			FILENAME=$(basename $FILE)
 			SRCURL=$FILE
 		fi
-		[ "$DOWNLOAD_PROG" = "auto" ] && {
-			command -v curl >/dev/null && DOWNLOAD_PROG=curl
-			command -v wget >/dev/null && DOWNLOAD_PROG=wget
-		}
-		case $DOWNLOAD_PROG in
-			curl) DLCMD="curl -C - -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $SOURCE_DIR/$FILENAME.partial $CURL_OPTS" ;;
-			wget) DLCMD="wget -c --passive-ftp --no-directories --tries=3 --waitretry=3 --output-document=$SOURCE_DIR/$FILENAME.partial $WGET_OPTS" ;;
-			*) msgerr "No download agent found"; abort 1;;
-		esac
+		DLCMD="curl -C - -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $SOURCE_DIR/$FILENAME.partial $CURL_OPTS"
 		if [ "$FILENAME" != "$FILE" ]; then
 			if [ ! -f "$SOURCE_DIR/$FILENAME" ] || [ "$REDOWNLOAD_SOURCE" ]; then
 				[ "$REDOWNLOAD_SOURCE" ] && rm -f "$SOURCE_DIR/$FILENAME.partial"
@@ -215,8 +209,8 @@ run_build() {
 	
 	msg "Start build '$name-$version-$release'."	
 	
-	[ "$MAKE_FLAGS" = 1 ]  && export MAKEFLAGS       || unset MAKEFLAGS
-	[ "$BUILD_FLAGS" = 1 ] && export CFLAGS CXXFLAGS || unset CFLAGS CXXFLAGS
+	export MAKEFLAGS
+	export CFLAGS CXXFLAGS
 	
 	cd $SRC >/dev/null
 	
@@ -252,14 +246,6 @@ pkglint() {
 	if [ "$linterror" = 1 ]; then
 		abort 1
 	fi
-}
-
-removeemptydirs() {	
-	find . -type d -empty -delete
-}
-
-removelibtool() {	
-	find . ! -type d -name "*.la" -delete
 }
 
 strip_files() {	
@@ -329,25 +315,6 @@ backupconf() {
 	done
 }
 
-removedocs() {
-	for i in doc gtk-doc info; do
-		rm -fr \
-			usr/share/$i \
-			usr/$i \
-			usr/local/$i \
-			usr/local/share/$i
-	done
-}
-
-removelocales() {
-	rm -fr \
-		usr/share/locale \
-		usr/locale \
-		usr/local/locale \
-		usr/local/share/locale \
-		usr/lib/locale
-}
-
 packaging() {
 	# lint $PKG before packaging
 	pkglint
@@ -369,12 +336,15 @@ packaging() {
 		find usr/share/fonts \( -name fonts.dir -o -name fonts.scale \) -delete
 	}
 	
-	[ "$KEEP_EMPTYDIR" = 0 ] && removeemptydirs
-	[ "$KEEP_LIBTOOL" = 0 ]  && removelibtool
-	[ "$STRIP_BINARY" = 1 ]  && strip_files
-	[ "$ZIP_MAN" = 1 ]       && compressinfomanpages
-	[ "$KEEP_DOCS" = 0 ]     && removedocs
-	[ "$KEEP_LOCALES" = 0 ]  && removelocales
+	if [ "$KEEP_LIBTOOL" = 0 ] || [ "$KEEP_LIBTOOL" = "no" ]; then
+		find . ! -type d -name "*.la" -delete
+	fi
+	
+	if [ "$NO_STRIP" = 0 ] || [ "$NO_STRIP" = "no" ]; then
+		strip_files
+	fi
+	
+	compressinfomanpages
 	
 	if [ "${#backup[@]}" -gt 0 ]; then
 		backupconf
@@ -646,7 +616,6 @@ main() {
 	fi
 	
 	check_buildscript
-	set_options
 
 	case $COMPRESSION_MODE in
 		gz|bz2|xz) PKGNAME="$name-$version-$release.spkg.tar.$COMPRESSION_MODE" ;;
@@ -732,10 +701,10 @@ PKGBUILD_BSCRIPT="spkgbuild"
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
 WORK_DIR="/var/cache/scratchpkg/work"
-DOWNLOAD_PROG="auto"
 COMPRESSION_MODE="xz"
-
-OPTIONS="!libtool emptydirs strip zipman buildflags makeflags checksum !docs !locales"
+KEEP_LIBTOOL="no"
+NO_STRIP="no"
+IGNORE_MDSUM="no"
 
 INCLUDEINPKG="install readme mkdirs"
 
