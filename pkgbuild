@@ -213,8 +213,11 @@ run_build() {
 	export CFLAGS CXXFLAGS
 	
 	cd $SRC >/dev/null
-	
-	(set -e -x; build 2>&1)
+	if [ "$QUIET" ]; then
+		(set -e -x; build) 2> /dev/null
+	else
+		(set -e -x; build 2>&1)
+	fi
 		
 	if [ $? != 0 ]; then
 		msgerr "Build '$name-$version-$release' failed."
@@ -504,6 +507,7 @@ abort() {
 parse_opts() {	
 	while [ "$1" ]; do
 		case $1 in
+		-q |	         --quiet) QUIET=yes ;;
 		-i |           --install) INSTALL_PKG=yes ;;
 		-u |           --upgrade) UPGRADE_PKG=yes; OPTS="$OPTS $1" ;;
 		-r |         --reinstall) REINSTALL_PKG=yes; OPTS="$OPTS $1" ;;
@@ -541,6 +545,7 @@ Usage:
   $(basename $0) [ <options> <arguments> ]
 
 Options:
+  -q  --quiet               show only status messages and errors
   -i, --install             install package into system
   -u, --upgrade             upgrade package
   -r, --reinstall           reinstall package
@@ -674,13 +679,23 @@ main() {
 			abort 0
 		fi
 	else
-		msg "Building '$name-$version-$release'..."
-		download_src
-		checkmdsum
-		prepare_src
-		run_build
-		packaging
-		clearworkdir
+		if [ "$QUIET" ]; then
+			msg "Building '$name-$version-$release'..."
+			download_src 2> /dev/null
+			checkmdsum > /dev/null
+			prepare_src > /dev/null
+			run_build > /dev/null
+			packaging > /dev/null
+			clearworkdir > /dev/null
+		else
+			msg "Building '$name-$version-$release'..."
+			download_src
+			checkmdsum
+			prepare_src
+			run_build 
+			packaging
+			clearworkdir
+		fi
 	fi
 	
 	# install package
