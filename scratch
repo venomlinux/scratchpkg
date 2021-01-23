@@ -346,7 +346,7 @@ post_triggers() {
 	
 	if [ "$trig_3" = 1 ] && [ $(command -v mkfontdir) ] && [ $(command -v mkfontscale) ]; then
 		echo "trigger: Updating X fontdir indices..."
-		for dir in $(find /usr/share/fonts -maxdepth 1 -type d \( ! -path /usr/share/fonts -a ! -name X11 \)) /usr/share/fonts/X11/*; do
+		for dir in $(find /usr/share/fonts -maxdepth 1 -type d \( ! -path /usr/share/fonts \)); do
 			rm -f $dir/fonts.scale $dir/fonts.dir $dir/.uuid
 			rmdir --ignore-fail-on-non-empty $dir
 			[ -d "$dir" ] || continue
