@@ -29,7 +29,6 @@ else
 name=$1
 version=
 release=1
-options=\"\"
 noextract=\"\"
 backup=\"\"
 source=\"\"
