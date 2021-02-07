@@ -386,10 +386,12 @@ generate_pkgfiles() {
 		excludefile="$excludefile --exclude=.pkg$i"
 	done
 	
+	echo "$name-$version-$release" > .pkgfiles
+	
 	tar -tvf "$PACKAGE_DIR/$PKGNAME" $excludefile \
 	| awk '{$3=$4=$5=""; print $0}' \
 	| sed "s,lib/modules/$(uname -r),lib/modules/<kernelversion>,g" \
-	| sort -k 3 > .pkgfiles
+	| sort -k 3 >> .pkgfiles
 	msg "Pkgfiles updated."
 }
 
