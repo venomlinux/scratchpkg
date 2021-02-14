@@ -278,7 +278,7 @@ done
 rm -f $TMP_PKGINSTALL
 
 # extract package into ROOT_DIR
-tar --keep-directory-symlink -p -x -v -f "$PKGNAME" -C "$ROOT_DIR"/ $excludefile | while read -r line; do
+tar -xvhpf "$PKGNAME" -C "$ROOT_DIR"/ $excludefile | while read -r line; do
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		line=${line%.*}
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
@@ -308,8 +308,16 @@ if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	grep -v '/$' "$rmlist_all" | tac > "$rmlist_file"                                # get files only to remove
 	grep -Fxv -f "$reserve_dir" "$rmlist_all" | grep '/$' | tac > "$rmlist_dir"      # get dirs only (safe) to remove
 	(cd "$ROOT_DIR"/
-		[ -s $rmlist_file ] && xargs -a $rmlist_file -d'\n' rm $VERBOSE_INSTALL
-		[ -s $rmlist_dir ]  && xargs -a $rmlist_dir -d'\n' rmdir $VERBOSE_INSTALL
+		[ -s $rmlist_file ] && {
+			cat $rmlist_file | while read -r line; do
+				rm $VERBOSE_INSTALL "$line"
+			done
+		}
+		[ -s $rmlist_dir ] && {
+			cat $rmlist_dir | while read -r line; do
+				rmdir $VERBOSE_INSTALL "$line"
+			done
+		}
 	)
 	rm -f "$rmlist_file" "$rmlist_dir" "$reserve_dir" "$rmlist_all"
 fi

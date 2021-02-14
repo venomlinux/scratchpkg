@@ -349,7 +349,7 @@ packaging() {
 	
 	compressinfomanpages
 	
-	if [ "${#backup[@]}" -gt 0 ]; then
+	if [ "$backup" ]; then
 		backupconf
 	fi
 	
@@ -417,59 +417,17 @@ cleanup() {
 
 check_buildscript() {	
 	# check the required field in buildscript
-	if [ -z "$name" ]; then
-		msgerr "'name' is empty!"
-		exit 1
-	elif [ "$(echo $name | grep -oP "\w*[A-Z]+\w*")" ]; then
-		msgerr "Capital letters for port name not allowed!"
-		exit 1
-	elif [ "$(basename $(pwd))" != "$name" ]; then
-		msgerr "Port name and Directory name is different!"
-		exit 1
-	elif [ -z "$version" ]; then
-		msgerr "'version' is empty!"
-		exit 1
-	elif [ -z "$release" ]; then
-		msgerr "'release' is empty!"
-		exit 1
-	elif [ ! "$(command -v build)" ]; then
-		msgerr "'build' function not exist!"
-		exit 1
-	elif echo "$version" | grep -q '-'; then
-		msgerr "'version' should not contain '-'."
-		exit 1
-	elif echo "$release" | grep -q '-'; then
-		msgerr "'release' should not contain '-'."
-		exit 1
-	elif [ -z "$description" ]; then
-		msgerr "'description' cant empty."
-		exit 1
-	fi
-}
-
-set_options() {	
-	for OPT in $OPTIONS $options; do
-		case $OPT in
-			libtool)     KEEP_LIBTOOL=1 ;;
-			!libtool)    KEEP_LIBTOOL=0 ;;
-			emptydirs)   KEEP_EMPTYDIR=1;;
-			!emptydirs)  KEEP_EMPTYDIR=0;;
-			strip)       STRIP_BINARY=1 ;;
-			!strip)      STRIP_BINARY=0 ;;
-			zipman)      ZIP_MAN=1      ;;
-			!zipman)     ZIP_MAN=0      ;;
-			buildflags)  BUILD_FLAGS=1  ;;
-			!buildflags) BUILD_FLAGS=0  ;;
-			makeflags)   MAKE_FLAGS=1   ;;
-			!makeflags)  MAKE_FLAGS=0   ;;
-			checksum)    CHECK_MDSUM=1  ;;
-			!checksum)   CHECK_MDSUM=0  ;;
-			docs)        KEEP_DOCS=1    ;;
-			!docs)       KEEP_DOCS=0    ;;
-			locales)     KEEP_LOCALES=1 ;;
-			!locales)    KEEP_LOCALES=0 ;;
-		esac
-	done
+	[ "$name" ] || { msgerr "'name' is empty!"; exit 1;	}
+	case $name in
+		*[A-Z]*) msgerr "Capital letters for port name not allowed!"; exit 1;;
+	esac
+	[ "$(basename $(pwd))" = "$name" ] || { msgerr "Port name and Directory name is different!"; exit 1; }
+	[ "$version" ] || { msgerr "'version' is empty!"; exit 1; }
+	[ "$release" ] || { msgerr "'release' is empty!"; exit 1; }
+	[ "$(command -v build)" ] || { msgerr "'build' function not exist!"; exit 1; }
+	[ "$(echo "$version" | grep '-')" ] && { msgerr "'version' should not contain '-'."; exit 1; }
+	[ "$(echo "$release" | grep '-')" ] && { msgerr "'release' should not contain '-'."; exit 1; }
+	[ "$description" ] || { msgerr "'description' is empty!"; exit 1; }
 }
 
 checkdir() {

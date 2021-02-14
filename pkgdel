@@ -190,8 +190,16 @@ fi
 
 # remove files and dirs
 (cd "$ROOT_DIR"/
-	[ -s $files ] && xargs -a $files -d'\n' rm $VERBOSE_REMOVE
-	[ -s $dirs ]  && xargs -a $dirs -d'\n' rmdir $VERBOSE_REMOVE
+	[ -s $files ] && {
+		cat $files | while read -r line; do
+			rm $VERBOSE_REMOVE "$line"
+		done
+	}
+	[ -s $dirs ] && {
+		cat $dirs | while read -r line; do
+			rmdir $VERBOSE_REMOVE "$line"
+		done
+	}
 )
 
 rm -f "$reserve" "$dirs" "$remove" "$files"
