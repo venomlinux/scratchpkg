@@ -735,7 +735,7 @@ scratch_sysup() {
 	}
 	[ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x scratchpkg)" ] && {
 		echo
-		msgerr "Please upgrade 'scratchpkg' first."
+		msgwarn "Please upgrade 'scratchpkg' first.'"
 		return 1
 	}
 	UPGPKG=0
@@ -910,24 +910,27 @@ scratch_outdate() {
 			if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
 				ITSLOCK="[masked]"
 			fi
-			outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
-			newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
+			#outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
+			#newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
+                        outdatemsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+                        newerinstmsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${YELLOW}[newer installed]${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+
 			if [ "$version" !=  "$iversion" ]; then
 				vercomp $version $iversion
 				if [ $? = 2 ]; then
-					echo "$outdatemsg"
+					echo -e "$outdatemsg"
 					OUTDATE=yes
 				elif [ $? = 1 ]; then
-					echo "$newerinstmsg"
+					echo -e "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			elif [ "$release" !=  "$irelease" ]; then
 				vercomp $release $irelease
 				if [ $? = 2 ]; then
-					echo "$outdatemsg"
+					echo -e "$outdatemsg"
 					OUTDATE=yes
 				elif [ $? = 1 ]; then
-					echo "$newerinstmsg"
+					echo -e "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			fi
