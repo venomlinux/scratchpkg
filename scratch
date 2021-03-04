@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  scratchpkg
 #
@@ -35,31 +35,31 @@ nocolor() {
 }
 
 msg() {
-	printf "${GREEN}==>${CRESET} %s\n" "$1"
-}
-
-msginst() {
-	printf "[${GREEN}i${CRESET}] %s\n" "$1"
-}
-
-msgmiss() {
-	printf "[${YELLOW}m${CRESET}] %s\n" "$1"
-}
-
-msgnoinst() {
-	printf "[-] %s\n" "$1"
+	echo -e "${GREEN}==>${CRESET} $1"
 }
 
 msgerr() {
-	printf "${RED}==> ERROR:${CRESET} %s\n" "$1" >&2
+	echo -e "${RED}==> ERROR:${CRESET} $1"
+}
+
+msginst() {
+	echo -e "[${GREEN}i${CRESET}] $1"
+}
+
+msgmiss() {
+	echo -e "[${YELLOW}m${CRESET}] $1"
+}
+
+msgnoinst() {
+	echo -e "[ ] $1"
 }
 
 msgwarn() {
-	printf "${YELLOW}==> WARNING:${CRESET} %s\n" "$1" >&2
+	echo -e "${YELLOW}==> WARNING:${CRESET} $1"
 }
 
 needroot() {	
-	if [ "$(id -u)" != 0 ]; then
+	if [ $UID != 0 ]; then
 		if [ "$#" -eq 0 ]; then
 			needroot "This operation"
 		else
@@ -70,19 +70,27 @@ needroot() {
 }
 
 getportpath() {	
-	for repo in $PORT_REPO; do
-		if [ -f "$repo/$1/$BUILD_SCRIPT" ]; then
-			dirname "$repo/$1/$BUILD_SCRIPT"
+	for repo in ${PORT_REPO[@]}; do
+		if [[ -f $repo/$1/$BUILD_SCRIPT ]]; then
+			dirname $repo/$1/$BUILD_SCRIPT
 			return 0
 		fi
 	done
 	return 1	
 }
 
+pushd() {
+	command pushd $1 &>/dev/null
+}
+
+popd() {
+	command popd &>/dev/null
+}
+
 vercomp() {	
 	if [ "$1" = "$2" ]; then
 		return 0 # same version
-	elif [ "$1" = "$(echo "$1\n$2" | sort -V | head -n1)" ]; then
+	elif [ "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]; then
 		return 1 # $1 lower than $2
 	else
 		return 2 # $1 higher than $2
@@ -91,67 +99,57 @@ vercomp() {
 
 installed_pkg_info() {	
 	if isinstalled $2; then
-		grep ^$1 $PKGDB_DIR/$2/.pkginfo 2>/dev/null | cut -d " " -f3-
+		grep ^$1 $INDEX_DIR/$2/.pkginfo | cut -d " " -f3-
 	fi
 }
 
 allinstalled() {	
-	grep ^name "$PKGDB_DIR"/*/.pkginfo 2>/dev/null | awk '{print $3}'
-}
-
-deps_alias() {
-	[ -f "$ALIAS_FILE" ] || {
-		echo $@
-		return
-	}
-	while [ "$1" ]; do
-		if [ "$(grep -w ^$1 $ALIAS_FILE)" ]; then
-			getalias=$(grep -w ^$1 $ALIAS_FILE | awk '{print $2}')
-			[ "$getalias" ] && echo "$getalias"
-		else
-			echo "$1"
-		fi
-		shift
-		unset getalias
-	done
+	grep ^name "$INDEX_DIR"/*/.pkginfo | awk '{print $3}'
 }
 
 get_depends() {
-	ppath=$(getportpath $1) || return 0
-	deps=$(grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
+	local pkg=$1
+	ppath=$(getportpath $pkg) || return 0
+	grep "^# depends[[:blank:]]*:" $ppath/$BUILD_SCRIPT \
 	| sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' \
 	| tr ' ' '\n' \
 	| awk '!a[$0]++' \
-	| sed 's/,//')
-	deps_alias $deps
+	| sed 's/,//'
 }
 
 confirm() {
-	printf "$1 (Y/n) "
-	read -r response
+	read -r -p "$1 (Y/n) " response
 	case "$response" in
-		[Nn][Oo]|[Nn]) echo "$2"; return 2 ;;
+		[Nn][Oo]|[Nn]) echo "$2"; exit 2 ;;
 		*) : ;;
 	esac
-	return 0
 }
 
 checktool() {	
-	if ! command -v $1 >/dev/null; then
+	if ! type -p $1 &>/dev/null; then
 		msgerr "'$1' not exist in your system!"
 		exit 1
 	fi	
 }
 
 needarg() {
-	[ "$*" ] || {
+	if [ -z "$*" ]; then
 		msgerr "This operation required an arguments!"
 		exit 1
-	}
+	fi
+}
+
+scratch_cat() {	
+	if PPATH=$(getportpath "$1"); then
+		cat "$PPATH/$BUILD_SCRIPT"
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
 }
 
 isinstalled() {
-	if [ -s "$PKGDB_DIR/$1/.pkginfo" ] && [ "$(grep $1 $PKGDB_DIR/$1/.pkginfo)" ]; then
+	if [ -s $INDEX_DIR/$1/.pkginfo ] && [[ $(grep $1 $INDEX_DIR/$1/.pkginfo) ]]; then
 		return 0
 	else
 		return 1
@@ -159,82 +157,166 @@ isinstalled() {
 }
 
 settermtitle() {
-	printf "\033]0;$*\a"
+	echo -en "\033]0;$*\a"
+}
+
+scratch_missingdep() {
+	local pkg d
+	
+	for pkg in $(allinstalled); do
+		if [ $(getportpath "$pkg") ]; then
+			depends=$(get_depends $pkg)
+		fi
+		if [ "$depends" ]; then
+			for d in ${depends[@]}; do
+				if ! isinstalled $d; then
+					msd+=($d)
+				fi
+			done
+		fi
+		if [ ${#msd[@]} -gt 0 ]; then
+			echo -e "${GREEN}$pkg${CRESET} missing ${RED}${msd[@]}${CRESET}"
+		fi
+		unset depends msd
+	done
 }
 
 scratch_integrity() {
 	if [ "$1" ]; then
-		cd /
-			if [ -f $PKGDB_DIR/$1/.files ]; then
-				cat $PKGDB_DIR/$1/.files | while read -r line; do
+		pushd /
+			if [ -f $INDEX_DIR/$1/.files ]; then
+				while read -r line; do
 					if [ ! -e "$line" ]; then
+						MISSING_FILE=yes
 						if [ -L "$line" ]; then
-							printf "${YELLOW}broken symlink${CRESET} $1: /$line"
+							echo -e "${YELLOW}broken symlink${CRESET} $1: /$line"
 						else
-							printf "${RED}file missing${CRESET} $1: /$line"
+							echo -e "${RED}file missing${CRESET} $1: /$line"
 						fi
 					fi
-				done
+				done < <(cat $INDEX_DIR/$1/.files)
 			else
 				echo "Package '$1' not installed."
 				exit 1
 			fi
-		cd - >/dev/null
+		popd
 	else
-		cd /
+		pushd /
 			for pkg in $(allinstalled); do
-				cat $PKGDB_DIR/$pkg/.files | while read -r line; do
+				while read -r line; do
 					if [ ! -e "$line" ]; then
+						MISSING_FILE=yes
 						if [ -L "$line" ]; then
-							echo "broken symlink $pkg: /$line"
+							echo -e "${YELLOW}broken symlink${CRESET} $pkg: /$line"
 						else
-							echo "missing file $pkg: /$line"
+							echo -e "${RED}file missing${CRESET} $pkg: /$line"
 						fi
 					fi
-				done
+				done < <(cat $INDEX_DIR/$pkg/.files)
 			done
-		cd - >/dev/null
+		popd
 	fi
+	
+	[ "$UID" != "0" ] && msg "${YELLOW}(check integrity is recommended run as root or using sudo)${CRESET}"
+	if [ "$1" ]; then
+		p="Package '$1'"
+	else
+		p="Your system"
+	fi
+	[ ! "$MISSING_FILE" ] && msg "$p files is consistent with package tree."
 }
 
-scratch_lock() {
-	needroot "Locking package"	
-	for pkg in "$@"; do
-		if ! isinstalled $pkg; then
-			msgerr "Package '$pkg' is not installed."
-		elif [ -f $PKGDB_DIR/$pkg/.lock ]; then
-			msgerr "Package '$pkg' already locked."
-		else
-			touch $PKGDB_DIR/$pkg/.lock && msg "Successfully locked package '$pkg'."
-		fi
-	done	
-}
-
-scratch_locate() {
-	needarg $@
-	for repo in $PORT_REPO; do
-		grep -R $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}' | column -t
+scratch_listinst() {
+	for all in $(allinstalled); do		
+		echo -ne "$all "
+		grep -e ^version -e ^release $INDEX_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
+		echo
 	done
 }
 
-scratch_unlock() {
-	needroot "Unlocking package"	
+scratch_listorphan() {
+	local pkg dep
+	tmpallpkg=$(mktemp)
+	tmpalldep=$(mktemp)
+	for pkg in $(allinstalled); do
+		echo $pkg >> $tmpallpkg
+		dep="$dep $(get_depends $pkg)"
+	done
+	echo $dep | tr ' ' '\n' | sort | uniq > $tmpalldep
+	grep -xvF -f $tmpalldep $tmpallpkg
+	rm $tmpalldep $tmpallpkg
+}
+
+scratch_lock() {
+	local pkg
+	
+	needroot "Locking package"
+	
 	for pkg in "$@"; do
 		if ! isinstalled $pkg; then
 			msgerr "Package '$pkg' is not installed."
-		elif [ ! -f $PKGDB_DIR/$pkg/.lock ]; then
-			msgerr "Package '$pkg' is not locked."
+		elif [ -f $INDEX_DIR/$pkg/.lock ]; then
+			msgerr "Package '$pkg' already locked."
 		else
-			rm -f $PKGDB_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
+			touch $INDEX_DIR/$pkg/.lock && msg "Successfully locked package '$pkg'."
 		fi
 	done	
 }
 
-scratch_isorphan() {	
-	needarg $@	
+scratch_unlock() {
+	local pkg
+	
+	needroot "Unlocking package"
+	
+	for pkg in "$@"; do
+		if ! isinstalled $pkg; then
+			msgerr "Package '$pkg' is not installed."
+		elif [ ! -f $INDEX_DIR/$pkg/.lock ]; then
+			msgerr "Package '$pkg' is not locked."
+		else
+			rm -f $INDEX_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
+		fi
+	done	
+}
+
+scratch_listlocked() {
+	local pkg	
 	for pkg in $(allinstalled); do
-		if depend=$(get_depends $pkg); then
-			for dep in $depend; do
+		if [ -f "$INDEX_DIR"/$pkg/.lock ]; then
+			echo -e "$pkg"
+		fi
+	done
+}
+
+scratch_depends() {
+	local dep
+	
+	if [ $(getportpath "$1") ]; then
+		depends=$(get_depends $1)
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+	
+	for dep in ${depends[@]}; do
+		if isinstalled $dep; then
+			msginst "$dep"
+		elif getportpath $dep >/dev/null; then
+			msgnoinst "$dep"
+		else
+			msgmiss "$dep"
+		fi
+	done
+}
+
+scratch_isorphan() {	
+	needarg $1
+	
+	for pkg in $(allinstalled); do
+		pkgpath=$(getportpath $pkg)
+		if [ $pkgpath ]; then
+			depend=$(get_depends $pkg)
+			for dep in ${depend[@]}; do
 				if [ $dep = $1 ]; then
 					return 1
 				fi
@@ -245,8 +327,53 @@ scratch_isorphan() {
 	return 0
 }
 
+scratch_dependent() {
+	local port all dep pname
+	
+	needarg $1
+	
+	for port in ${PORT_REPO[@]}; do
+		if [ -d $port ]; then
+			for all in $port/*/$BUILD_SCRIPT; do
+				[ -f $all ] || continue
+				depend=$(grep "^# depends[[:blank:]]*:" $all | sed 's/^# depends[[:blank:]]*:[[:blank:]]*//' | tr ' ' '\n' | awk '!a[$0]++')
+				for dep in ${depend[@]}; do
+					if [ $dep = $1 ]; then
+						GDP=yes
+						pname=$(dirname $all)
+						pname=${pname##*/}
+						if isinstalled $pname; then
+							msginst "$pname"
+						else
+							msgnoinst "$pname"
+						fi
+						break
+					fi
+				done
+			done
+		fi
+	done
+	
+	[ "$GDP" ] && return 0 || return 1
+}
+
+scratch_own() {
+	local arg
+	arg=$(echo $1 | sed "s/^\///")
+	grep -R $arg $INDEX_DIR/*/.files | sed "s:$INDEX_DIR/::" | sed "s:/.files::" | tr : " " | column -t
+}
+
+scratch_files() {	
+	if ! isinstalled $1; then
+		msg "Package'$1' not installed."
+	else
+		cat $INDEX_DIR/$1/.files
+	fi	
+}
+
 scratch_sync() {	
-	checktool httpup	
+	checktool httpup
+	
 	needroot "Updating ports"
 	
 	if [ ! -e "$REPO_FILE" ]; then
@@ -254,21 +381,116 @@ scratch_sync() {
 		exit 1
 	fi
 
-	grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1,$2}' | while read -r repodir repourl; do
-		if [ "$repodir" ] && [ "$repourl" ]; then
-			httpup sync $repourl $repodir || {
+	while read repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		if [ -n "$repodir" ] && [ -n "$repourl" ]; then
+			httpup sync $repourl $repodir
+			if [ $? != 0 ]; then
 				msgerr "Failed sync from $repourl"
 				exit 1
-			}
+			fi
+		fi
+	done < "$REPO_FILE"
+}
+
+scratch_readme() {
+	needarg $@
+	
+	if PPATH=$(getportpath "$1"); then
+		if [ -f "$PPATH/readme" ]; then
+			cat "$PPATH/readme"
+		else
+			msgerr "Port '$1' does not have readme."
+		fi
+	else
+		msgerr "Port '$1' not exist."
+		exit 1
+	fi
+}
+
+scratch_search() {
+	needarg $@
+	
+	case $1 in
+		-*) msgerr "Invalid pattern '$1'"
+			return 1 ;;
+	esac
+	
+	local port found OUTPUT
+	
+	for port in ${PORT_REPO[@]}; do
+		if [ -d $port ]; then
+			pushd $port
+				OUTPUT=$(grep -R description | grep "$BUILD_SCRIPT:# description[[:blank:]]*:" | sed "s/$BUILD_SCRIPT:# description[[:blank:]]*://" | grep -i "$1" | cut -d '/' -f1 | sort)
+			popd
+			if [ -n "$OUTPUT" ]; then
+				found=yes
+				for out in ${OUTPUT[@]}; do
+					if [ -f $port/$out/$BUILD_SCRIPT ]; then
+						pushd $port/$out
+							description=$(grep "^# description[[:blank:]]*:" $BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+							. $BUILD_SCRIPT
+						popd
+						if [ -n "$name" ] && [ -n "$version" ] && [ -n "$release" ]; then
+							portname=$(basename $port)
+							search_result="${PURPLE}($portname)${CRESET} $name ${CYAN}$version-$release${CRESET} $description"
+							if isinstalled $name; then
+								echo -e "[${GREEN}*${CRESET}] $search_result"
+							else
+								echo -e "[ ] $search_result"
+							fi
+							unset description name version release
+						fi
+					fi
+				done
+			fi
 		fi
 	done
+	if [ ! "$found" ]; then
+		msg "No matching package found."
+	fi
+}
+
+scratch_foreignpkg() {
+	for pkg in $(allinstalled); do
+		if ! getportpath $pkg >/dev/null; then
+			iname=$(installed_pkg_info name $pkg)
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			echo -e "$iname ${GREEN}$iversion${CRESET}-${CYAN}$irelease${CRESET}"
+		fi
+		unset iname iversion irelease
+	done	
+}
+
+scratch_info() {
+	needarg $@
+	local pkg=$1
+	ppath=$(getportpath $pkg) || return 1
+	
+	. $ppath/$BUILD_SCRIPT
+	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
+	url=$(grep "^# homepage[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
+	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
+	deps=$(get_depends $pkg | tr '\n' ' ')
+	
+	echo -e "Name:         $pkg"
+	echo -e "Path:         $ppath"
+	echo -e "Version:      $version"
+	echo -e "Release:      $release"
+	echo -e "Description:  $desc"
+	echo -e "Homepage:     $url"
+	echo -e "Maintainer:   $maint"
+	echo -e "Dependencies: $deps"
 }
 
 scratch_trigger() {
 	needroot "Run trigger"
-	if [ -z "$*" ]; then
-		for i in $(seq 12); do
-			eval trig_$i=1
+	if [[ -z "$@" ]]; then
+		for i in trig_{1..12}; do
+			eval $i=1
 		done
 	else
 		pre_triggers $@
@@ -279,59 +501,70 @@ scratch_trigger() {
 post_triggers() {
 	if [ "$trig_12" = 1 ]; then
 		echo "trigger: Running mkdirs..."
-		for mkd in $PKGDB_DIR/*/.pkgmkdirs; do
+		for mkd in $INDEX_DIR/*/.pkgmkdirs; do
 			[ -s $mkd ] || continue
-			grep -Ev '^(#|$)' $mkd | while read -r dir mode uid gid junk; do
-				if [ -e "$dir" ]; then
-					if [ "$uid" != '-' ]; then
-						getent passwd $uid >/dev/null && chown "$uid" "$dir"
-					fi
-					if [ "$gid" != '-' ]; then
-						getent group $gid >/dev/null && chgrp "$gid" "$dir"
-					fi
-					if [ "$mode" != '-' ]; then
-						chmod "$mode" "$dir"
+			while read dir mode uid gid junk; do
+			# Ignore comments and blank lines
+			case "$dir" in
+				""|\#*) continue ;;
+			esac
+			if [ -e "$dir" ]; then
+				if [ "$uid" != '-' ]; then
+					getent passwd $uid >/dev/null
+					if [[ "$?" = 0 ]]; then
+						chown "$uid" "$dir"
 					fi
 				fi
-			done
-		done
+				if [ "$gid" != '-' ]; then
+					getent group $gid >/dev/null
+					if [[ "$?" = 0 ]]; then
+						chgrp "$gid" "$dir"
+					fi
+				fi
+				if [ "$mode" != '-' ]; then
+					chmod "$mode" "$dir"
+				fi
+			fi
+		done < "$mkd"
+	done
+
 	fi
 	
-	if [ "$trig_11" = 1 ] && [ $(command -v fc-cache) ]; then
+	if [ "$trig_11" = 1 ] && [ $(type -p fc-cache) ]; then
 		echo "trigger: Updating fontconfig cache..."
 		fc-cache -s
 	fi
 	
-	if [ "$trig_10" = 1 ] && [ $(command -v gdk-pixbuf-query-loaders) ]; then
+	if [ "$trig_10" = 1 ] && [ $(type -p gdk-pixbuf-query-loaders) ]; then
 		echo "trigger: Probing GDK-Pixbuf loader modules..."
 		gdk-pixbuf-query-loaders --update-cache
 	fi
 	
-	if [ "$trig_9" = 1 ] && [ $(command -v gio-querymodules) ]; then
+	if [ "$trig_9" = 1 ] && [ $(type -p gio-querymodules) ]; then
 		echo "trigger: Updating GIO module cache..."
 		gio-querymodules /usr/lib/gio/modules
 	fi
 	
-	if [ "$trig_8" = 1 ] && [ $(command -v glib-compile-schemas) ]; then
+	if [ "$trig_8" = 1 ] && [ $(type -p glib-compile-schemas) ]; then
 		echo "trigger: Compiling GSettings XML schema files..."
 		glib-compile-schemas /usr/share/glib-2.0/schemas
 	fi
 	
-	if [ "$trig_7" = 1 ] && [ $(command -v gtk-query-immodules-2.0) ]; then
+	if [ "$trig_7" = 1 ] && [ $(type -p gtk-query-immodules-2.0) ]; then
 		echo "trigger: Probing GTK2 input method modules..."
 		gtk-query-immodules-2.0 --update-cache
 	fi
 	
-	if [ "$trig_6" = 1 ] && [ $(command -v gtk-query-immodules-3.0) ]; then
+	if [ "$trig_6" = 1 ] && [ $(type -p gtk-query-immodules-3.0) ]; then
 		echo "trigger: Probing GTK3 input method modules..."
 		gtk-query-immodules-3.0 --update-cache
 	fi
 	
-	if [ "$trig_5" = 1 ] && [ $(command -v gtk-update-icon-cache) ]; then
+	if [ "$trig_5" = 1 ] && [ $(type -p gtk-update-icon-cache) ]; then
 		echo "trigger: Updating icon theme caches..."
 		for dir in /usr/share/icons/* ; do
-			if [ -e $dir/index.theme ]; then
-				gtk-update-icon-cache -q $dir 2>/dev/null
+			if [[ -e $dir/index.theme ]]; then
+				gtk-update-icon-cache -q $dir &>/dev/null
 			else
 				rm -f $dir/icon-theme.cache
 				rmdir --ignore-fail-on-non-empty $dir
@@ -339,38 +572,40 @@ post_triggers() {
 		done
 	fi
 	
-	if [ "$trig_4" = 1 ] && [ $(command -v udevadm) ]; then
+	if [ "$trig_4" = 1 ] && [ $(type -p udevadm) ]; then
 		echo "trigger: Updating hardware database..."
 		udevadm hwdb --update
 	fi
 	
-	if [ "$trig_3" = 1 ] && [ $(command -v mkfontdir) ] && [ $(command -v mkfontscale) ]; then
+	if [ "$trig_3" = 1 ] && [ $(type -p mkfontdir) ] && [ $(type -p mkfontscale) ]; then
 		echo "trigger: Updating X fontdir indices..."
 		for dir in $(find /usr/share/fonts -maxdepth 1 -type d \( ! -path /usr/share/fonts -a ! -name X11 \)) /usr/share/fonts/X11/*; do
-			rm -f $dir/fonts.scale $dir/fonts.dir $dir/.uuid
+			rm -f $dir/fonts.{scale,dir} $dir/.uuid
 			rmdir --ignore-fail-on-non-empty $dir
-			[ -d "$dir" ] || continue
+			[[ -d $dir ]] || continue
 			mkfontdir $dir
 			mkfontscale $dir
 		done
 	fi
 	
-	if [ "$trig_2" = 1 ] && [ $(command -v update-desktop-database) ]; then
+	if [ "$trig_2" = 1 ] && [ $(type -p update-desktop-database) ]; then
 		echo "trigger: Updating desktop file MIME type cache..."
 		update-desktop-database --quiet
 	fi
 	
-	if [ "$trig_1" = 1 ] && [ $(command -v update-mime-database) ]; then
+	if [ "$trig_1" = 1 ] && [ $(type -p update-mime-database) ]; then
 		echo "trigger: Updating the MIME type database..."
 		update-mime-database /usr/share/mime
 	fi
 }
 
-pre_triggers() {	
+pre_triggers() {
+	local pkg
+	
 	# mime db
 	if [ "$trig_1" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/mime/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/mime/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_1=1
 				break
 			fi
@@ -380,7 +615,7 @@ pre_triggers() {
 	# desktop db
 	if [ "$trig_2" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/applications/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/applications/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_2=1
 				break
 			fi
@@ -390,7 +625,7 @@ pre_triggers() {
 	# mkfontdir
 	if [ "$trig_3" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/[^/]*/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_3=1
 				break
 			fi
@@ -400,7 +635,7 @@ pre_triggers() {
 	# hwdb
 	if [ "$trig_4" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^etc/udev/hwdb.d/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^etc/udev/hwdb.d/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_4=1
 				break
 			fi
@@ -410,7 +645,7 @@ pre_triggers() {
 	# icon caches
 	if [ "$trig_5" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/icons/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/icons/[^/]*/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_5=1
 				break
 			fi
@@ -420,7 +655,7 @@ pre_triggers() {
 	# gtk3 immodules
 	if [ "$trig_6" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-3.0/3.0.0/immodules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-3.0/3.0.0/immodules/.*.so $INDEX_DIR/$pkg/.files)" ]; then
 				trig_6=1
 				break
 			fi
@@ -430,7 +665,7 @@ pre_triggers() {
 	# gtk2 immodules
 	if [ "$trig_7" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-2.0/2.10.0/immodules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-2.0/2.10.0/immodules/.*.so $INDEX_DIR/$pkg/.files)" ]; then
 				trig_7=1
 				break
 			fi
@@ -440,7 +675,7 @@ pre_triggers() {
 	# gsettings schema
 	if [ "$trig_8" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/glib-2.0/schemas/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/glib-2.0/schemas/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_8=1
 				break
 			fi
@@ -450,7 +685,7 @@ pre_triggers() {
 	# gio modules
 	if [ "$trig_9" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gio/modules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gio/modules/.*.so $INDEX_DIR/$pkg/.files)" ]; then
 				trig_9=1
 				break
 			fi
@@ -460,7 +695,7 @@ pre_triggers() {
 	# gdk-pixbuf
 	if [ "$trig_10" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/.*.so $INDEX_DIR/$pkg/.files)" ]; then
 				trig_10=1
 				break
 			fi
@@ -470,7 +705,7 @@ pre_triggers() {
 	# font caches
 	if [ "$trig_11" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/[^/]*/$ $INDEX_DIR/$pkg/.files)" ]; then
 				trig_11=1
 				break
 			fi
@@ -480,7 +715,7 @@ pre_triggers() {
 	# makedirs
 	if [ "$trig_12" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.pkgmkdirs" ]; then
+			if [ -s "$INDEX_DIR/$pkg/.pkgmkdirs" ]; then
 				trig_12=1
 				break
 			fi
@@ -491,430 +726,469 @@ pre_triggers() {
 scratch_build() {
 	while [ "$1" ]; do
 		case $1 in
-			-i|-u|-r|-g|-p) ;;
-			--log) LOG=1;;
-			-*) OPTS="$OPTS $1";;
-			 *) PKGNAME="$PKGNAME $1";;
+			-i|-u|-r) ;;
+			-*) OPTS+=($1);;
+			 *) PKGNAME+=($1);;
 		esac
 		shift
 	done
-	[ "$PKGNAME" ] || {
-		echo "Please specify package(s) to build."
-		return 1
-	}
-	for pkg in $PKGNAME; do
-		ppath=$(getportpath $pkg) || {
-			echo "Package '$pkg' not found."
-			return 1
-		}
-		cd $ppath
-		settermtitle "Building $pkg..."
-		if [ "$LOG" ]; then
-			pkgbuild $OPTS | tee /var/log/pkgbuild.log || {
-				settermtitle "Building $pkg failed."
+	for P in ${PKGNAME[@]}; do
+		pushd $(getportpath $P)
+		if [ $? = 0 ]; then
+			settermtitle "Building $P..."
+			pkgbuild ${OPTS[@]} || {
+				settermtitle "Building $P failed"
 				return 1
 			}
+			settermtitle "Building $P done"
 		else
-			pkgbuild $OPTS || {
-				settermtitle "Building $pkg failed."
-				return 1
-			}
+			echo "Package '$P' not found."
+			return 1
 		fi
-		settermtitle "Building $pkg done."
-		cd - >/dev/null
+		popd
 	done
 }
 
 scratch_install() {
+	local pkg i int pkgcount count IPKG OPTS REINSTALL done_pkg
+	
 	needroot "Installing package"
+	
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u) ;;
-			-r|--reinstall) REINSTALL=1;;
+			-r) REINSTALL=1;;
 			-y|--yes) NOCONFIRM=1;;
 			-n|--no-dep) NO_DEP=1;;
 			--exclude=*) EXOPT=$1;;
-			-*) OPTS="$OPTS $1";;
-			*) PKGNAME="$PKGNAME $1";;
+			-*) OPTS+=($1);;
+			*) PKGNAME+=($1);;
 		esac
 		shift
-	done	
-	[ "$PKGNAME" ] || {
+	done
+	
+	if [ -z "$PKGNAME" ]; then
 		echo "Please specify package(s) to install."
 		return 1
-	}
+	fi
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
 	# if reinstall, dont calculate dep, just reinstall it then exit
 	if [ "$REINSTALL" = 1 ]; then
-		error=0
-		for ii in $PKGNAME; do
+		for ii in ${PKGNAME[@]}; do
 			if [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
 			elif ! isinstalled $ii; then
 				echo "Package '$ii' not installed."
 			else
-				cd $(getportpath $ii)
+				pushd $(getportpath $ii)
 					settermtitle "Reinstalling $ii..."
-					pkgbuild $OPTS -r || {
+					pkgbuild ${OPTS[@]} -r
+					if [ $? != 0 ]; then
 						error=1
 						break
-					}
-					done_pkg="$done_pkg $ii"
-				cd - >/dev/null
+					fi
+					done_pkg+=($ii)
+				popd
 			fi
 		done
-		settermtitle "Triggering install hook..."
-		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "Reinstalling done."
-		return "$error"
+		settermtitle "Triggering install hook"
+		if [ ${#done_pkg[@]} -gt 0 ]; then
+			scratch_trigger ${done_pkg[@]}
+		fi
+		settermtitle "Reinstalling done"
+		[ "$error" = 1 ] && return 1 || return 0
 	fi
 	if [ "$NO_DEP" = 1 ]; then
-		error=0
-		for ii in $PKGNAME; do
+		for ii in ${PKGNAME[@]}; do
 			if [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
 			elif isinstalled $ii; then
 				echo "Package '$ii' already installed."
-				continue
+				return 0
 			else
-				cd $(getportpath $ii)
+				pushd $(getportpath $ii)
 					settermtitle "Installing $ii..."
-					pkgbuild -i $OPTS || {
+					pkgbuild -i ${OPTS[@]}
+					if [ $? != 0 ]; then
 						error=1
 						break
-					}
-					done_pkg="$done_pkg $ii"
-				cd - >/dev/null
+					fi
+					done_pkg+=($ii)
+				popd
 			fi
 		done
-		settermtitle "Triggering install hook..."
-		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "Installing done."
-		return "$error"
+		settermtitle "Triggering install hook"
+		if [ ${#done_pkg[@]} -gt 0 ]; then
+			scratch_trigger ${done_pkg[@]}
+		fi
+		settermtitle "Installing done"
+		[ "$error" = 1 ] && return 1 || return 0
 	fi
-	for i in $PKGNAME; do
+	for i in ${PKGNAME[@]}; do
 		if [ ! $(getportpath $i) ]; then
 			echo "Package '$i' not found."
 		elif isinstalled $i; then
 			echo "Package '$i' already installed."
 		else
-			IPKG="$IPKG $i"
+			IPKG+=($i)
 		fi
 	done
-	[ "$IPKG" ] || return 0
+	if [ "${#IPKG[@]}" = 0 ]; then
+		return 0
+	fi
 	echo "Resolving dependencies..."
-	INST="$(scratch_deplist -q $IPKG $EXOPT)"
+	INST="$(scratch_deplist -q ${IPKG[@]} $EXOPT)"
+
 	if [ "$INST" ]; then
 		echo
 		pkgcount=0
 		for pkg in $INST; do
 			pkgcount=$(( pkgcount + 1 ))
-			printf "[${GREEN}i${CRESET}] $pkg  "
+			echo -en "[${GREEN}i${CRESET}] $pkg  "
 		done
 		echo; echo
 		echo "( $pkgcount install )"
 		echo
 		if [ ! "$NOCONFIRM" ]; then
-			confirm "Continue install package(s)?" "Package installation cancelled." || exit $?
+			confirm "Continue install package(s)?" "Package installation cancelled."
 			echo
 		fi
 		error=0
 		count=0
 		total=$(echo $INST | wc -w)
-		for int in $INST; do
+		for int in ${INST[@]}; do
 			count=$(( count + 1 ))
-			if portpathh=$(getportpath $int); then
-				cd $portpathh
+			portpathh=$(getportpath $int)
+			if [ "$portpathh" ]; then
+				pushd $portpathh
 					settermtitle "[ $count/$total ] installing $int..."
-					pkgbuild -i $OPTS || {
+					pkgbuild -i ${OPTS[@]}
+					if [ $? != 0 ]; then
 						error=1
 						count=$(( count - 1 ))
 						break
-					}
-					done_pkg="$done_pkg $int"
-				cd - >/dev/null
+					fi
+					done_pkg+=($int)
+				popd
 			else
 				msgwarn "Skipping missing package: $int"
 			fi
 			unset portpathh
 		done
-		settermtitle "Triggering install hook..."
-		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "$count/$total package(s) installed."
+		settermtitle "Triggering install hook"
+		if [ ${#done_pkg[@]} -gt 0 ]; then
+			scratch_trigger ${done_pkg[@]}
+		fi
+		settermtitle "$count/$total package(s) installed"
 		return "$error"
 	fi
 }
 
-scratch_remove() {
-	needroot "Removing package"
-	while [ "$1" ]; do
-		case $1 in
-			-y|--yes) NOCONFIRM=1;;
-			-*) OPTS="$OPTS $1";;
-			*) PKGNAME="$PKGNAME $1";;
-		esac
-		shift
-	done
-	[ "$PKGNAME" ] || {
-		echo "Please specify package(s) to remove."
-		return 1
-	}
-	for i in $PKGNAME; do
-		if ! isinstalled $i; then
-			echo "Package '$i' not installed."
-		else
-			IPKG="$IPKG $i"
-		fi
-	done
-	[ "$IPKG" ] || return 0
-	echo "Removing packages..."
-	echo
-	pkgcount=0
-	count=0
-	for pkg in $IPKG; do
-		pkgcount=$(( pkgcount + 1 ))
-		printf "[${RED}x${CRESET}] $pkg  "
-	done
-	echo; echo
-	echo "( $pkgcount remove )"
-	echo
-	[ "$NOCONFIRM" ] || {
-		confirm "Continue remove package(s)?" "Package removing cancelled." || exit $?
-		echo
-	}
-	for pkg in $IPKG; do
-		count=$(( count + 1 ))
-		pre_triggers $pkg
-		settermtitle "[ $count/$pkgcount ] Removing $pkg..."
-		pkgdel $pkg $OPTS || {
-			error=1
-			break
-		}
-	done
-	settermtitle "Triggering remove hook..."
-	post_triggers
-	settermtitle "$pkgcount package(s) removed."
-}
-
 outdatepkg() {
-	for pkg in $(allinstalled); do
-		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep -w $pkg) ]; then
-			continue
-		fi
-		[ -e "$PKGDB_DIR/$pkg/.lock" ] && continue
-		getportpath $pkg >/dev/null || continue
-		. $(getportpath $pkg)/$BUILD_SCRIPT
-		if [ -z "$name" ] || [ -z "$version" ]; then
-			continue
-		fi
-		iversion=$(installed_pkg_info version $pkg)
-		irelease=$(installed_pkg_info release $pkg)
-		if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
-			echo $name
-		fi
-		unset iversion irelease version release
-	done
-}
-
-scratch_sysup() {
-	needroot "Upgrading package"	
-	while [ "$1" ]; do
-		case $1 in
-			-i|-u|-r) ;;
-			-y|--yes) NOCONFIRM=1;;
-			-n|--no-dep) NODEP=1;;
-			--exclude=*) EXOPT=$1;;
-			-*) OPTS="$OPTS $1";;
-		esac
-		shift
-	done
-	echo "Checking for outdated packages..."
-	PKGOUTDATE=$(outdatepkg)
-	[ "$PKGOUTDATE" ] || {
-		echo "All packages are up to date."
-		return 0
-	}
-	[ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x scratchpkg)" ] && {
-		echo
-		msgwarn "Please upgrade 'scratchpkg' first.'"
-		return 1
-	}
-	UPGPKG=0
-	NEWPKG=0	
-	if [ "$NODEP" != 1 ]; then
-		echo "Resolving dependencies..."
-		DEP=$(scratch_deplist $PKGOUTDATE $EXOPT | awk '{print $2}')
-		echo
-		for d in $DEP; do
-			if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
-				printf "[${GREEN}u${CRESET}] $d  "
-				WILLINSTALL="$WILLINSTALL $d"
-				UPGPKG=$(( UPGPKG + 1 ))
-			elif ! isinstalled $d && [ "$(getportpath "$d")" ]; then
-				printf "[${CYAN}n${CRESET}] $d  "
-				WILLINSTALL="$WILLINSTALL $d"
-				NEWPKG=$(( NEWPKG + 1 ))
-			fi
-		done
-	else
-		echo
-		for dd in $PKGOUTDATE; do
-			printf "[${GREEN}u${CRESET}] $dd  "
-			WILLINSTALL="$WILLINSTALL $dd"
-			UPGPKG=$(( UPGPKG + 1 ))
-		done
-	fi
-	echo; echo
-	echo "( $UPGPKG upgrade, $NEWPKG new install )"
-	echo
-	[ "$NOCONFIRM" ] || {
-		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled." || exit $?
-		echo
-	}
-	error=0
-	count=0
-	total=$(echo $WILLINSTALL | wc -w)
-	for inst in $WILLINSTALL; do # install all required dependencies and target packages itself
-		count=$(( count + 1 ))
-		cd $(getportpath $inst)
-		if ! isinstalled $inst; then
-			settermtitle "[ $count/$total ] Installing $inst..."
-			pkgbuild -i $OPTS || {
-				error=1
-				count=$(( count - 1 ))
-				break
-			}
-		else
-			settermtitle "[ $count/$total ] Upgrading $inst..."
-			pkgbuild -u $OPTS || {
-				error=1
-				count=$(( count - 1 ))
-				break
-			}
-		fi
-		cd - >/dev/null
-		done_pkg="$done_pkg $inst"
-	done
-	settermtitle "Triggering install hook."
-	[ "$done_pkg" ] && scratch_trigger $done_pkg
-	settermtitle "$count/$total package(s) upgraded."
-	return "$error"
-}
-
-scratch_upgrade() {
-	needroot "Upgrading package"	
-	while [ "$1" ]; do
-		case $1 in
-			-i|-r) ;;
-			-y|--yes) NOCONFIRM=1;;
-			-d|--no-dep) NO_DEP=1;;
-			--exclude=*) EXOPT=$1;;
-			-*) OPTS="$OPTS $1";;
-			*) PKGNAME="$PKGNAME $1";;
-		esac
-		shift
-	done	
-	[ "$PKGNAME" ] || {
-		echo "Please specify package(s) to upgrade."
-		return 1
-	}
-	for pkg in $PKGNAME; do
-		if ! isinstalled $pkg; then
-			echo "Package '$pkg' not installed."
-			continue
-		elif [ ! $(getportpath $pkg) ]; then
-			echo "Package '$pkg' not exist."
-			continue
-		else
-			. $(getportpath $pkg)/$BUILD_SCRIPT
-			if [ "$(installed_pkg_info version $pkg)-$(installed_pkg_info release $pkg)" = "$version-$release" ]; then
-				echo "Package '$pkg' is up to date."
-				continue
-			fi
-		fi
-		upkg="$upkg $pkg"
-	done
-	[ "$upkg" ] || return 0
+	local pkg
 	
-	UPGPKG=0
-	NEWPKG=0	
-	if [ "$NODEP" != 1 ]; then
-		echo "Resolving dependencies..."
-		DEP=$(scratch_deplist $upkg $EXOPT | awk '{print $2}')
-		echo
-		for d in $DEP; do
-			if [ "$(echo $upkg | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
-				printf "[${GREEN}u${CRESET}] $d  "
-				WILLINSTALL="$WILLINSTALL $d"
-				UPGPKG=$(( UPGPKG + 1 ))
-			elif ! isinstalled $d && [ "$(getportpath "$d")" ]; then
-				printf "[${CYAN}n${CRESET}] $d  "
-				WILLINSTALL="$WILLINSTALL $d"
-				NEWPKG=$(( NEWPKG + 1 ))
-			fi
-		done
-	else
-		echo
-		for dd in $upkg; do
-			printf "[${GREEN}u${CRESET}] $dd  "
-			WILLINSTALL="$WILLINSTALL $dd"
-			UPGPKG=$(( UPGPKG + 1 ))
-		done
-	fi
-	echo; echo
-	echo "( $UPGPKG upgrade, $NEWPKG new install )"
-	echo
-	[ "$NOCONFIRM" ] || {
-		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled." || exit $?
-		echo
-	}
-	error=0
-	count=0
-	total=$(echo $WILLINSTALL | wc -w)
-	for inst in $WILLINSTALL; do # install all required dependencies and target packages itself
-		count=$(( count + 1 ))
-		cd $(getportpath $inst)
-		if ! isinstalled $inst; then
-			settermtitle "[ $count/$total ] Installing $inst..."
-			pkgbuild -i $OPTS || {
-				error=1
-				count=$(( count - 1 ))
-				break
-			}
-		else
-			settermtitle "[ $count/$total ] Upgrading $inst..."
-			pkgbuild -u $OPTS || {
-				error=1
-				count=$(( count - 1 ))
-				break
-			}
-		fi
-		cd - >/dev/null
-		done_pkg="$done_pkg $inst"
-	done
-	settermtitle "Triggering install hook."
-	[ "$done_pkg" ] && scratch_trigger $done_pkg
-	settermtitle "$count/$total package(s) upgraded."
-	return "$error"
-}
-
-scratch_outdate() {
 	for pkg in $(allinstalled); do
-		if [ "$(getportpath $pkg)" ]; then
+		if [ ! -e "$INDEX_DIR/$pkg/.lock" ] && getportpath $pkg >/dev/null; then
 			. $(getportpath $pkg)/$BUILD_SCRIPT
 			if [ -z "$name" ] || [ -z "$version" ]; then
 				continue
 			fi
 			iversion=$(installed_pkg_info version $pkg)
 			irelease=$(installed_pkg_info release $pkg)
-			[ -f "$PKGDB_DIR/$pkg/.lock" ] && ITSLOCK="[masked]"
-			if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
-				ITSLOCK="[masked]"
+			if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
+				echo $name
 			fi
-			#outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
-			#newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
-                        outdatemsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${CYAN}$ITSLOCK${CRESET}"
-                        newerinstmsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${YELLOW}[newer installed]${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+			unset iversion irelease version release
+		fi
+	done
+}
 
+scratch_remove() {
+	local pkg i IPKG OPTS
+	
+	needroot "Removing package"
+	
+	while [ "$1" ]; do
+		case $1 in
+			-y|--yes) NOCONFIRM=1;;
+			-*) OPTS+=($1);;
+			*) PKGNAME+=($1);;
+		esac
+		shift
+	done
+	
+	if [ -z "$PKGNAME" ]; then
+		echo "Please specify package(s) to remove."
+		return 1
+	fi
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
+	
+	for i in ${PKGNAME[@]}; do
+		if ! isinstalled $i; then
+			echo "Package '$i' not installed."
+		else
+			IPKG+=($i)
+		fi
+	done
+	if [ "${#IPKG[@]}" = 0 ]; then
+		return 0
+	fi
+	if [ "$IPKG" ]; then
+		echo "Removing packages..."
+		echo
+		pkgcount=0
+		count=0
+		for pkg in ${IPKG[@]}; do
+			pkgcount=$(( pkgcount + 1 ))
+			echo -en "[${RED}x${CRESET}] $pkg  "
+		done
+		echo; echo
+		echo "( $pkgcount remove )"
+		echo
+		if [ ! "$NOCONFIRM" ]; then
+			confirm "Continue remove package(s)?" "Package removing cancelled."
+			echo
+		fi
+		for pkg in ${IPKG[@]}; do
+			count=$(( count + 1 ))
+			pre_triggers $pkg
+			settermtitle "[ $count/$pkgcount ] Removing $pkg..."
+			pkgdel $pkg ${OPTS[@]} || return 1
+		done
+		settermtitle "Triggering remove hook"
+		post_triggers
+		settermtitle "$pkgcount package(s) removed"
+	fi
+}
+
+scratch_sysup() {
+	local d UPGPKG NEWPKG PKGOUTDATE OPTS done_pkg
+	
+	needroot "Upgrading package"
+	
+	while [ "$1" ]; do
+		case $1 in
+			-i|-u|-r) ;;
+			-y|--yes) NOCONFIRM=1;;
+			-d|--no-dep) NODEP=1;;
+			-s|--sync) SYNC=1;;
+			--exclude=*) EXOPT+=($1);;
+			-*) OPTS+=($1);;
+		esac
+		shift
+	done
+	
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
+	
+	if [ "$SYNC" = 1 ]; then
+		scratch_sync
+	fi
+	
+	echo "Checking for outdated packages..."
+	PKGOUTDATE=$(outdatepkg)
+	
+	if [ ! "$PKGOUTDATE" ]; then
+		echo "All packages are up to date."
+		return 0
+	fi
+		
+	UPGPKG=0
+	NEWPKG=0
+	
+	if [ "$NODEP" != 1 ]; then
+		echo "Resolving dependencies..."
+		DEP=$(scratch_deplist ${PKGOUTDATE[@]} $EXOPT | awk '{print $2}')
+		echo
+		for d in $DEP; do
+			if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
+				echo -ne "[${GREEN}u${CRESET}] $d  "
+				WILLINSTALL+=($d)
+				UPGPKG=$(( UPGPKG + 1 ))
+			elif ! isinstalled $d && [ $(getportpath "$d") ]; then
+				echo -ne "[${CYAN}n${CRESET}] $d  "
+				WILLINSTALL+=($d)
+				NEWPKG=$(( NEWPKG + 1 ))
+			fi
+		done
+	else
+		echo
+		for dd in ${PKGOUTDATE[@]}; do
+			echo -ne "[${GREEN}u${CRESET}] $dd  "
+			WILLINSTALL+=($dd)
+			UPGPKG=$(( UPGPKG + 1 ))
+		done
+	fi
+	echo		
+	echo
+	echo "( $UPGPKG upgrade, $NEWPKG new install )"
+	echo
+	if [ ! "$NOCONFIRM" ]; then
+		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
+		echo
+	fi
+	error=0
+	count=0
+	total=$(echo ${WILLINSTALL[@]} | wc -w)
+	for inst in ${WILLINSTALL[@]}; do # install all required dependencies and target packages itself
+		count=$(( count + 1 ))
+		pushd $(getportpath $inst)
+		if ! isinstalled $inst; then
+			settermtitle "[ $count/$total ] Installing $inst..."
+			pkgbuild -i ${OPTS[@]}
+			if [ $? != 0 ]; then
+				error=1
+				count=$(( count - 1 ))
+				break
+			fi
+		else
+			settermtitle "[ $count/$total ] Upgrading $inst..."
+			pkgbuild -u ${OPTS[@]}
+			if [ $? != 0 ]; then
+				error=1
+				count=$(( count - 1 ))
+				break
+			fi
+		fi
+		done_pkg+=($inst)
+	done
+	settermtitle "Triggering install hook"
+	if [ ${#done_pkg[@]} -gt 0 ]; then
+		scratch_trigger ${done_pkg[@]}
+	fi
+	settermtitle "$count/$total package(s) upgraded"
+	return $error
+}
+
+scratch_upgrade() {
+	local pkg done_pkg
+	
+	needroot "Upgrading package"
+	
+	while [ "$1" ]; do
+		case $1 in
+			-y|--yes) NOCONFIRM=1;;
+			-d|--no-dep) NO_DEP=1;;
+			--exclude=*) EXOPT=$1;;
+			-*) OPTS+=($1);;
+			*) PKGNAME+=($1);;
+		esac
+		shift
+	done
+	
+	if [ -z "$PKGNAME" ]; then
+		echo "Please specify package(s) to remove."
+		return 1
+	fi
+	
+	# use custom root location
+	if [ "$ROOT_DIR" ]; then
+		OPTS+=(--root=$ROOT_DIR)
+	fi
+	for pkg in ${PKGNAME[@]}; do
+		if ! isinstalled $pkg; then
+			msgerr "Package '$pkg' not installed."
+			return 1
+		fi
+		if [ ! $(getportpath $pkg) ]; then
+			msgerr "Package '$pkg' not exist."
+			return 1
+		fi
+		. $(getportpath $pkg)/$BUILD_SCRIPT
+		if [ "$(installed_pkg_info version $pkg)-$(installed_pkg_info release $pkg)" = "$version-$release" ]; then
+			msg "Package '$pkg' is up-to-date."
+			return 0
+		fi
+	done
+	if [ -z "$NO_DEP" ]; then		
+		echo "Resolving dependencies..."
+		DEP=$(scratch_deplist ${PKGNAME[@]} $EXOPT | awk '{print $2}')
+		for dep in $DEP; do
+			if ! isinstalled $dep; then
+				if [ $(getportpath $dep) ]; then
+					NEWPKG+=($dep)
+				fi
+			fi
+		done
+	fi
+	echo
+	count=0
+	for i in ${NEWPKG[@]}; do
+		count=$(( count + 1 ))
+		echo -en "[${CYAN}n${CRESET}] $i  "
+	done
+	for i in ${PKGNAME[@]}; do
+		count=$(( count + 1 ))
+		echo -en "[${GREEN}u${CRESET}] $i  "
+	done
+	echo
+	echo
+	echo "( ${#PKGNAME[@]} upgrade, ${#NEWPKG[@]} new install )"
+	echo
+	total=$count
+	count=0
+	if [ ! "$NOCONFIRM" ]; then
+		confirm "Continue upgrade/install these package(s)?" "Package upgrade cancelled."
+		echo
+	fi
+	if [ ${#NEWPKG[@]} -gt 0 ]; then
+		for newpkg in ${NEWPKG[@]}; do	
+			count=$(( count + 1 ))		
+			pushd $(getportpath $newpkg)
+				settermtitle "[ $count/$total ] Installing $newpkg..."
+				pkgbuild -i ${OPTS[@]}
+				if [ $? != 0 ]; then
+					error=1
+					count=$(( count - 1 ))
+					break
+				fi
+				done_pkg+=($newpkg)
+			popd
+		done
+	fi
+	for pkg in ${PKGNAME[@]}; do # upgrade all target packages
+		count=$(( count + 1 ))
+		pushd $(getportpath $pkg)
+			settermtitle "[ $count/$total ] Upgrading $pkg..."
+			pkgbuild -u ${OPTS[@]}
+			if [ $? != 0 ]; then
+				error=1
+				count=$(( count - 1 ))
+				break
+			fi
+			done_pkg+=($pkg)
+		popd
+	done
+	settermtitle "triggering upgrade hook"
+	if [ ${#done_pkg[@]} -gt 0 ]; then
+		scratch_trigger ${done_pkg[@]}
+	fi
+	settermtitle "$count/$total package(s) upgraded"
+	return $error
+}
+
+scratch_outdate() {
+	local pkg
+	
+	for pkg in $(allinstalled); do
+		if [ $(getportpath $pkg) ]; then
+			. $(getportpath $pkg)/$BUILD_SCRIPT
+			if [ -z "$name" ] || [ -z "$version" ]; then
+				continue
+			fi
+			iversion=$(installed_pkg_info version $pkg)
+			irelease=$(installed_pkg_info release $pkg)
+			[ -f "$INDEX_DIR/$pkg/.lock" ] && ITSLOCK="[locked]"
+			outdatemsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+			newerinstmsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${YELLOW}[newer installed]${CRESET} ${CYAN}$ITSLOCK${CRESET}"
 			if [ "$version" !=  "$iversion" ]; then
 				vercomp $version $iversion
 				if [ $? = 2 ]; then
@@ -941,278 +1215,121 @@ scratch_outdate() {
 	[ ! "$OUTDATE" ] && msg "All packages are up to date."
 }
 
-scratch_search() {
-	needarg $@
-	arg=$*
-	for repo in $PORT_REPO; do
-		[ -d $repo ] || continue
-		out=$(grep -R "# description" $repo/*/$BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}' | sort)
-		[ "$out" ] || continue
-		found=1
-		for line in $out; do
-			repo=$(echo $line | rev | awk -F / '{print $3}' | rev)
-			desc=$(grep "^# description[[:blank:]]*:" $line | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-			. $line
-			if isinstalled $name; then
-				ins="[${GREEN}*${CRESET}]"
-			else
-				ins="[ ]"
-			fi
-			printf "$ins ${PURPLE}($repo)${CRESET} $name ${CYAN}$version-$release${CRESET}: $desc\n"
-			unset repo desc name version release build
+clearpkgcache() {	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
+		for pkg in ${ALL_PACKAGES[@]}; do
+			rm -v $PACKAGE_DIR/$pkg
 		done
-		unset out
-	done
-	if [ ! "$found" ]; then
-		msg "No matching package found."
 	fi
+	
+	if [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		for src in ${ALL_SOURCES[@]}; do
+			rm -v $SOURCE_DIR/$src
+		done
+	fi	
 }
 
-scratch_cache() {
-	needroot "Clear old caches"
-	
-	allcachepkg=/tmp/.allcachepkg.$$
-	allcachesrc=/tmp/.allcachesrc.$$
-	keepcachepkg=/tmp/.keepcachepkg.$$
-	keepcachesrc=/tmp/.keepcachesrc.$$
-	diffcachepkg=/tmp/.diffcachepkg.$$
-	diffcachesrc=/tmp/.diffcachesrc.$$
+getpkgcache() {
+	COMPRESSION_MODE="xz"
 	
 	[ -f /etc/scratchpkg.conf ] && . /etc/scratchpkg.conf
 	
-	touch \
-		$allcachepkg \
-		$allcachesrc \
-		$keepcachepkg \
-		$keepcachesrc \
-		$diffcachepkg \
-		$diffcachesrc
+	for list in "$PACKAGE_DIR"/*; do
+		[ -f "$list" ] && ALL_PACKAGES+=($(basename $list))
+	done
 	
-	if [ "$(find $PACKAGE_DIR -mindepth 1 -print -quit 2>/dev/null)" ]; then
-		for list in "$PACKAGE_DIR"/*; do
-			basename $list >> "$allcachepkg"
-		done
-	fi
+	for list in "$SOURCE_DIR"/*; do
+		[ -f "$list" ] && ALL_SOURCES+=($(basename $list))
+	done
 	
-	if [ "$(find $SOURCE_DIR -mindepth 1 -print -quit 2>/dev/null)" ]; then
-		for list in "$SOURCE_DIR"/*; do
-			basename $list >> "$allcachesrc"
-		done
-	fi
-	
-	for repo in $PORT_REPO; do
+	for repo in ${PORT_REPO[@]}; do
 		if [ "$(find $repo/*/ -mindepth 1 -print -quit 2>/dev/null)" ]; then # check directory if its not empty
 			for port in $repo/*/$BUILD_SCRIPT; do
 				. $port
-				echo "$name-$version-$release.spkg.tar.$COMPRESSION_MODE" >> "$keepcachepkg"
-				if [ "$source" ]; then
-					for src in $source; do
-						if echo $src | grep -Eq "(ftp|http|https)://"; then
-							if echo $src | grep -Eq "::(ftp|http|https)://"; then
+				PORT_PACKAGES+=($name-$version-$release.spkg.tar.$COMPRESSION_MODE)
+				if [ -n "$source" ]; then
+					for src in ${source[@]}; do
+						if [ $(echo $src | grep -E "(ftp|http|https)://") ]; then
+							if [ $(echo $src | grep -E "::(ftp|http|https)://") ]; then
 								sourcename="$(echo $src | awk -F '::' '{print $1}')"
 							else
 								sourcename="$(echo $src | rev | cut -d / -f 1 | rev)"
 							fi
-							echo $sourcename >> "$keepcachesrc"
+							SOURCE_NAMES+=($sourcename)
 						fi
 					done
 				fi
 			done
 		fi
 	done
-	grep -Fxv -f "$keepcachepkg" "$allcachepkg" > "$diffcachepkg"
-	grep -Fxv -f "$keepcachesrc" "$allcachesrc" > "$diffcachesrc"
 	
-	cat $diffcachepkg
-	cat $diffcachesrc
-	
-	if [ -s "$diffcachepkg" ]; then
-		cd "$PACKAGE_DIR"
-		sizepkg=$(du -ch $(cat $diffcachepkg) | grep total | awk '{print $1}')
-		cd - >/dev/null
-	else
-		sizepkg=0M
-	fi
-	
-	if [ -s "$diffcachesrc" ]; then
-		cd "$SOURCE_DIR"
-		sizesrc=$(du -ch $(cat $diffcachesrc) | grep total | awk '{print $1}')
-		cd - >/dev/null
-	else
-		sizesrc=0M
-	fi
-	
-	echo "Total package cache size: $sizepkg"
-	echo "Total source cache size : $sizesrc"
-	
-	if [ -s "$diffcachepkg" ] || [ -s "$diffcachesrc" ]; then
-		echo
-		confirm "Clear old caches?" "Old caches is kept." && {
-			for i in $(cat $diffcachepkg); do
-				[ -e "$PACKAGE_DIR/$i" ] && rm -v "$PACKAGE_DIR/$i"
-			done
-			for i in $(cat $diffcachesrc); do
-				[ -e "$SOURCE_DIR/$i" ] && rm -v "$SOURCE_DIR/$i"
-			done
-		}
-	fi
-	
-	rm -f \
-		"$allcachepkg" \
-		"$allcachesrc" \
-		"$keepcachepkg" \
-		"$keepcachesrc" \
-		"$diffcachepkg" \
-		"$diffcachesrc"
-}
-
-scratch_deplist() {
-	OLDIFS=$IFS
-	IFS=,
-	while [ "$1" ]; do
-		case $1 in
-			-q|--quick) quick=1;;
-			--exclude=*) for i in ${1#*=}; do exclude="$exclude $i"; done;;
-			-*) ;;
-			*) PKG="$PKG $1";;
-		esac
-		shift
-	done
-	IFS=$OLDIFS
-	[ "$PKG" ] || {
-		echo "Please specify package(s) to list dependencies."
-		return 1
-	}
-	for p in $PKG; do
-		if [ "$(getportpath $p)" ]; then
-			PPKG="$PPKG $p"
-		else
-			[ "$quick" = 1 ] || msgerr "Package '$p' not exist."
-		fi
-	done
-	
-	for p in $PPKG; do
-		deplist $p
-	done
-	
-	[ "$DEP" ] || return 0
-	
-	if [ "$quick" = 1 ]; then
-		echo $DEP | tr ' ' '\n'
-	else
-		for p in $DEP; do
-			if isinstalled $p; then
-				echo "[*] $p"
-			else
-				echo "[-] $p"
+	for i in ${PORT_PACKAGES[@]}; do
+		for pkg in ${!ALL_PACKAGES[@]}; do
+			if [ "${ALL_PACKAGES[pkg]}" = "$i" ]; then
+				unset 'ALL_PACKAGES[pkg]'
+				break
 			fi
 		done
-		if [ "$MISSINGDEP" ]; then
-			for m in $MISSINGDEP; do
-				echo "Missing deps: $m" | sed 's/(/ (/'
-			done
-		fi
-	fi
-}
-
-deplist() {
-	# skip excluded dependencies
-	if echo $exclude | tr " " "\n" | grep -qx $1; then
-		return 0
-	fi
+	done
 	
-	# check currently process for circular dependencies
-	# for circular dependencies, found first will take precedence
-	[ "$CHECK" ] && {
-		if echo $CHECK | tr " " "\n" | grep -qx $1; then
-			return 0
-		fi
-	}
-	
-	# add package to currently process
-	CHECK="$CHECK $1"
-	
-	# check dependencies
-	for i in $(get_depends $1); do
-		if [ "$quick" = 1 ] && isinstalled $i; then
-			continue
-		else
-			if ! echo $DEP | tr " " "\n" | grep -qx $i; then
-				if ! getportpath $i >/dev/null; then
-					MISSINGDEP="$MISSINGDEP $i($1)"
-				else
-					deplist $i
-				fi
+	for a in ${SOURCE_NAMES[@]}; do
+		for src in ${!ALL_SOURCES[@]}; do
+			if [ "${ALL_SOURCES[src]}" = "$a" ]; then
+				unset 'ALL_SOURCES[src]'
+				break
 			fi
-		fi
+		done
 	done
-	
-	# add dependency to list checked dep
-	if ! echo $DEP | tr " " "\n" | grep -qx $1; then
-		if [ "$quick" = 1 ]; then
-			isinstalled $1 || DEP="$DEP $1"
-		else
-			DEP="$DEP $1"
-		fi
-	fi
-	
-	# delete item from loop process
-	CHECK=$(echo $CHECK | sed "s/$1//")
 }
 
-scratch_cat() {	
+scratch_cache() {	
+	getpkgcache
+	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ]; then
+		ALL_PACKAGES_SIZE=$(pushd "$PACKAGE_DIR" && du -ch ${ALL_PACKAGES[@]} | grep total | awk '{print $1}' && popd)
+	else
+		ALL_PACKAGES_SIZE=0M
+	fi
+	
+	if [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		ALL_SOURCES_SIZE=$(pushd "$SOURCE_DIR" && du -ch ${ALL_SOURCES[@]} | grep total | awk '{print $1}' && popd)
+	else
+		ALL_SOURCES_SIZE=0M
+	fi
+	
+	[ ${#ALL_PACKAGES[@]} -gt 0 ] && (echo ${ALL_PACKAGES[@]} | tr ' ' '\n')
+	[ ${#ALL_SOURCES[@]} -gt 0 ] && (echo ${ALL_SOURCES[@]} | tr ' ' '\n')
+	
+	echo
+	echo -e "Package caches ($ALL_PACKAGES_SIZE)"
+	echo -e "Source caches ($ALL_SOURCES_SIZE)"
+	echo
+	
+	if [ ${#ALL_PACKAGES[@]} -gt 0 ] || [ ${#ALL_SOURCES[@]} -gt 0 ]; then
+		confirm "Clear old caches?" "Old caches is keep."
+		needroot "Clear old caches"
+		clearpkgcache
+	fi
+}
+
+scratch_path() {
 	needarg $@
+	
 	if PPATH=$(getportpath "$1"); then
-		cat "$PPATH/$BUILD_SCRIPT"
+		echo "$PPATH"
 	else
 		msgerr "Port '$1' not exist."
-		return 1
-	fi
-}
-
-scratch_dependent() {
-	needarg $@
-	if [ "$(getportpath $1)" ]; then
-		grep -R "# depends[[:blank:]]*:" $PORT_REPO \
-		| sed "s,:# depends[[:blank:]]*:[[:blank:]]*,#|,;s, ,|,g;s,$,|,g" \
-		| grep "|$1|" \
-		| awk -F "#" '{print $1}' \
-		| rev \
-		| awk -F / '{print $2}' \
-		| rev
-	else
-		msgerr "Port '$1' not exist."
-		return 1
-	fi
-}
-
-scratch_depends() {
-	needarg $@	
-	if getportpath "$1" >/dev/null; then
-		depends=$(get_depends $1)
-	else
-		msgerr "Port '$1' not exist."
-		return 1
-	fi
-	
-	for dep in $depends; do
-		if isinstalled $dep; then
-			msginst "$dep"
-		elif getportpath $dep >/dev/null; then
-			msgnoinst "$dep"
-		else
-			msgmiss "$dep"
-		fi
-	done
+		exit 1
+	fi	
 }
 
 scratch_dup() {	
-	dup=$(find $PORT_REPO -type d -print | grep -Exv "($(echo $PORT_REPO | tr ' ' '|'))" | \
+	dup=$(find ${PORT_REPO[@]} -type d -print | grep -Exv "($(echo ${PORT_REPO[@]} | tr ' ' '|'))" | \
 		rev | cut -d '/' -f1 | rev | sort | uniq -d)
 	
 	if [ "$dup" ]; then
 		for dp in $dup; do
-			for repo in $PORT_REPO; do
+			for repo in ${PORT_REPO[@]}; do
 				[ -d $repo/$dp ] && echo "$repo/$dp"
 			done
 		done
@@ -1221,249 +1338,319 @@ scratch_dup() {
 	fi	
 }
 
-scratch_foreign() {
-	for pkg in $(allinstalled); do
-		if ! getportpath $pkg >/dev/null; then
-			iname=$(installed_pkg_info name $pkg)
-			iversion=$(installed_pkg_info version $pkg)
-			irelease=$(installed_pkg_info release $pkg)
-			echo "$iname $iversion-$irelease"
-		fi
-		unset iname iversion irelease
-	done	
-}
-
-scratch_info() {
-	needarg $@
-	ppath=$(getportpath $1) || return 1
+scratch_deplist() {
+	while [ "$1" ]; do
+		case $1 in
+			-q) quick=1;;
+			--exclude=*) IFS=, read -r -a exclude <<< ${1#*=};;
+			-*) ;;
+			*) PKG+=($1);;
+		esac
+		shift
+	done
 	
-	. $ppath/$BUILD_SCRIPT
-	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
-	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
-	deps=$(get_depends $1 | tr '\n' ' ')
-	
-	echo "Name:         $1"
-	echo "Path:         $ppath"
-	echo "Version:      $version"
-	echo "Release:      $release"
-	echo "Description:  $desc"
-	echo "Maintainer:   $maint"
-	echo "Dependencies: $deps"
-}
-
-scratch_installed() {
-	for all in $(allinstalled); do		
-		printf "%s" "$all "
-		grep -e ^version -e ^release $PKGDB_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
-		echo
-	done
-}
-
-scratch_missingdep() {
-	for pkg in $(allinstalled); do
-		if getportpath "$pkg" >/dev/null; then
-			depends=$(get_depends $pkg)
-		fi
-		if [ "$depends" ]; then
-			for d in $depends; do
-				if ! isinstalled $d; then
-					if [ -z "$msd" ]; then
-						msd="$d"
-					else
-						msd="$msd $d"
-					fi
-				fi
-			done
-		fi
-		[ "$msd" ] && echo "$pkg: $msd"
-		unset depends msd
-	done
-}
-
-scratch_locked() {
-	for pkg in $(allinstalled); do
-		[ -f "$PKGDB_DIR/$pkg/.lock" ] && echo "$pkg"
-	done
-}
-
-scratch_orphan() {
-	tmpallpkg="/tmp/.pkgquery_allpkg.$$"
-	tmpalldep="/tmp/.pkgquery_alldep.$$"
-	for pkg in $(allinstalled); do
-		echo $pkg >> $tmpallpkg
-		dep="$dep $(get_depends $pkg)"
-	done
-	echo $dep | tr ' ' '\n' | sort | uniq > "$tmpalldep"
-	grep -xvF -f "$tmpalldep" "$tmpallpkg"
-	rm "$tmpalldep" "$tmpallpkg"
-}
-
-scratch_path() {
-	needarg $@
-	if PPATH=$(getportpath "$1"); then
-		echo "$PPATH"
+	if [ "${#PKG[@]}" -gt 0 ]; then
+		for p in ${PKG[@]}; do
+			deplist $p
+		done
 	else
-		msgerr "Port '$1' not exist."
 		return 1
 	fi
-}
-
-scratch_provide() {
-	needarg $@
-	arg=$(echo $1 | sed "s/^\///")
-	grep -R "$arg" $PKGDB_DIR/*/.files \
-	| sed "s:$PKGDB_DIR/::" \
-	| sed "s:/.files::" \
-	| tr : " " \
-	| column -t
-}
-
-scratch_readme() {
-	needarg $@	
-	if PPATH=$(getportpath "$1"); then
-		if [ -f "$PPATH/readme" ]; then
-			cat "$PPATH/readme"
-		else
-			msgerr "Port '$1' does not have readme."
-		fi
+	
+	[[ ${DEP[@]} ]] || return 0
+	
+	if [ "$quick" = 1 ]; then
+		echo ${DEP[@]} | tr ' ' '\n'
 	else
-		msgerr "Port '$1' not exist."
-		exit 1
+		for p in ${DEP[@]}; do
+			if isinstalled $p; then
+				echo "[*] $p"
+			else
+				echo "[-] $p"
+			fi
+		done
+		if [ "${#MISSINGDEP[@]}" -gt 0 ]; then
+			for m in ${MISSINGDEP[@]}; do
+				echo "Missing deps: $m" | sed 's/(/ (/'
+			done
+		fi
 	fi
 }
 
-scratch_files() {	
-	needarg $@
-	if isinstalled $1; then
-		cat "$PKGDB_DIR/$1/.files"
-	else
-		msg "Package '$1' not installed."
-	fi	
+deplist() {
+	# skip excluded dependencies
+	if [[ $(echo ${exclude[@]} | tr " " "\n" | grep -x $1) ]]; then
+		return 0
+	fi
+	
+	# check currently process package for loop
+	if [ ${#CHECK[@]} -gt 0 ]; then
+		if [[ "$(echo ${CHECK[@]} | tr " " "\n" | grep -x $1)" == "$1" ]]; then
+			return 0
+		fi
+	fi
+	
+	# add package to currently process
+	CHECK+=($1)
+	
+	# check dependencies
+	for i in $(get_depends $1); do
+		if [ "$quick" = 1 ] && isinstalled $i; then
+			continue
+		else
+			if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $i) = "" ]]; then
+				if ! getportpath $i >/dev/null; then
+					MISSINGDEP+=("$i($1)")
+				else
+					deplist $i
+				fi
+			fi
+		fi
+	done
+	
+	# add dependency to list checked dep
+	if [[ $(echo ${DEP[@]} | tr " " "\n" | grep -x $1) = "" ]]; then
+		if [ "$quick" != 1 ]; then
+			DEP+=($1)
+		else
+			isinstalled $1 || DEP+=($1)
+		fi
+	fi
+	
+	# delete process package array
+	for i in "${!CHECK[@]}"; do
+		if [[ ${CHECK[i]} = "$1" ]]; then
+			unset 'CHECK[i]'
+		fi
+	done
 }
 
-scratch_help() {
+usage_extra() {
 	cat << EOF
 Usage:
-    $(basename $0) <options> [<arg>]
+    $(basename $0) <operation> [ <port/pattern/file> ]
     
-Options:
-    install <ports> <arg>    install ports (use pkgbuild arg, except '-i' & '-u')
-                             -r|--reinstall   reinstall
-                             -n|--no-dep      skip dependencies
-                             -y|--yes         skip ask user permission
-                             --exclude=*      exclude dependencies, comma separated
-
-    upgrade <ports> <arg>    upgrade ports (use pkgbuild arg, except '-i' & '-r')
-                             -n|--no-dep      skip dependencies
-                             -y|--yes         skip ask user permission
-                             --exclude=*      exclude dependencies, comma separated
-
-    remove  <ports> <arg>    remove installed ports (use pkgdel arg)
-                             -y|--yes         skip ask user permission
-
-    sysup           <arg>    full system upgrade (use pkgbuild arg, except '-i', '-r'  & '-u')
-                             -n|--no-dep      skip dependencies
-                             -y|--yes         skip ask user permission
-                             --exclude=*      exclude dependencies, comma separated
-
-    deplist <ports>          print all dependencies for ports
-                             -q|--quick       skip installed ports
-                             --exclude=*      exclude dependencies, comma separated
-
-    build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
-                             --log            log build process (/var/log/pkgbuild.log)
-
-    lock      <ports>        locking ports prevent upgrade
-    unlock    <ports>        unlock locked ports
-    trigger   [ports]        run system trigger
-    search    <pattern>      find ports in repo
-    cat       <port>         print spkgbuild
-    depends   <port>         print dependencies
-    dependent <port>         print dependent
-    path      <port>         print path in repo
-    provide   <files>        print port's provided files
-    readme    <port>         print readme file, if exist
-    files     <port>         print files installed
-    info      <port>         print information
-    locate    <files>        print location of files in ports repo
-    sync                     update ports database
-    outdate                  print outdated ports
-    cache                    print and clear old pkg and src caches
-    integrity                check installed port integrity
-    dup                      print duplicate ports in repo
-    installed                print all installed ports
-    locked                   print loacked ports
-    missingdep               print missing dependencies
-    orphan                   print orphan installed ports
-    foreign                  print foreign ports
-    help                     print this help msg
-
-Global options:
-    --append-repo=<repo path>       append custom repo path
-    --prepend-repo=<repo path>      prepend custom repo path
-    --repo-file=<repo file>         use custom repo file (default: $REPO_FILE)
-    --nocolor                       disable colour for output
-
+Operation:
+    depends   <port>       show depends of a package
+    search    <pattern>    search packages in port's repos
+    lock      <port>       lock packages from upgrade
+    unlock    <port>       unlock packages from upgrade
+    cat       <port>       view a package build scripts
+    dependent <port>       show package's dependent
+    own       <file>       show package's owner of file
+    files     <port>       show list files of installed package
+    path      <port>       show package's buildscripts path
+    readme    <port>       print readme file if exist
+    info      <port>       print ports info
+    sync                   update port's repo
+    dup                    print duplicate ports in repo
+    listinst               list installed package in system
+    listorphan             list orphan package
+    integrity              check integrity of package's files
+    outdate                check for outdated packages
+    cache                  print leftover cache
+    missingdep             check for mising dependency of installed package
+    foreignpkg             print package installed without port in repo
+    listlocked             print locked packages
+    
 EOF
 }
 
-print_runhelp_msg() {
-	echo "Run '$(basename $0) help' to see available options."
-	exit 2
+usage_build() {
+	cat << EOF
+Usage:
+    $(basename $0) build [ <pkgname> <options> ]
+    
+Options:
+    -f, --force-rebuild    force rebuild
+    -m, --skip-mdsum       skip md5sum check for sources
+    -x, --extract          extract only
+    -w, --keep-work        keep woring directory
+    -o, --download         download source files only
+    -l, --log              log build process
+    --redownload           re-download source files
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
+    
+EOF
 }
 
-# check for 'pkgadd', required for package database path
-command -v pkgadd >/dev/null 2>&1 || {
-	echo "'pkgadd' not found in \$PATH!"
-	exit 1
+usage_upgrade() {
+	cat << EOF
+Usage:
+    $(basename $0) upgrade [ <pkgname> <options> ]
+    
+Options:
+    -d, --no-dep           skip installing dependencies (new dependencies)
+    -c, --ignore-conflict  skip file conflict check
+    -v, --verbose          print install process
+    -y, --yes              dont ask confirmation
+    -l, --log              log build process
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
+    --no-backup            skip backup configuration file
+    --no-preupgrade        skip pre-upgrade script
+    --no-postupgrade       skip post-upgrade script
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
+    
+EOF
+}
+
+usage_sysup() {
+	cat << EOF
+Usage:
+    $(basename $0) sysup <options>
+    
+Options:
+    -d, --no-dep           skip installing dependencies (new dependencies)
+    -c, --ignore-conflict  skip file conflict check
+    -v, --verbose          print install process
+    -s, --sync             sync ports before upgrades
+    -y, --yes              dont ask confirmation
+    -l, --log              log build process
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
+    --no-backup            skip backup configuration file
+    --no-preupgrade        skip pre-upgrade script
+    --no-postupgrade       skip post-upgrade script
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
+    
+EOF
+}
+
+usage_remove() {
+	cat << EOF
+Usage:
+    $(basename $0) remove [ <pkgname> <options> ]
+    
+Options:
+    -v, --verbose          print removed files
+    -y, --yes              dont ask confirmation
+    --no-preremove         skip pre-remove script
+    --no-postremove        skip post-remove script
+    
+EOF
+}
+
+usage_install() {
+	cat << EOF
+Usage:
+    $(basename $0) install [ <pkgname> <options> ]
+    
+Options:
+    -d, --no-dep           skip installing dependencies
+    -c, --ignore-conflict  skip file conflict check
+    -r, --reinstall        reinstall installed package
+    -v, --verbose          print install files
+    -l, --log              log build process
+    -y, --yes              dont ask confirmation
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
+    --no-backup            skip backup configuration file (use with -r/--reinstall)
+    --no-preinstall        skip pre-install script
+    --no-postinstall       skip post-install script
+    --srcdir=<path>        override default SOURCE_DIR
+    --pkgdir=<path>        override default PACKAGE_DIR
+    --logdir=<path>        override default LOG_DIR
+    --workdir=<path>       override default WORK_DIR
+    
+EOF
+}
+
+usage_deplist() {
+	cat << EOF
+Usage:
+    $(basename $0) deplist [ <pkgname> <options> ]
+    
+Options:
+    -q, --quick            print only not-installed pkg in quick format
+    --exclude=<pkg1,pkgN>  exclude dependencies, comma separated
+	
+EOF
+}
+
+
+usage_help() {
+	cat << EOF
+Usage:
+    $(basename $0) help <operation>
+    
+Operations:
+    build           build package
+    install         install packages
+    upgrade         upgrade packages
+    sysup           full system upgrades
+    remove          remove packages
+    deplist         list all dependencies
+    extra           various extra options
+    
+Global options:
+    --repo=<path>   add custom local repo path
+    --root=<path>   use custom root path
+    --nocolor       disable colour output
+    
+EOF
+}
+
+scratch_help() {
+	if [ -z "$1" ]; then
+		usage_help
+		return 0
+	else
+		if [ "$(type -t usage_$1)" ]; then
+			usage_$1
+		else
+			usage_help
+		fi
+	fi
+	return 0
+}
+
+main() {
+	if [ "$(type -t scratch_$mode)" = "function" ]; then
+		scratch_$mode $@
+	else
+		echo "Run 'scratch help' to see available operations and options"
+		return 5
+	fi
+	return $?
 }
 
 mode=$1
-
-[ "$mode" ] || {
-	print_runhelp_msg
-}
-
 shift
 
 for opt in $@; do
 	case $opt in
-	     --nocolor) nocolor;;
-	      --repo=*) PORT_REPO="$PORT_REPO ${opt#*=}";;
-	 --repo-file=*) REPO_FILE="${opt#*=}";;
-	--alias-file=*) ALIAS_FILE="${opt#*=}";;
-	           --*) MAINOPTS="$MAINOPTS $opt";;
-	            -*) char=${#opt}; count=1
-	                while [ "$count" != "$char" ]; do
-	                   count=$((count+1))
-	                   MAINOPTS="$MAINOPTS -$(printf '%s' $opt | cut -c $count)"
-	                done;;
-	             *) MAINOPTS="$MAINOPTS $opt";;
+		--nocolor) nocolor;;
+		 --repo=*) PORT_REPO+=(${opt#*=});;
+		 --root=*) ROOT_DIR=(${opt#*=});;
+		      --*) MAINOPTS+=($opt);;
+		       -*) for (( i=1; i<${#opt}; i++ )); do MAINOPTS+=(-${opt:$i:1}); done;;
+		        *) MAINOPTS+=($opt);;
 	esac
-	shift
 done
 
 BUILD_SCRIPT="spkgbuild"
-PKGDB_DIR="$(pkgadd --print-dbdir)"
-REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
-ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
-MASK_FILE="${MASK_FILE:-/etc/scratchpkg.mask}"
+INDEX_DIR="$ROOT_DIR/var/lib/scratchpkg/index"
+REPO_FILE="/etc/scratchpkg.repo"
 
-# default value from pkgbuild
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
-COMPRESSION_MODE="xz"
 
 if [ -f "$REPO_FILE" ]; then
-	for repodir in $(grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1}'); do
-		PORT_REPO="$PORT_REPO $repodir"
-	done
+	while read -r repodir repourl junk; do
+		case $repodir in
+			""|"#"*) continue ;;
+		esac
+		PORT_REPO+=($repodir)
+	done < "$REPO_FILE"
 fi
 
-if [ "$(command -v scratch_$mode)" ]; then
-	scratch_$mode $MAINOPTS
-else
-	print_runhelp_msg
-fi
+main ${MAINOPTS[@]}
 
 exit $?
