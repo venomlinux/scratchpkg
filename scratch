@@ -82,10 +82,13 @@ getportpath() {
 vercomp() {	
 	if [ "$1" = "$2" ]; then
 		return 0 # same version
-	elif [ "$1" = "$(echo "$1\n$2" | sort -V | head -n1)" ]; then
+	#elif [ "$1" = "$(echo "$1\n$2" | sort -V | head -n1)" ]; then
+	elif [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" = "$1" ]; then
 		return 1 # $1 lower than $2
+		#echo "1"
 	else
 		return 2 # $1 higher than $2
+		#echo "2"
 	fi
 }
 
@@ -910,24 +913,26 @@ scratch_outdate() {
 			if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
 				ITSLOCK="[masked]"
 			fi
-			outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
-			newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
+			#outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
+			#newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
+			outdatemsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${CYAN}$ITSLOCK${CRESET}"
+                        newerinstmsg="$name ${RED}$iversion-$irelease${CRESET} => ${GREEN}$version-$release${CRESET} ${YELLOW}[newer installed]${CRESET} ${CYAN}$ITSLOCK${CRESET}"
 			if [ "$version" !=  "$iversion" ]; then
 				vercomp $version $iversion
 				if [ $? = 2 ]; then
-					echo "$outdatemsg"
+					echo -e "$outdatemsg"
 					OUTDATE=yes
 				elif [ $? = 1 ]; then
-					echo "$newerinstmsg"
+					echo -e "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			elif [ "$release" !=  "$irelease" ]; then
 				vercomp $release $irelease
 				if [ $? = 2 ]; then
-					echo "$outdatemsg"
+					echo -e "$outdatemsg"
 					OUTDATE=yes
 				elif [ $? = 1 ]; then
-					echo "$newerinstmsg"
+					echo -e "$newerinstmsg"
 					OUTDATE=yes
 				fi
 			fi
