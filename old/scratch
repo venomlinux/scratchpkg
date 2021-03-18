@@ -969,29 +969,6 @@ scratch_search() {
 		msg "No matching package found."
 	fi
 }
-scratch_changelog() {
-	needarg $@
-	arg=$*
-	for repo in $PORT_REPO; do
-		#echo $repo/$1
-		if [[ -d $repo/$1 ]];
-		then
-			found=1
-			if [[ -f $repo/$1/CHANGELOG ]];
-			then
-				cat $repo/$1/CHANGELOG;
-			else
-				echo "No Changelog Exists"
-			fi
-			break
-		fi
-	done
-	if [ ! "$found" ];
-	then
-		msg "No matching package found"
-	fi
-}
-
 
 scratch_cache() {
 	needroot "Clear old caches"
@@ -1402,7 +1379,6 @@ Options:
     unlock    <ports>        unlock locked ports
     trigger   [ports]        run system trigger
     search    <pattern>      find ports in repo
-    changelog <pattern>      find changelog in package
     cat       <port>         print spkgbuild
     depends   <port>         print dependencies
     dependent <port>         print dependent
