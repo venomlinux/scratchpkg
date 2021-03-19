@@ -943,7 +943,7 @@ scratch_search() {
 	arg=$*
 	for repo in $PORT_REPO; do
 		[ -d $repo ] || continue
-		out=$(grep -R "# description" $repo/*/$BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}' | sort)
+		out=$(grep -R "# description" $repo/*/$BUILD_SCRIPT | grep -i "$arg" | awk -F : '{print $1}' | sort)
 		[ "$out" ] || continue
 		found=1
 		for line in $out; do
