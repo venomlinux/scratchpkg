@@ -246,22 +246,7 @@ scratch_isorphan() {
 }
 
 scratch_sync() {	
-	checktool httpup	
-	needroot "Updating ports"
-	
-	if [ ! -e "$REPO_FILE" ]; then
-		msgerr "Repo file not found! ($REPO_FILE)"
-		exit 1
-	fi
-
-	grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1,$2}' | while read -r repodir repourl; do
-		if [ "$repodir" ] && [ "$repourl" ]; then
-			httpup sync $repourl $repodir || {
-				msgerr "Failed sync from $repourl"
-				exit 1
-			}
-		fi
-	done
+	reposync
 }
 
 scratch_trigger() {
