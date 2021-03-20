@@ -246,7 +246,7 @@ scratch_isorphan() {
 }
 
 scratch_sync() {	
-	reposync
+	portsync
 }
 
 scratch_trigger() {

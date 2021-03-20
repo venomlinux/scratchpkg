@@ -79,17 +79,21 @@ github_sync() {
 	url=$(echo $1 | cut -d / -f -5)
 	branch=$(echo $1 | cut -d / -f 7)
 	tarball=/tmp/$repo
-	echo "Connecting to $1"
+	echo "Fetching from $1"
 	curl --silent -LJ -o $tarball.tar.xz $url/tarball/$branch || {
-		echo "Failed sync from $1"
+		echo "Failed fetching repo from $1"
 		exit 1
 	}
 	tar -tf $tarball.tar.xz &>/dev/null || {
-		echo "Failed sync from $1"
+		echo "Tarball from $1 corrupted"
 		exit 1
 	}
-	portname=$(tar -tf $tarball.tar.xz | head -n1 | cut -d / -f1)
+	portname=$(tar -tf $tarball.tar.xz 2>/dev/null | head -n1 | cut -d / -f1)
 	tar -xf $tarball.tar.xz -C /tmp
+	if [ ! "$portname" ] || [ -d "$repo" ]; then
+		echo "Failed sync $repo repo"
+		exit 1
+	fi
 	cmp_copy /tmp/$portname/$repo $dir
 	rm -f $tarball.tar.xz
 	rm -fr /tmp/$portname
