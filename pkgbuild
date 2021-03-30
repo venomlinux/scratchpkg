@@ -343,6 +343,14 @@ packaging() {
 		find . ! -type d -name "*.la" -delete
 	fi
 	
+	if [ "$KEEP_LOCALE" = 0 ] || [ "$KEEP_LOCALE" = "no" ]; then
+		rm -fr usr/share/locale usr/locale
+	fi
+	
+	if [ "$KEEP_DOC" = 0 ] || [ "$KEEP_DOC" = "no" ]; then
+		rm -fr usr/share/doc usr/share/gtk-doc usr/doc usr/gtk-doc
+	fi
+	
 	if [ "$NO_STRIP" = 0 ] || [ "$NO_STRIP" = "no" ]; then
 		strip_files
 	fi
@@ -677,9 +685,11 @@ SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
 WORK_DIR="/var/cache/scratchpkg/work"
 COMPRESSION_MODE="xz"
-KEEP_LIBTOOL="no"
 NO_STRIP="no"
 IGNORE_MDSUM="no"
+KEEP_LIBTOOL="no"
+KEEP_LOCALE="no"
+KEEP_DOC="no"
 
 INCLUDEINPKG="install readme mkdirs"
 
