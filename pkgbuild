@@ -344,7 +344,7 @@ packaging() {
 	fi
 	
 	if [ "$KEEP_LOCALE" = 0 ] || [ "$KEEP_LOCALE" = "no" ]; then
-		rm -fr usr/share/locale usr/locale
+		rm -fr usr/share/locale usr/locale usr/lib/locale
 	fi
 	
 	if [ "$KEEP_DOC" = 0 ] || [ "$KEEP_DOC" = "no" ]; then
