@@ -253,28 +253,6 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 	fi
 fi
 
-# pre-install and pre-upgrade script
-if grep -qx .pkginstall $TMP_PKGADD; then
-	TMP_PKGINSTALL_SCRIPT="$SCRATCHPKG_DIR/pkgadd_installscript"
-	tar -xf "$PKGNAME" .pkginstall -O > "$ROOT_DIR/$TMP_PKGINSTALL_SCRIPT"
-	if [ ! "$NO_PREINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		(cd "$ROOT_DIR"/
-			run_scripts "$TMP_PKGINSTALL_SCRIPT" pre-install "$version"
-		)
-	fi
-	if [ "$UPGRADE_PKG" ] && [ ! "$NO_PREUPGRADE" ]; then
-		(cd "$ROOT_DIR"/
-			run_scripts "$TMP_PKGINSTALL_SCRIPT" pre-upgrade "$version" "$iversion"
-		)
-	fi
-	rm -f "$ROOT_DIR/$TMP_PKGINSTALL_SCRIPT"
-fi
-
-# exclude .pkg* files when extract into system
-for i in $(grep "^.pkg*" $TMP_PKGADD); do
-	excludefile="$excludefile --exclude=$i"
-done
-
 rm -f $TMP_PKGINSTALL
 
 # extract package into ROOT_DIR
@@ -329,27 +307,6 @@ echo "name = $name" > "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
 echo "version = $version" >> "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
 echo "release = $release" >> "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
 install -m644 "$TMP_PKGINSTALL" "$ROOT_DIR/$PKGDB_DIR/$name/.files"
-
-for ii in $(grep ^.pkg* $TMP_PKGADD); do
-	pkgfiles="$pkgfiles $ii"
-done
-
-if [ "$pkgfiles" ]; then
-	tar -x -f "$PKGNAME" -C "$ROOT_DIR/$PKGDB_DIR/$name" $pkgfiles >/dev/null 2>&1
-fi
-
-if [ -f "$ROOT_DIR/$PKGDB_DIR/$name/.pkginstall" ]; then
-	if [ ! "$NO_POSTINSTALL" ] && [ ! "$UPGRADE_PKG" ]; then
-		(cd "$ROOT_DIR"/
-			run_scripts "$PKGDB_DIR/$name/.pkginstall" post-install "$version"
-		)
-	fi
-	if [ "$UPGRADE_PKG" ] && [ ! "$NO_POSTUPGRADE" ]; then
-		(cd "$ROOT_DIR"/
-			run_scripts "$PKGDB_DIR/$name/.pkginstall" post-upgrade "$version" "$iversion"
-		)
-	fi
-fi
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then

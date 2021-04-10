@@ -34,33 +34,20 @@ msgwarn() {
 	echo "==> WARNING: $1" >&2
 }
 
-updatemdsum() {
-	for s in $(getsourcelist); do
-		if [ ! -f $s ]; then
-			msgerr "Source file '$s' not found."
+pkg_genchecksums() {
+	for i in $(get_filepath); do
+		[ -f "$i" ] || {
+			msgerr "File missing: $i"
 			err=1
-		fi
+		}
 	done
 	[ "$err" = 1 ] && abort 1
 	generatemdsum > .checksums
 	msg "Checksums updated."
 }
 
-getsourcelist() {
-	for s in $source; do
-		if echo $s | grep -qE "::(ftp|http|https)://"; then
-			FILENAME=$SOURCE_DIR/$(echo $s | awk -F '::' '{print $1}')
-		elif echo $s | grep -qE "(ftp|http|https)://"; then
-			FILENAME=$SOURCE_DIR/$(basename $s)
-		else
-			FILENAME=$PWD/$s
-		fi
-			echo $FILENAME
-	done
-}
-
 generatemdsum() {
-	for s in $(getsourcelist); do
+	for s in $(get_filepath); do
 		if [ -f $s ]; then
 			needupdatechecksum="$needupdatechecksum $s"
 		fi
@@ -72,7 +59,7 @@ generatemdsum() {
 	fi
 }
 
-checkmdsum() {
+pkg_checksum() {
 	if [ "$IGNORE_MDSUM" = "yes" ] || [ "$IGNORE_MDSUM" = 1 ]; then
 		return 0
 	fi
@@ -81,7 +68,7 @@ checkmdsum() {
 	DIFCHECKSUM=$WORK_DIR/checksumsdiff.$$
 	
 	if [ ! -f .checksums ]; then
-		updatemdsum
+		pkg_genchecksums
 	else
 		msg "Checking checksums..."
 		generatemdsum > "$TMPCHECKSUM"
@@ -104,43 +91,37 @@ checkmdsum() {
 	[ "$mismatch" = 1 ] && abort 1
 }
 
-download_src() {	
-	for FILE in $source; do
-		if echo $FILE | grep -Eq '::(http|https|ftp)://'; then
-			FILENAME=$(echo $FILE | awk -F '::' '{print $1}')
-			SRCURL=$(echo $FILE | awk -F '::' '{print $2}')
-		else
-			FILENAME=$(basename $FILE)
-			SRCURL=$FILE
-		fi
-		DLCMD="curl -C - -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $SOURCE_DIR/$FILENAME.partial $CURL_OPTS"
-		if [ "$FILENAME" != "$FILE" ]; then
-			if [ ! -f "$SOURCE_DIR/$FILENAME" ] || [ "$REDOWNLOAD_SOURCE" ]; then
-				[ "$REDOWNLOAD_SOURCE" ] && rm -f "$SOURCE_DIR/$FILENAME.partial"
-				if [ -f "$SOURCE_DIR/$FILENAME.partial" ]; then
-					msg "Resuming '$SRCURL'."
-				else
-					msg "Downloading '$SRCURL'."
-				fi
-				$DLCMD $SRCURL
-				if [ $? = 0 ]; then
-					[ "$REDOWNLOAD_SOURCE" ] && rm -f "$SOURCE_DIR/$FILENAME"
-					mv $SOURCE_DIR/$FILENAME.partial $SOURCE_DIR/$FILENAME
-				else
-					msgerr "Failed downloading '$FILENAME'."
-					abort 1
-				fi
-			fi
-		else
-			if [ ! -f "$FILENAME" ]; then
-				msgerr "Source '$FILENAME' not found."
-				abort 1
-			fi
-		fi
+get_filepath() {
+	for i in $source; do
+		case $i in
+			*::*) echo $SOURCE_DIR/${i%::*};;
+			*://*) echo $SOURCE_DIR/${i##*/};;
+			*) echo $PWD/$i;;
+		esac
 	done
 }
 
-prepare_src() {	
+pkg_fetch() {
+	for i in $source; do
+		case $i in
+			*::*)  filepath="$SOURCE_DIR/${i%::*}"; url=${i#*::};;
+			*://*) filepath="$SOURCE_DIR/${i##*/}"; url=$i;;
+			*) continue;;
+		esac
+		[ -f "$filepath" ] && {
+			msg "Source found: $filepath"
+			continue
+		}
+		msg "Fetching: $i"
+		curl -C - -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $filepath.partial $CURL_OPTS $url || {
+			msgerr "Fetching failed: $i"
+			abort 1
+		}
+		mv $filepath.partial $filepath
+	done
+}
+
+pkg_unpack() {
 	SRC=$WORK_DIR/$name/src
 	PKG=$WORK_DIR/$name/pkg
 	
@@ -150,67 +131,46 @@ prepare_src() {
 	
 	mkdir -p $SRC $PKG
 	
-	if [ "$source" ]; then
-		for FILE in $source; do
-			if echo $FILE | grep -Eq '::(http|https|ftp)://'; then
-				FILENAME=$SOURCE_DIR/$(echo $FILE | awk -F '::' '{print $1}')
-			elif echo $FILE | grep -Eq '^(http|https|ftp)://'; then
-				FILENAME=$SOURCE_DIR/$(basename $FILE)
-			else
-				FILENAME=$PWD/$(basename $FILE)
-			fi
-			for NOEXT in $noextract; do
-				if [ "$NOEXT" = "$(basename $FILENAME)" ]; then
-					nxt=1
-					break
-				fi
-			done
-			if [ ! -f $FILENAME ]; then
-				msgerr "File source '$FILENAME' not found."
-				err=1
-				continue
-			fi
-			if [ "$FILENAME" != "$FILE" ] && [ "$nxt" != 1 ]; then
-				case $FILENAME in
-					*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tar.lz|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
-						if [ $(command -v bsdtar) ]; then
-							COMMAND="bsdtar -p -o -C $SRC -xf $FILENAME"
-						else
-							COMMAND="tar -p -o -C $SRC -xf $FILENAME"
-						fi
-						MODE="Unpacking" ;;
-					*)
-						COMMAND="cp $FILENAME $SRC"
-						MODE="Preparing" ;;
-				esac
-				msg "$MODE '$(basename $FILENAME)'..."
-				$COMMAND || {
-					msgerr "$MODE '$FILENAME' failed."
+	TAR=tar
+	[ $(command -v bsdtar) ] && TAR=bsdtar
+	
+	for i in $(get_filepath); do
+		if [ ! -f "$i" ]; then
+			msgerr "Source missing: $i"
+			abort 1
+		fi
+		for n in $noextract; do
+			if [ ${i##*/} = $n ]; then
+				msg "Preparing: $i"
+				cp $i $SRC || {
+					msgerr "Preparing failed: $i"
 					abort 1
 				}
-			else
-				MODE="Preparing"
-				msg "$MODE '$(basename $FILENAME)'..."
-				cp "$FILENAME" "$SRC" || {
-					msgerr "$MODE '$FILENAME' failed."
-					abort 1
-				}
+				continue 2
 			fi
-			unset nxt
 		done
-	fi
+		case $i in
+			*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tar.lz|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
+				msg "Unpacking: $i"
+				$TAR -p -o -C $SRC -xf $i;;
+			*)
+				msg "Preparing: $i"
+				cp $i $SRC;;
+		esac
+		[ $? = 0 ] || {
+			msgerr "Unpacking/Preparing failed: $i"
+			abort 1
+		}
+	done	
 }
 
-run_build() {	
+pkg_build() {	
 	[ "$(id -u)" = 0 ] || {
 		msgerr "You must build package as root, or use fakeroot."
 		abort 1
 	}
 	
-	msg "Start build '$name-$version-$release'."	
-	
-	export MAKEFLAGS
-	export CFLAGS CXXFLAGS
+	msg "Build start: $name-$version-$release"
 	
 	cd $SRC >/dev/null
 	if [ "$QUIET" ]; then
@@ -220,10 +180,10 @@ run_build() {
 	fi
 		
 	if [ $? != 0 ]; then
-		msgerr "Build '$name-$version-$release' failed."
+		msgerr "Build failed: $name-$version-$release"
 		abort 1
 	else
-		msg "Build '$name-$version-$release' success."
+		msg "Build success: $name-$version-$release"
 	fi
 	
 	cd - >/dev/null
@@ -234,7 +194,7 @@ pkglint() {
 	
 	# cant package empty PKG
 	if [ ! "$(find $PKG/* -maxdepth 1 -type d 2>/dev/null)" ]; then
-		msgerr "PKG is empty."
+		msgerr "PKG is empty"
 		abort 1
 	fi
 	
@@ -312,22 +272,9 @@ compressinfomanpages() {
 	fi
 }
 
-backupconf() {
-	for FILE in $backup; do
-		mv $FILE $FILE.spkgnew
-	done
-}
-
-packaging() {
+pkg_package() {
 	# lint $PKG before packaging
 	pkglint
-	
-	for FILE in $INCLUDEINPKG; do
-		if [ -f $FILE ]; then
-			install -m644 $FILE $PKG/.pkg$FILE
-			addtotar="$addtotar .pkg$FILE"
-		fi
-	done
 	
 	cd $PKG >/dev/null
 	
@@ -358,7 +305,9 @@ packaging() {
 	compressinfomanpages
 	
 	if [ "$backup" ]; then
-		backupconf
+		for FILE in $backup; do
+			mv $FILE $FILE.spkgnew
+		done
 	fi
 	
 	[ "$FORCE_REBUILD" ] && rm -f "$PACKAGE_DIR/$PKGNAME"
@@ -371,55 +320,42 @@ packaging() {
 	
 	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * $addtotar || {
 		rm -f $PACKAGE_DIR/$PKGNAME
-		msgerr "Packaging '$PKGNAME' failed."
+		msgerr "Packaging failed: $PKGNAME"
 		abort 1
 	}
 	
 	tar -tvf $PACKAGE_DIR/$PKGNAME | sort -k 6
 	
-	msg "Successfully created package '$PKGNAME'. ($(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}'))"
+	msg "Packaging success: $PKGNAME ($(ls -lh $PACKAGE_DIR/$PKGNAME | awk '{print $5}'))"
 		
 	cd - >/dev/null
 	
-	[ -f .pkgfiles ] || generate_pkgfiles
+	[ -f .pkgfiles ] || pkg_genpkgfiles
 }
 
-generate_pkgfiles() {
+pkg_genpkgfiles() {
 	[ -f "$PACKAGE_DIR/$PKGNAME" ] || {
-		msgerr "Package '$PKGNAME' not found."
+		msgerr "Package not found: $PKGNAME"
 		exit 1
 	}
 	
-	for i in $INCLUDEINPKG; do
-		excludefile="$excludefile --exclude=.pkg$i"
-	done
-	
 	echo "$name-$version-$release" > .pkgfiles
 	
-	tar -tvf "$PACKAGE_DIR/$PKGNAME" $excludefile \
+	tar -tvf "$PACKAGE_DIR/$PKGNAME" \
 	| awk '{$3=$4=$5=""; print $0}' \
 	| sed "s,lib/modules/$(uname -r),lib/modules/<kernelversion>,g" \
 	| sort -k 3 >> .pkgfiles
 	msg "Pkgfiles updated."
 }
 
-cleanup() {
+pkg_clean() {
 	[ -e "$PACKAGE_DIR/$PKGNAME" ] && {
-		msg "Removing $PACKAGE_DIR/$PKGNAME"
 		rm -f "$PACKAGE_DIR/$PKGNAME"
+		msg "Package removed: $PACKAGE_DIR/$PKGNAME"
 	}
-	for src in $source; do
-		if echo $src | grep -qE "::(ftp|http|https)://"; then
-			FILENAME=$SOURCE_DIR/$(echo $src | awk -F '::' '{print $1}')
-		elif echo $src | grep -qE "^(ftp|http|https)://"; then
-			FILENAME=$SOURCE_DIR/$(basename $src)
-		else
-			FILENAME=$src
-		fi
-		if [ -e "$FILENAME" ] && [ "$FILENAME" != "$src" ]; then
-			msg "Removing $FILENAME"
-			rm -f "$FILENAME"
-		fi
+	for i in $(get_filepath); do
+		rm -f "$i"
+		msg "File removed: $i"
 	done
 }
 
@@ -453,10 +389,10 @@ checkdir() {
 	done
 }
 
-clearworkdir() {
+pkg_cleanup() {
 	if [ ! "$KEEP_WORK" ]; then
 		if [ "$name" ]; then
-			rm -fr $WORK_DIR/$name
+			rm -fr "$WORK_DIR/$name"
 		fi
 	fi
 }
@@ -468,7 +404,7 @@ interrupted() {
 
 abort() {
 	rm -f "$LOCK_FILE"
-	clearworkdir
+	pkg_cleanup
 	exit $1
 }
 
@@ -491,12 +427,6 @@ parse_opts() {
 		-h |              --help) SHOWHELP=yes ;;
 		                 --clean) CLEANUP=yes ;;
 		                --root=*) OPTS="$OPTS $1" ;;
-		         --no-preinstall) OPTS="$OPTS $1" ;;
-		        --no-postinstall) OPTS="$OPTS $1" ;;
-		         --no-preupgrade) OPTS="$OPTS $1" ;;
-		        --no-postupgrade) OPTS="$OPTS $1" ;;
-		             --no-backup) OPTS="$OPTS $1" ;;
-		            --redownload) REDOWNLOAD_SOURCE=yes ;;
 		              --config=*) PKGBUILD_CONF="${1#*=}" ;;
 		              --srcdir=*) CUSTOM_SOURCE_DIR="${1#*=}" ;;
 		              --pkgdir=*) CUSTOM_PACKAGE_DIR="${1#*=}" ;;
@@ -532,12 +462,7 @@ Options:
       --srcdir=<path>       override directory path for sources
       --pkgdir=<path>       override directory path for compiled package
       --workdir=<path>      override directory path for working dir
-      --no-preinstall       skip preinstall script before install package
-      --no-postinstall      skip postinstall script after install package
-      --no-preupgrade       skip preupgrade script before upgrade package
-      --no-postupgrade      skip postupgrade script after upgrade package
       --no-backup           skip backup configuration file when upgrading package
-      --redownload          re-download source file
       
 EOF
 }
@@ -592,36 +517,36 @@ main() {
 
 	case $COMPRESSION_MODE in
 		gz|bz2|xz) PKGNAME="$name-$version-$release.spkg.tar.$COMPRESSION_MODE" ;;
-		        *) msgerr "Invalid compression mode. ($COMPRESSION_MODE)"; exit 1 ;;
+		        *) msgerr "Invalid compression mode: $COMPRESSION_MODE"; exit 1 ;;
 	esac
 	
 	# generate .pkgfiles
 	[ "$GENPKGFILES" ] && {
-		generate_pkgfiles
+		pkg_genpkgfiles
 		exit 0
 	}
 	
 	# download source only
 	[ "$DOWNLOAD_ONLY" ] && {
-		download_src
+		pkg_fetch
 		exit 0
 	}
 	
 	# extract source only
 	[ "$EXTRACT_ONLY" ] && {
-		prepare_src
+		pkg_unpack
 		exit 0
 	}
 	
 	# update md5sum
 	[ "$UPDATE_MDSUM" ] && {
-		updatemdsum
+		pkg_genchecksums
 		exit 0
 	}
 	
 	# remove source and package
 	[ "$CLEANUP" ] && {
-		cleanup
+		pkg_clean
 		exit 0
 	}
 
@@ -643,26 +568,26 @@ main() {
 	# build package
 	if [ -f "$PACKAGE_DIR/$PKGNAME" ] && [ ! "$FORCE_REBUILD" ]; then
 		if [ ! "$INSTALL_PKG" ] && [ ! "$REINSTALL_PKG" ] && [ ! "$UPGRADE_PKG" ]; then
-			echo "Package '$PKGNAME' is up-to-date."
+			msg "Package is up-to-date: $PKGNAME"
 			abort 0
 		fi
 	else
 		if [ "$QUIET" ]; then
-			msg "Building '$name-$version-$release'..."
-			download_src 2> /dev/null
-			checkmdsum > /dev/null
-			prepare_src > /dev/null
-			run_build > /dev/null
-			packaging > /dev/null
-			clearworkdir > /dev/null
+			msg "Building: $name-$version-$release"
+			pkg_fetch 2> /dev/null
+			pkg_checksum > /dev/null
+			pkg_unpack > /dev/null
+			pkg_build > /dev/null
+			pkg_package > /dev/null
+			pkg_cleanup > /dev/null
 		else
-			msg "Building '$name-$version-$release'..."
-			download_src
-			checkmdsum
-			prepare_src
-			run_build 
-			packaging
-			clearworkdir
+			msg "Building: $name-$version-$release"
+			pkg_fetch
+			pkg_checksum
+			pkg_unpack
+			pkg_build 
+			pkg_package
+			pkg_cleanup
 		fi
 	fi
 	
@@ -690,7 +615,5 @@ IGNORE_MDSUM="no"
 KEEP_LIBTOOL="no"
 KEEP_LOCALE="no"
 KEEP_DOC="no"
-
-INCLUDEINPKG="install readme mkdirs"
 
 main "$@"

@@ -213,7 +213,7 @@ scratch_lock() {
 scratch_locate() {
 	needarg $@
 	for repo in $PORT_REPO; do
-		grep -R $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}' | column -t
+		grep -R $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}'
 	done
 }
 
@@ -610,10 +610,16 @@ scratch_install() {
 			if portpathh=$(getportpath $int); then
 				cd $portpathh
 					settermtitle "[ $count/$total ] installing $int..."
+					[ -f ./pre-install.sh ] && {
+						sh ./pre-install.sh
+					}
 					pkgbuild -i $OPTS || {
 						error=1
 						count=$(( count - 1 ))
 						break
+					}
+					[ -f ./post-install.sh ] && {
+						sh ./post-install.sh
 					}
 					done_pkg="$done_pkg $int"
 				cd - >/dev/null
@@ -763,17 +769,29 @@ scratch_sysup() {
 		cd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
+			[ -f ./pre-install.sh ] && {
+				sh ./pre-install.sh
+			}
 			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
+			[ -f ./post-install.sh ] && {
+				sh ./post-install.sh
+			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
+			[ -f ./pre-upgrade.sh ] && {
+				sh ./pre-upgrade.sh
+			}
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
+			}
+			[ -f ./post-upgrade.sh ] && {
+				sh ./post-upgrade.sh
 			}
 		fi
 		cd - >/dev/null
@@ -860,17 +878,29 @@ scratch_upgrade() {
 		cd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
+			[ -f ./pre-install.sh ] && {
+				sh ./pre-install.sh
+			}
 			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
+			[ -f ./post-install.sh ] && {
+				sh ./post-install.sh
+			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
+			[ -f ./pre-upgrade.sh ] && {
+				sh ./pre-upgrade.sh
+			}
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
+			}
+			[ -f ./post-upgrade.sh ] && {
+				sh ./post-upgrade.sh
 			}
 		fi
 		cd - >/dev/null
@@ -1296,8 +1326,7 @@ scratch_provide() {
 	grep -R "$arg" $PKGDB_DIR/*/.files \
 	| sed "s:$PKGDB_DIR/::" \
 	| sed "s:/.files::" \
-	| tr : " " \
-	| column -t
+	| tr : " "
 }
 
 scratch_readme() {

@@ -51,8 +51,6 @@ Usage:
 Options:
   -h, --help            show this help message
   -v, --verbose         print removed files
-      --no-preremove    don't run pre-remove script
-      --no-postremove   don't run post-remove script
       --root=<path>     remove package from custom root directory
       
 EOF
@@ -82,8 +80,6 @@ parse_opts() {
 			case $1 in
 			-h |              --help) SHOWHELP=yes ;;
 			-v |           --verbose) VERBOSE_REMOVE="-v" ;;
-			          --no-preremove) NO_PREREMOVE=yes ;;
-			         --no-postremove) NO_POSTREMOVE=yes ;;
 			                --root=*) ROOT_DIR="${1#*=}" ;;
 			                      -*) msg "Invalid option: ($1)"; exit 1 ;;
 			                       *) RMNAME=$1 ;;
@@ -104,14 +100,6 @@ isinstalled() {
 		return 0
 	else
 		return 1
-	fi
-}
-
-run_scripts() {
-	if [ "$ROOT_DIR" ]; then
-		xchroot "$ROOT_DIR" sh $@
-	else
-		sh $@
 	fi
 }
 
@@ -181,13 +169,6 @@ grep -v '/$' "$ROOT_DIR/$PKGDB_DIR/$name/.files" | tac >> "$files"
 
 echo "remove: $name-$version-$release..."
 
-# pre-remove script
-if [ ! "$NO_PREREMOVE" ] && [ -f "$ROOT_DIR/$PKGDB_DIR/$name/.pkginstall" ]; then
-	(cd "$ROOT_DIR"/
-		run_scripts "$PKGDB_DIR/$name/.pkginstall" pre-remove "$version"
-	)
-fi
-
 # remove files and dirs
 (cd "$ROOT_DIR"/
 	[ -s $files ] && {
@@ -203,13 +184,6 @@ fi
 )
 
 rm -f "$reserve" "$dirs" "$remove" "$files"
-
-# post-remove script
-if [ ! "$NO_POSTREMOVE" ] && [ -f "$ROOT_DIR/$PKGDB_DIR/$name/.pkginstall" ]; then
-	(cd "$ROOT_DIR"/
-		run_scripts "$PKGDB_DIR/$name/.pkginstall" post-remove "$version"
-	)
-fi
 
 # remove from database
 rm -rf "$ROOT_DIR/$PKGDB_DIR/$name"
