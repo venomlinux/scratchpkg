@@ -114,7 +114,7 @@ ret() {
 }
 
 isinstalled() {
-	if [ -s "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo" ] && grep -q "$1" "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo"; then
+	if [ -s "$ROOT_DIR/$PKGDB_DIR/$1" ]; then
 		return 0
 	else
 		return 1
@@ -132,7 +132,7 @@ run_scripts() {
 parse_opts $(extract_opts "$@")
 
 SCRATCHPKG_DIR="var/lib/scratchpkg"
-PKGDB_DIR="$SCRATCHPKG_DIR/index"
+PKGDB_DIR="$SCRATCHPKG_DIR/db"
 LOCK_FILE="$SCRATCHPKG_DIR/spkg.lock"
 
 ROOT_DIR="${ROOT_DIR%/}" # remove trailing slash
@@ -187,8 +187,8 @@ name=${noextname%-*}
 
 # get package information if installed
 if isinstalled $name; then
-	iversion=$(grep ^version $ROOT_DIR/$PKGDB_DIR/$name/.pkginfo | cut -d " " -f3-)
-	irelease=$(grep ^release $ROOT_DIR/$PKGDB_DIR/$name/.pkginfo | cut -d " " -f3-)
+	iversion=$(head -n1 $ROOT_DIR/$PKGDB_DIR/$name | awk '{print $1}')
+	irelease=$(head -n1 $ROOT_DIR/$PKGDB_DIR/$name | awk '{print $2}')
 	ALREADYINSTALLED=yes
 fi
 
@@ -230,13 +230,13 @@ echo "$opr: $name-$version-$release..."
 
 # check for file conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
-	grep -Ev "^.pkg*" "$TMP_PKGADD" | grep -v '/$' | while read -r line; do
+	grep -v '/$' "$TMP_PKGADD" | while read -r line; do
 		if [ "$line" = "${line%.*}.spkgnew" ]; then
 			line=${line%.*}
 		fi
 		if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-				if ! grep -Fqx "$line" "$ROOT_DIR/$PKGDB_DIR/$name/.files"; then
+				if ! grep -Fqx "$line" "$ROOT_DIR/$PKGDB_DIR/$name"; then
 					echo "$line"
 					touch "$TMP_CONFLICT"
 				fi
@@ -256,7 +256,7 @@ fi
 rm -f $TMP_PKGINSTALL
 
 # extract package into ROOT_DIR
-tar -xvhpf "$PKGNAME" -C "$ROOT_DIR"/ $excludefile | while read -r line; do
+tar -xvhpf "$PKGNAME" -C "$ROOT_DIR"/ | while read -r line; do
 	if [ "$line" = "${line%.*}.spkgnew" ]; then
 		line=${line%.*}
 		if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
@@ -273,40 +273,17 @@ done
 
 # remove old files from old package that not exist in new package
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
-	rmlist_file="$ROOT_DIR/$SCRATCHPKG_DIR/.rmlist_file"
-	rmlist_dir="$ROOT_DIR/$SCRATCHPKG_DIR/.rmlist_dir"
-	reserve_dir="$ROOT_DIR/$SCRATCHPKG_DIR/.reserve_dir"
-	rmlist_all="$ROOT_DIR/$SCRATCHPKG_DIR/.rmlist_all"
-	grep '/$' $ROOT_DIR/$PKGDB_DIR/*/.files \
-		| grep -v $ROOT_DIR/$PKGDB_DIR/$name/.files \
-		| awk -F : '{print $2}' \
-		| sort \
-		| uniq > $reserve_dir                                                        # get list reserved dirs
-	grep -Fxv -f "$TMP_PKGINSTALL" $ROOT_DIR/$PKGDB_DIR/$name/.files > $rmlist_all   # get list files and dirs to remove
-	grep -v '/$' "$rmlist_all" | tac > "$rmlist_file"                                # get files only to remove
-	grep -Fxv -f "$reserve_dir" "$rmlist_all" | grep '/$' | tac > "$rmlist_dir"      # get dirs only (safe) to remove
-	(cd "$ROOT_DIR"/
-		[ -s $rmlist_file ] && {
-			cat $rmlist_file | while read -r line; do
-				rm $VERBOSE_INSTALL "$line"
-			done
-		}
-		[ -s $rmlist_dir ] && {
-			cat $rmlist_dir | while read -r line; do
-				rmdir $VERBOSE_INSTALL "$line"
-			done
-		}
-	)
-	rm -f "$rmlist_file" "$rmlist_dir" "$reserve_dir" "$rmlist_all"
+	tail -n+2 "$ROOT_DIR/$PKGDB_DIR/$name" | tac | while read -r line; do
+		case $line in
+			*/) grep "^$line$" $ROOT_DIR/$PKGDB_DIR/* "$TMP_PKGINSTALL" | grep -qv "$ROOT_DIR/$PKGDB_DIR/$name" || rmdir $([ "$VERBOSE_INSTALL" ] && echo -v) "$ROOT_DIR/$line";;
+			 *) grep -q "^$line$" "$TMP_PKGINSTALL" || rm $([ "$VERBOSE_INSTALL" ] && echo -v) "$ROOT_DIR/$line";;
+		esac
+	done
 fi
 
 # register package into database
-rm -fr "$ROOT_DIR/$PKGDB_DIR/$name"
-mkdir "$ROOT_DIR/$PKGDB_DIR/$name"
-echo "name = $name" > "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
-echo "version = $version" >> "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
-echo "release = $release" >> "$ROOT_DIR/$PKGDB_DIR/$name/.pkginfo"
-install -m644 "$TMP_PKGINSTALL" "$ROOT_DIR/$PKGDB_DIR/$name/.files"
+echo "$version $release" > "$ROOT_DIR/$PKGDB_DIR/$name"
+cat "$TMP_PKGINSTALL" >> "$ROOT_DIR/$PKGDB_DIR/$name"
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then

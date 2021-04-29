@@ -18,12 +18,12 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[0;33m'
-CYAN='\e[0;36m'
-PURPLE='\e[0;35m'
-CRESET='\e[0m'
+RED='\033[31m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+CYAN='\033[36m'
+PURPLE='\033[35m'
+CRESET='\033[0m'
 
 nocolor() {
 	RED=

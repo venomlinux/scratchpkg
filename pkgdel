@@ -91,12 +91,12 @@ parse_opts() {
 
 ret() {
 	# remove lock file on exit
-	rm -f "$ROOT_DIR/$LOCK_FILE" "$reserve" "$dirs" "$remove" "$files"
+	rm -f "$ROOT_DIR/$LOCK_FILE"
 	exit $1
 }
 
 isinstalled() {
-	if [ -s "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo" ] && grep -q "$1" "$ROOT_DIR/$PKGDB_DIR/$1/.pkginfo"; then
+	if [ -s "$ROOT_DIR/$PKGDB_DIR/$1" ]; then
 		return 0
 	else
 		return 1
@@ -143,50 +143,24 @@ if ! isinstalled "$RMNAME"; then
 	ret 1
 fi
 
-name=$(grep ^name $ROOT_DIR/$PKGDB_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
-version=$(grep ^version $ROOT_DIR/$PKGDB_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
-release=$(grep ^release $ROOT_DIR/$PKGDB_DIR/$RMNAME/.pkginfo | cut -d " " -f3-)
+name=$RMNAME
+version=$(head -n1 $ROOT_DIR/$PKGDB_DIR/$name | awk '{print $1}')
+release=$(head -n1 $ROOT_DIR/$PKGDB_DIR/$name | awk '{print $2}')
 
-if [ -z "$name" ] && [ -z "$version" ] && [ -z "$release" ]; then
+if [ -z "$version" ] && [ -z "$release" ]; then
 	msgerr "Package '$RMNAME' not installed but exist in database."
 	ret 1
 fi
 
-# create list for reserve and remove (dirs and files)
-reserve="$ROOT_DIR/$SCRATCHPKG_DIR/.pkgdel_reserve"
-remove="$ROOT_DIR/$SCRATCHPKG_DIR/.pkgdel_remove"
-dirs="$ROOT_DIR/$SCRATCHPKG_DIR/.pkgdel_dirs"
-files="$ROOT_DIR/$SCRATCHPKG_DIR/.pkgdel_files"
-
-grep '/$' $ROOT_DIR/$PKGDB_DIR/*/.files \
-	| grep -v $ROOT_DIR/$PKGDB_DIR/$name/.files \
-	| awk -F : '{print $2}' \
-	| sort \
-	| uniq > "$reserve"
-grep '/$' "$ROOT_DIR/$PKGDB_DIR/$name/.files" > "$remove"
-grep -Fxv -f "$reserve" "$remove" | tac > "$dirs"
-grep -v '/$' "$ROOT_DIR/$PKGDB_DIR/$name/.files" | tac >> "$files"
-
-echo "remove: $name-$version-$release..."
-
-# remove files and dirs
-(cd "$ROOT_DIR"/
-	[ -s $files ] && {
-		cat $files | while read -r line; do
-			rm $VERBOSE_REMOVE "$line"
-		done
-	}
-	[ -s $dirs ] && {
-		cat $dirs | while read -r line; do
-			rmdir $VERBOSE_REMOVE "$line"
-		done
-	}
-)
-
-rm -f "$reserve" "$dirs" "$remove" "$files"
+tail -n+2 "$ROOT_DIR/$PKGDB_DIR"/$name | tac | while read -r line; do
+	case $line in
+		*/) grep "^$line$" "$ROOT_DIR/$PKGDB_DIR"/* | grep -qv "$ROOT_DIR/$PKGDB_DIR"/$name: || rmdir $([ "$VERBOSE_REMOVE" ] && echo -v) "$ROOT_DIR/$line";;
+		 *) rm $([ "$VERBOSE_REMOVE" ] && echo -v) "$ROOT_DIR/$line";;
+	esac
+done
 
 # remove from database
-rm -rf "$ROOT_DIR/$PKGDB_DIR/$name"
+rm -f "$ROOT_DIR/$PKGDB_DIR/$name"
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
