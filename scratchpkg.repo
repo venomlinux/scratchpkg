@@ -42,7 +42,3 @@
 /usr/Voncloft-OS/kde-apps     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/kde-apps
 /usr/Voncloft-OS/media  https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/media
 /usr/Voncloft-OS/nonfree        https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/nonfree
-
-#Personal and misc
-/usr/Voncloft-OS/personal-repository    http://voncloft.dnsfor.me/software/Voncloft-OS/programs
-/usr/Voncloft-OS/working_on/extra-working_on     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/working_on/sort_later
