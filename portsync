@@ -84,7 +84,7 @@ github_sync() {
 		echo "Failed fetching repo from $1"
 		exit 1
 	}
-	tar -tf $tarball.tar.xz &>/dev/null || {
+	tar -tf $tarball.tar.xz >/dev/null 2>&1 || {
 		echo "Tarball from $1 corrupted"
 		exit 1
 	}
@@ -103,7 +103,7 @@ httpup_sync() {
 	# usage:
 	#   httpup_sync <url> <target dir>
 	#
-	command -v httpup &>/dev/null || {
+	command -v httpup >/dev/null 2>&1 || {
 		echo "httpup not found."
 		exit 1
 	}
