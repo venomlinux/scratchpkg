@@ -426,6 +426,7 @@ parse_opts() {
 		-p |          --pkgfiles) GENPKGFILES=yes ;;
 		-h |              --help) SHOWHELP=yes ;;
 		                 --clean) CLEANUP=yes ;;
+		             --no-backup) OPTS="$OPTS $1" ;;
 		                --root=*) OPTS="$OPTS $1" ;;
 		              --config=*) PKGBUILD_CONF="${1#*=}" ;;
 		              --srcdir=*) CUSTOM_SOURCE_DIR="${1#*=}" ;;
