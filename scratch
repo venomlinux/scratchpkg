@@ -18,12 +18,12 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[0;33m'
-CYAN='\e[0;36m'
-PURPLE='\e[0;35m'
-CRESET='\e[0m'
+RED='\033[31m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+CYAN='\033[36m'
+PURPLE='\033[35m'
+CRESET='\033[0m'
 
 nocolor() {
 	RED=
@@ -92,14 +92,18 @@ vercomp() {
 	fi
 }
 
-installed_pkg_info() {	
-	if isinstalled $2; then
-		grep ^$1 $PKGDB_DIR/$2/.pkginfo 2>/dev/null | cut -d " " -f3-
-	fi
+get_iver() {
+	head -n1 $PKGDB_DIR/$1 2>/dev/null | awk '{print $1}'
+}
+
+get_irelease() {
+	head -n1 $PKGDB_DIR/$1 2>/dev/null | awk '{print $2}'
 }
 
 allinstalled() {	
-	grep ^name "$PKGDB_DIR"/*/.pkginfo 2>/dev/null | awk '{print $3}'
+	for i in $PKGDB_DIR/*; do
+		echo ${i##*/}
+	done
 }
 
 deps_alias() {
@@ -154,7 +158,7 @@ needarg() {
 }
 
 isinstalled() {
-	if [ -s "$PKGDB_DIR/$1/.pkginfo" ] && [ "$(grep $1 $PKGDB_DIR/$1/.pkginfo)" ]; then
+	if [ -s "$PKGDB_DIR/$1" ]; then
 		return 0
 	else
 		return 1
@@ -168,8 +172,8 @@ settermtitle() {
 scratch_integrity() {
 	if [ "$1" ]; then
 		cd /
-			if [ -f $PKGDB_DIR/$1/.files ]; then
-				cat $PKGDB_DIR/$1/.files | while read -r line; do
+			if [ -f $PKGDB_DIR/$1 ]; then
+				tail -n+2 $PKGDB_DIR/$1 | while read -r line; do
 					if [ ! -e "$line" ]; then
 						if [ -L "$line" ]; then
 							printf "${YELLOW}broken symlink${CRESET} $1: /$line"
@@ -186,7 +190,7 @@ scratch_integrity() {
 	else
 		cd /
 			for pkg in $(allinstalled); do
-				cat $PKGDB_DIR/$pkg/.files | while read -r line; do
+				tail -n+2 $PKGDB_DIR/$pkg | while read -r line; do
 					if [ ! -e "$line" ]; then
 						if [ -L "$line" ]; then
 							echo "broken symlink $pkg: /$line"
@@ -200,37 +204,11 @@ scratch_integrity() {
 	fi
 }
 
-scratch_lock() {
-	needroot "Locking package"	
-	for pkg in "$@"; do
-		if ! isinstalled $pkg; then
-			msgerr "Package '$pkg' is not installed."
-		elif [ -f $PKGDB_DIR/$pkg/.lock ]; then
-			msgerr "Package '$pkg' already locked."
-		else
-			touch $PKGDB_DIR/$pkg/.lock && msg "Successfully locked package '$pkg'."
-		fi
-	done	
-}
-
 scratch_locate() {
 	needarg $@
 	for repo in $PORT_REPO; do
-		grep -R $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}' | column -t
+		grep -R $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}'
 	done
-}
-
-scratch_unlock() {
-	needroot "Unlocking package"	
-	for pkg in "$@"; do
-		if ! isinstalled $pkg; then
-			msgerr "Package '$pkg' is not installed."
-		elif [ ! -f $PKGDB_DIR/$pkg/.lock ]; then
-			msgerr "Package '$pkg' is not locked."
-		else
-			rm -f $PKGDB_DIR/$pkg/.lock && msg "Successfully unlocked package '$pkg'."
-		fi
-	done	
 }
 
 scratch_isorphan() {	
@@ -249,21 +227,48 @@ scratch_isorphan() {
 }
 
 scratch_sync() {	
-	checktool httpup	
-	needroot "Updating ports"
-	
-	if [ ! -e "$REPO_FILE" ]; then
-		msgerr "Repo file not found! ($REPO_FILE)"
-		exit 1
-	fi
+	portsync
+}
 
-	grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1,$2}' | while read -r repodir repourl; do
-		if [ "$repodir" ] && [ "$repourl" ]; then
-			httpup sync $repourl $repodir || {
-				msgerr "Failed sync from $repourl"
-				exit 1
-			}
-		fi
+cvperms() {
+	# converts symbolic to numeric permissions
+	# required an input (symbolic, eg: drwxr-xr-x)
+	s=0; n=0; count=0
+	for i in $(echo "$1" | sed -e 's/\(.\)/\1\n/g'); do
+		count=$((count+1))
+		case $i in
+			d) ;;
+			r) n=$((n+4));;
+			w) n=$((n+2));;
+			x) n=$((n+1));;
+			s) [ $count = 4 ] && s=$((s+4)) || s=$((s+2)); n=$((n+1));;
+			t) s=$((s+1));n=$((n+1));;
+			S) s=$((s+2));;
+			T) s=$((s+1));;
+		esac
+		[ "$count" = 4 ] && {
+			user=$n; n=0
+		}
+		[ "$count" = 7 ] && {
+			group=$n; n=0
+		}
+		[ "$count" = 10 ] && {
+			other=$n; n=0
+		}
+	done
+	echo "$s$user$group$other"
+}
+
+fixperms() {
+	needroot "Fix permissions"
+	for i in $PKGDBPERMS_DIR/*; do
+		[ -s $i ] || continue
+		while read -r perms own dir; do
+			chmod $(cvperms $perms) /$dir
+			echo $own | while IFS=/ read -r o g; do
+				chown $o:$g /$dir
+			done
+		done < $i
 	done
 }
 
@@ -279,27 +284,7 @@ scratch_trigger() {
 	post_triggers
 }
 
-post_triggers() {
-	if [ "$trig_12" = 1 ]; then
-		echo "trigger: Running mkdirs..."
-		for mkd in $PKGDB_DIR/*/.pkgmkdirs; do
-			[ -s $mkd ] || continue
-			grep -Ev '^(#|$)' $mkd | while read -r dir mode uid gid junk; do
-				if [ -e "$dir" ]; then
-					if [ "$uid" != '-' ]; then
-						getent passwd $uid >/dev/null && chown "$uid" "$dir"
-					fi
-					if [ "$gid" != '-' ]; then
-						getent group $gid >/dev/null && chgrp "$gid" "$dir"
-					fi
-					if [ "$mode" != '-' ]; then
-						chmod "$mode" "$dir"
-					fi
-				fi
-			done
-		done
-	fi
-	
+post_triggers() {	
 	if [ "$trig_11" = 1 ] && [ $(command -v fc-cache) ]; then
 		echo "trigger: Updating fontconfig cache..."
 		fc-cache -s
@@ -367,13 +352,16 @@ post_triggers() {
 		echo "trigger: Updating the MIME type database..."
 		update-mime-database /usr/share/mime
 	fi
+	
+	echo "trigger: Fix files ownership and permissions..."
+	fixperms
 }
 
 pre_triggers() {	
 	# mime db
 	if [ "$trig_1" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/mime/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/share/mime/$ $PKGDB_DIR/$pkg)" ]; then
 				trig_1=1
 				break
 			fi
@@ -383,7 +371,7 @@ pre_triggers() {
 	# desktop db
 	if [ "$trig_2" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/applications/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/share/applications/$ $PKGDB_DIR/$pkg)" ]; then
 				trig_2=1
 				break
 			fi
@@ -393,7 +381,7 @@ pre_triggers() {
 	# mkfontdir
 	if [ "$trig_3" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg)" ]; then
 				trig_3=1
 				break
 			fi
@@ -403,7 +391,7 @@ pre_triggers() {
 	# hwdb
 	if [ "$trig_4" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^etc/udev/hwdb.d/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^etc/udev/hwdb.d/$ $PKGDB_DIR/$pkg)" ]; then
 				trig_4=1
 				break
 			fi
@@ -413,7 +401,7 @@ pre_triggers() {
 	# icon caches
 	if [ "$trig_5" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/icons/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/share/icons/$ $PKGDB_DIR/$pkg)" ]; then
 				trig_5=1
 				break
 			fi
@@ -423,7 +411,7 @@ pre_triggers() {
 	# gtk3 immodules
 	if [ "$trig_6" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-3.0/3.0.0/immodules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/lib/gtk-3.0/3.0.0/immodules/.*.so $PKGDB_DIR/$pkg)" ]; then
 				trig_6=1
 				break
 			fi
@@ -433,7 +421,7 @@ pre_triggers() {
 	# gtk2 immodules
 	if [ "$trig_7" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gtk-2.0/2.10.0/immodules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/lib/gtk-2.0/2.10.0/immodules/.*.so $PKGDB_DIR/$pkg)" ]; then
 				trig_7=1
 				break
 			fi
@@ -443,7 +431,7 @@ pre_triggers() {
 	# gsettings schema
 	if [ "$trig_8" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/glib-2.0/schemas/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/share/glib-2.0/schemas/$ $PKGDB_DIR/$pkg)" ]; then
 				trig_8=1
 				break
 			fi
@@ -453,7 +441,7 @@ pre_triggers() {
 	# gio modules
 	if [ "$trig_9" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gio/modules/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/lib/gio/modules/.*.so $PKGDB_DIR/$pkg)" ]; then
 				trig_9=1
 				break
 			fi
@@ -463,7 +451,7 @@ pre_triggers() {
 	# gdk-pixbuf
 	if [ "$trig_10" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/.*.so $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/.*.so $PKGDB_DIR/$pkg)" ]; then
 				trig_10=1
 				break
 			fi
@@ -473,18 +461,8 @@ pre_triggers() {
 	# font caches
 	if [ "$trig_11" != "1" ]; then
 		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.files" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg/.files)" ]; then
+			if [ -s "$PKGDB_DIR/$pkg" ] && [ "$(grep ^usr/share/fonts/$ $PKGDB_DIR/$pkg)" ]; then
 				trig_11=1
-				break
-			fi
-		done
-	fi
-	
-	# makedirs
-	if [ "$trig_12" != "1" ]; then
-		for pkg in $@; do
-			if [ -s "$PKGDB_DIR/$pkg/.pkgmkdirs" ]; then
-				trig_12=1
 				break
 			fi
 		done
@@ -628,10 +606,16 @@ scratch_install() {
 			if portpathh=$(getportpath $int); then
 				cd $portpathh
 					settermtitle "[ $count/$total ] installing $int..."
+					[ -f ./pre-install.sh ] && {
+						sh ./pre-install.sh
+					}
 					pkgbuild -i $OPTS || {
 						error=1
 						count=$(( count - 1 ))
 						break
+					}
+					[ -f ./post-install.sh ] && {
+						sh ./post-install.sh
 					}
 					done_pkg="$done_pkg $int"
 				cd - >/dev/null
@@ -709,8 +693,8 @@ outdatepkg() {
 		if [ -z "$name" ] || [ -z "$version" ]; then
 			continue
 		fi
-		iversion=$(installed_pkg_info version $pkg)
-		irelease=$(installed_pkg_info release $pkg)
+		iversion=$(get_iver $pkg)
+		irelease=$(get_irelease $pkg)
 		if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
 			echo $name
 		fi
@@ -781,17 +765,29 @@ scratch_sysup() {
 		cd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
+			[ -f ./pre-install.sh ] && {
+				sh ./pre-install.sh
+			}
 			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
+			[ -f ./post-install.sh ] && {
+				sh ./post-install.sh
+			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
+			[ -f ./pre-upgrade.sh ] && {
+				sh ./pre-upgrade.sh
+			}
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
+			}
+			[ -f ./post-upgrade.sh ] && {
+				sh ./post-upgrade.sh
 			}
 		fi
 		cd - >/dev/null
@@ -829,7 +825,7 @@ scratch_upgrade() {
 			continue
 		else
 			. $(getportpath $pkg)/$BUILD_SCRIPT
-			if [ "$(installed_pkg_info version $pkg)-$(installed_pkg_info release $pkg)" = "$version-$release" ]; then
+			if [ "$(get_iver $pkg)-$(get_irelease $pkg)" = "$version-$release" ]; then
 				echo "Package '$pkg' is up to date."
 				continue
 			fi
@@ -878,17 +874,29 @@ scratch_upgrade() {
 		cd $(getportpath $inst)
 		if ! isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
+			[ -f ./pre-install.sh ] && {
+				sh ./pre-install.sh
+			}
 			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
+			[ -f ./post-install.sh ] && {
+				sh ./post-install.sh
+			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
+			[ -f ./pre-upgrade.sh ] && {
+				sh ./pre-upgrade.sh
+			}
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
+			}
+			[ -f ./post-upgrade.sh ] && {
+				sh ./post-upgrade.sh
 			}
 		fi
 		cd - >/dev/null
@@ -907,9 +915,8 @@ scratch_outdate() {
 			if [ -z "$name" ] || [ -z "$version" ]; then
 				continue
 			fi
-			iversion=$(installed_pkg_info version $pkg)
-			irelease=$(installed_pkg_info release $pkg)
-			[ -f "$PKGDB_DIR/$pkg/.lock" ] && ITSLOCK="[masked]"
+			iversion=$(get_iver $pkg)
+			irelease=$(get_irelease $pkg)
 			if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
 				ITSLOCK="[masked]"
 			fi
@@ -948,7 +955,7 @@ scratch_search() {
 	arg=$*
 	for repo in $PORT_REPO; do
 		[ -d $repo ] || continue
-		out=$(grep -R "# description" $repo/*/$BUILD_SCRIPT | grep "$arg" | awk -F : '{print $1}' | sort)
+		out=$(grep -R "# description" $repo/*/$BUILD_SCRIPT | grep -i "$arg" | awk -F : '{print $1}' | sort)
 		[ "$out" ] || continue
 		found=1
 		for line in $out; do
@@ -1249,12 +1256,11 @@ scratch_dup() {
 scratch_foreign() {
 	for pkg in $(allinstalled); do
 		if ! getportpath $pkg >/dev/null; then
-			iname=$(installed_pkg_info name $pkg)
-			iversion=$(installed_pkg_info version $pkg)
-			irelease=$(installed_pkg_info release $pkg)
-			echo "$iname $iversion-$irelease"
+			iversion=$(get_iver $pkg)
+			irelease=$(get_irelease $pkg)
+			echo "$pkg $iversion-$irelease"
 		fi
-		unset iname iversion irelease
+		unset pkg iversion irelease
 	done	
 }
 
@@ -1265,6 +1271,7 @@ scratch_info() {
 	. $ppath/$BUILD_SCRIPT
 	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
+	homep=$(grep "^# homep[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
 	deps=$(get_depends $1 | tr '\n' ' ')
 	
 	echo "Name:         $1"
@@ -1273,14 +1280,14 @@ scratch_info() {
 	echo "Release:      $release"
 	echo "Description:  $desc"
 	echo "Maintainer:   $maint"
+	echo "Homepage:     $homep"
 	echo "Dependencies: $deps"
+	echo "Installed:    $(get_iver $1)-$(get_irelease $1)"
 }
 
 scratch_installed() {
-	for all in $(allinstalled); do		
-		printf "%s" "$all "
-		grep -e ^version -e ^release $PKGDB_DIR/$all/.pkginfo | awk '{print $3}' | tr '\n' '-' | sed 's:\-$::'
-		echo
+	for all in $(allinstalled); do
+		echo "$all $(get_iver $all)-$(get_irelease $all)"
 	done
 }
 
@@ -1302,12 +1309,6 @@ scratch_missingdep() {
 		fi
 		[ "$msd" ] && echo "$pkg: $msd"
 		unset depends msd
-	done
-}
-
-scratch_locked() {
-	for pkg in $(allinstalled); do
-		[ -f "$PKGDB_DIR/$pkg/.lock" ] && echo "$pkg"
 	done
 }
 
@@ -1336,11 +1337,9 @@ scratch_path() {
 scratch_provide() {
 	needarg $@
 	arg=$(echo $1 | sed "s/^\///")
-	grep -R "$arg" $PKGDB_DIR/*/.files \
+	grep -R "$arg" $PKGDB_DIR/* \
 	| sed "s:$PKGDB_DIR/::" \
-	| sed "s:/.files::" \
-	| tr : " " \
-	| column -t
+	| tr : "\t"
 }
 
 scratch_readme() {
@@ -1360,7 +1359,7 @@ scratch_readme() {
 scratch_files() {	
 	needarg $@
 	if isinstalled $1; then
-		cat "$PKGDB_DIR/$1/.files"
+		cat "$PKGDB_DIR/$1"
 	else
 		msg "Package '$1' not installed."
 	fi	
@@ -1398,8 +1397,6 @@ Options:
     build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
                              --log            log build process (/var/log/pkgbuild.log)
 
-    lock      <ports>        locking ports prevent upgrade
-    unlock    <ports>        unlock locked ports
     trigger   [ports]        run system trigger
     search    <pattern>      find ports in repo
     changelog <pattern>      find changelog in package
@@ -1418,7 +1415,6 @@ Options:
     integrity                check installed port integrity
     dup                      print duplicate ports in repo
     installed                print all installed ports
-    locked                   print loacked ports
     missingdep               print missing dependencies
     orphan                   print orphan installed ports
     foreign                  print foreign ports
@@ -1471,6 +1467,7 @@ done
 
 BUILD_SCRIPT="spkgbuild"
 PKGDB_DIR="$(pkgadd --print-dbdir)"
+PKGDBPERMS_DIR=${PKGDB_DIR}.perms
 REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
 ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
 MASK_FILE="${MASK_FILE:-/etc/scratchpkg.mask}"

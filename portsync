@@ -1,0 +1,137 @@
+#!/bin/sh
+#
+#  scratchpkg
+#
+#  Copyright (c) 2018 by Emmett1  (emmett1.2miligrams@gmail.com)
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+cmp_copy() {
+	# usage:
+	#   cmp_copy <source dir> <target dir>
+	#
+	reponame=${2##*/}
+	echo "Updating repository $(basename $reponame)"
+	for p in $1/*; do
+		[ -d $p ] || continue
+		pname=${p##*/}
+		if [ ! -d $2/$pname ]; then
+			mkdir -p $2/$pname
+			for f in $p/* $p/.pkgfiles $p/.checksums; do
+				[ -f $f ] || continue
+				case $f in
+					*/update) continue;;
+				esac
+				fname=${f##*/}
+				echo " New: $reponame/$pname/$fname"
+				cp $f $2/$pname/$fname
+			done		
+		else
+			for f in $p/* $p/.pkgfiles $p/.checksums; do
+				[ -f $f ] || continue
+				case $f in
+					*/update) continue;;
+				esac
+				fname=${f##*/}
+				cmp -s $f $2/$pname/$fname || {
+					echo " Edit: $reponame/$pname/$fname"
+					cp $f $2/$pname/$fname
+				}
+			done
+		fi
+	done
+	for p in $2/*; do
+		[ -d $p ] || continue
+		pname=${p##*/}
+		for f in $p/* $p/.pkgfiles $p/.checksums; do
+			[ -f $f ] || continue
+			fname=${f##*/}
+			if [ ! -f $1/$pname/$fname ]; then
+				echo " Removed: $reponame/$pname/$fname"
+				rm $2/$pname/$fname
+			fi
+		done
+		if [ ! -d $1/$pname ]; then
+			rmdir $2/$pname
+		fi
+	done
+	echo "Finished successfully"
+}
+
+github_sync() {
+	# usage:
+	#   github_sync <github url> <target dir>
+	#
+	dir=$2
+	repo=${dir##*/}
+	url=$(echo $1 | cut -d / -f -5)
+	branch=$(echo $1 | cut -d / -f 7)
+	tarball=/tmp/$repo
+	echo "Fetching from $1"
+	curl --silent -LJ -o $tarball.tar.xz $url/tarball/$branch || {
+		echo "Failed fetching repo from $1"
+		exit 1
+	}
+	tar -tf $tarball.tar.xz >/dev/null 2>&1 || {
+		echo "Tarball from $1 corrupted"
+		exit 1
+	}
+	portname=$(tar -tf $tarball.tar.xz 2>/dev/null | head -n1 | cut -d / -f1)
+	tar -xf $tarball.tar.xz -C /tmp
+	if [ ! "$portname" ] || [ -d "$repo" ]; then
+		echo "Failed sync $repo repo"
+		exit 1
+	fi
+	cmp_copy /tmp/$portname/$repo $dir
+	rm -f $tarball.tar.xz
+	rm -fr /tmp/$portname
+}
+
+httpup_sync() {
+	# usage:
+	#   httpup_sync <url> <target dir>
+	#
+	command -v httpup >/dev/null 2>&1 || {
+		echo "httpup not found."
+		exit 1
+	}
+	httpup sync $1 $2 || {
+		echo "Failed sync from $1"
+		exit 1
+	}
+}
+
+REPO_FILE=/etc/scratchpkg.repo
+	
+if [ ! -e "$REPO_FILE" ]; then
+	echo "Repo file not found! ($REPO_FILE)"
+	exit 1
+fi
+
+if [ "$(id -u)" != 0 ]; then
+	echo "This operation need root access."
+	exit 1
+fi
+
+grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1,$2}' | while read -r repodir repourl; do
+	if [ "$repodir" ] && [ "$repourl" ]; then
+		case $repourl in
+			*github.com*) github_sync $repourl $repodir;;
+			           *) httpup_sync $repourl $repodir;;
+		esac
+	fi
+done
+
+exit 0
