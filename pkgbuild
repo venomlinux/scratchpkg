@@ -361,17 +361,7 @@ pkg_clean() {
 
 check_buildscript() {	
 	# check the required field in buildscript
-	[ "$name" ] || { msgerr "'name' is empty!"; exit 1;	}
-	case $name in
-		*[A-Z]*) msgerr "Capital letters for port name not allowed!"; exit 1;;
-	esac
-	[ "$(basename $(pwd))" = "$name" ] || { msgerr "Port name and Directory name is different!"; exit 1; }
-	[ "$version" ] || { msgerr "'version' is empty!"; exit 1; }
-	[ "$release" ] || { msgerr "'release' is empty!"; exit 1; }
-	[ "$(command -v build)" ] || { msgerr "'build' function not exist!"; exit 1; }
-	[ "$(echo "$version" | grep '-')" ] && { msgerr "'version' should not contain '-'."; exit 1; }
-	[ "$(echo "$release" | grep '-')" ] && { msgerr "'release' should not contain '-'."; exit 1; }
-	[ "$description" ] || { msgerr "'description' is empty!"; exit 1; }
+
 }
 
 checkdir() {
