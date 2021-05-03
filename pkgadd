@@ -133,6 +133,7 @@ parse_opts $(extract_opts "$@")
 
 SCRATCHPKG_DIR="var/lib/scratchpkg"
 PKGDB_DIR="$SCRATCHPKG_DIR/db"
+PKGDBPERMS_DIR="$PKGDB_DIR.perms"
 LOCK_FILE="$SCRATCHPKG_DIR/spkg.lock"
 
 ROOT_DIR="${ROOT_DIR%/}" # remove trailing slash
@@ -216,7 +217,7 @@ TMP_PKGINSTALL="$ROOT_DIR/$SCRATCHPKG_DIR/.tmp_pkginstall"
 TMP_CONFLICT="$ROOT_DIR/$SCRATCHPKG_DIR/.tmp_conflict"
 
 # check integrity of package and save list file/dirs to install in the meantime
-tar -tf $PKGNAME > $TMP_PKGADD 2>/dev/null || {
+tar -tvf $PKGNAME > $TMP_PKGADD 2>/dev/null || {
 	msgerr "Package '$1' is corrupted!"
 	ret 1
 }
@@ -230,7 +231,7 @@ echo "$opr: $name-$version-$release..."
 
 # check for file conflict
 if [ ! "$IGNORE_CONFLICT" ]; then
-	grep -v '/$' "$TMP_PKGADD" | while read -r line; do
+	grep -v '/$' "$TMP_PKGADD" | awk '{print $6}' | while read -r line; do
 		if [ "$line" = "${line%.*}.spkgnew" ]; then
 			line=${line%.*}
 		fi
@@ -284,6 +285,13 @@ fi
 # register package into database
 echo "$version $release" > "$ROOT_DIR/$PKGDB_DIR/$name"
 cat "$TMP_PKGINSTALL" >> "$ROOT_DIR/$PKGDB_DIR/$name"
+mkdir -p "$ROOT_DIR/$PKGDBPERMS_DIR"
+grep '/$' $TMP_PKGADD | while read -r perms own junk1 junk2 junk3 dir; do
+	if [ "$perms" != drwxr-xr-x ] || [ "$own" != root/root ]; then
+		echo "$perms $own $dir" >> "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
+		[ -s "$ROOT_DIR/$PKGDBPERMS_DIR/$name" ] || rm "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
+	fi
+done
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then
