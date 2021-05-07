@@ -150,25 +150,25 @@ ROOT_DIR="${ROOT_DIR%/}" # remove trailing slash
 }
 
 [ -d "$ROOT_DIR/$PKGDB_DIR" ] || {
-	msgerr "Package's database directory not exist: $ROOT_DIR/$PKGDB_DIR"
+	msgerr "Package's database directory does not exist: $ROOT_DIR/$PKGDB_DIR"
 	ret 1
 }
 
 # check for root access
 [ "$(id -u)" = "0" ] || {
-	msgerr "Installing package need root access!"
+	msgerr "Installing packages requires root access!"
 	ret 1
 }
 
 # check for lock file
 [ -f "$ROOT_DIR/$LOCK_FILE" ] && {
-	msgerr "Cant install/remove package simultaneously."
+	msgerr "Cannot install/remove package simultaneously."
 	msgerr "remove '$ROOT_DIR/$LOCK_FILE' if no install/remove package process running."
 	exit 1
 }
 
 touch "$ROOT_DIR/$LOCK_FILE" 2>/dev/null || {
-	msgerr "Cant create lock file in '$ROOT_DIR/$LOCK_FILE'."
+	msgerr "Cannot create lock file in '$ROOT_DIR/$LOCK_FILE'."
 	exit 1
 }
 
@@ -176,7 +176,7 @@ BASEPKGNAME=$(basename $PKGNAME)
 
 # check existence of package file
 [ -f "$PKGNAME" ] || {
-	msgerr "Package '$1' not exist!"
+	msgerr "Package '$1' does not exist!"
 	ret 1
 }
 

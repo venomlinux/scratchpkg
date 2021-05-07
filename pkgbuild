@@ -201,7 +201,7 @@ pkglint() {
 	# check for backup file
 	for f in $backup; do
 		if [ ! -f $PKG/$f ]; then
-			msgerr "Backup file '$f' not exist in PKG!"
+			msgerr "Backup file '$f' does not exist in PKG!"
 			linterror=1
 		fi
 	done
@@ -363,7 +363,7 @@ check_buildscript() {
 	# check the required field in buildscript
 	[ "$name" ] || { msgerr "'name' is empty!"; exit 1;	}
 	case $name in
-		*[A-Z]*) msgerr "Capital letters for port name not allowed!"; exit 1;;
+		*[A-Z]*) msgerr "Capital letters for port name are not allowed!"; exit 1;;
 	esac
 	[ "$(basename $(pwd))" = "$name" ] || { msgerr "Port name and Directory name is different!"; exit 1; }
 	[ "$version" ] || { msgerr "'version' is empty!"; exit 1; }
@@ -377,7 +377,7 @@ check_buildscript() {
 checkdir() {
 	for DIR in "$@"; do
 		if [ ! -d $DIR ]; then
-			msgerr "Directory '$DIR' not exist."
+			msgerr "Directory '$DIR' does not exist."
 			exit 1
 		elif [ ! -w $DIR ]; then
 			msgerr "Directory '$DIR' not writable."
@@ -555,14 +555,14 @@ main() {
 	
 	# check for lock file
 	[ -f "$LOCK_FILE" ] && {
-		msgerr "Cant build same package simultaneously."
+		msgerr "Cannot build same package simultaneously."
 		msgerr "remove '$LOCK_FILE' if no build process for '$name'."
 		exit 1
 	}
 	
 	# create lock file
 	touch "$LOCK_FILE" 2>/dev/null || {
-		msgerr "Cant create lock file in '$LOCK_FILE'."
+		msgerr "Cannot create lock file in '$LOCK_FILE'."
 		exit 1
 	}
 	
