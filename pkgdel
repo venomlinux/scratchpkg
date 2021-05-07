@@ -128,13 +128,13 @@ LOCK_FILE="var/lib/scratchpkg/spkg.lock"
 
 # check for lock file
 [ -f "$ROOT_DIR/$LOCK_FILE" ] && {
-	msgerr "Cant install/remove package simultaneously."
+	msgerr "Cannot install/remove package simultaneously."
 	msgerr "remove '$ROOT_DIR/$LOCK_FILE' if no install/remove package process running."
 	exit 1
 }
 
 touch "$ROOT_DIR/$LOCK_FILE" 2>/dev/null || {
-	msgerr "Cant create lock file in '$ROOT_DIR/$LOCK_FILE'"
+	msgerr "Cannot create lock file in '$ROOT_DIR/$LOCK_FILE'"
 	exit 1
 }
 
@@ -148,7 +148,7 @@ version=$(head -n1 $ROOT_DIR/$PKGDB_DIR/$name | awk '{print $1}')
 release=$(head -n1 $ROOT_DIR/$PKGDB_DIR/$name | awk '{print $2}')
 
 if [ -z "$version" ] && [ -z "$release" ]; then
-	msgerr "Package '$RMNAME' not installed but exist in database."
+	msgerr "Package '$RMNAME' is not installed but exists in database."
 	ret 1
 fi
 
