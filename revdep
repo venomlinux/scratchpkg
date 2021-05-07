@@ -319,7 +319,7 @@ if [ "$ALLPKG" ]; then
 		rebuild
 	fi
 else
-	echo "All packages is doing fine."
+	echo "All packages are doing fine."
 fi
 
 cleanup
