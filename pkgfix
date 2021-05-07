@@ -133,10 +133,10 @@ fi
 if [ "$REBUILD" = 1 ]; then
 	[ "$YES" ] || {
 		echo
-		echo "Package will be rebuild & reinstall by this order:"
+		echo "Package will be rebuilt & reinstalled in this order:"
 		echo " $order"
 		echo
-		confirm "Continue rebuild & reinstall broken packages?" "Operation cancelled."
+		confirm "Continue rebuild & reinstall of broken packages?" "Operation cancelled."
 	}
 	for p in $order; do
 		scratch build -f $p || exit 1
