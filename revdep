@@ -270,7 +270,7 @@ echo "Checking for broken linkage..."
 
 while read -r line; do
 	count=$(( count + 1 ))
-	libname=$(basename "$line")
+	libname=${line##*/}
 	printf " $(( 100*count/total ))%% $libname\033[0K\r"
 	case "$(file -bi "$line")" in
 		*application/x-sharedlib* | *application/x-executable* | *application/x-pie-executable*)
@@ -281,13 +281,12 @@ while read -r line; do
 						NEW_LIB_NAME="$NEW_LIB_NAME $l"
 					fi
 				done
+				[ "$NEW_LIB_NAME" ] || continue
 				LIB_NAME=$NEW_LIB_NAME
-				[ "$LIB_NAME" ] || continue
-				PKG_NAME=$(echo $line | sed 's#^/##')
-				PKG_NAME=$(grep -Rx $PKG_NAME "$PKGDB_DIR"/*/.files | cut -d : -f1)
+				PKG_NAME=${line#?} # remove leading slash
+				PKG_NAME=$(grep -Rx $PKG_NAME "$PKGDB_DIR"/* | awk -F : '{print $1}')
 				[ "$PKG_NAME" ] || continue
-				PKG_NAME=$(dirname $PKG_NAME)
-				PKG_NAME=$(basename $PKG_NAME)
+				PKG_NAME=${PKG_NAME##*/}
 				echo $expkg | tr ' ' '\n' | grep -qx $PKG_NAME && continue
 				REQ_LIB=$(objdump -p $line 2>/dev/null | grep NEEDED | awk '{print $2}' | tr '\n' ' ')
 				for i in $LIB_NAME; do
