@@ -350,7 +350,6 @@ post_triggers() {
 		update-mime-database /usr/share/mime
 	fi
 	
-	echo "trigger: Fix files ownership and permissions..."
 	fixperms
 }
 
