@@ -112,6 +112,7 @@ parse_opts $(extract_opts "$@")
 
 PKGDB_DIR="$(pkgadd --print-dbdir)"
 PKGDB_DIR="${PKGDB_DIR##/}"              # remove leading /
+PKGDBPERMS_DIR="$PKGDB_DIR.perms"
 LOCK_FILE="var/lib/scratchpkg/spkg.lock"
 
 # show help page
@@ -154,13 +155,14 @@ fi
 
 tail -n+2 "$ROOT_DIR/$PKGDB_DIR"/$name | tac | while read -r line; do
 	case $line in
-		*/) grep "^$line$" "$ROOT_DIR/$PKGDB_DIR"/* | grep -qv "$ROOT_DIR/$PKGDB_DIR"/$name: || rmdir $([ "$VERBOSE_REMOVE" ] && echo -v) "$ROOT_DIR/$line";;
+		*/) grep "^$line$" "$ROOT_DIR/$PKGDB_DIR"/* 2>/dev/null | grep -qv "$ROOT_DIR/$PKGDB_DIR"/$name: || rmdir $([ "$VERBOSE_REMOVE" ] && echo -v) "$ROOT_DIR/$line";;
 		 *) rm $([ "$VERBOSE_REMOVE" ] && echo -v) "$ROOT_DIR/$line";;
 	esac
 done
 
 # remove from database
 rm -f "$ROOT_DIR/$PKGDB_DIR/$name"
+rm -f "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
 
 # running ldconfig
 if [ -x "$ROOT_DIR"/sbin/ldconfig ]; then

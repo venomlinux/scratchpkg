@@ -276,7 +276,7 @@ done
 if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 	tail -n+2 "$ROOT_DIR/$PKGDB_DIR/$name" | tac | while read -r line; do
 		case $line in
-			*/) grep "^$line$" $ROOT_DIR/$PKGDB_DIR/* "$TMP_PKGINSTALL" | grep -qv "$ROOT_DIR/$PKGDB_DIR/$name" || rmdir $([ "$VERBOSE_INSTALL" ] && echo -v) "$ROOT_DIR/$line";;
+			*/) grep "^$line$" $ROOT_DIR/$PKGDB_DIR/* "$TMP_PKGINSTALL" 2>/dev/null | grep -qv "$ROOT_DIR/$PKGDB_DIR/$name" || rmdir $([ "$VERBOSE_INSTALL" ] && echo -v) "$ROOT_DIR/$line";;
 			 *) grep -q "^$line$" "$TMP_PKGINSTALL" || rm $([ "$VERBOSE_INSTALL" ] && echo -v) "$ROOT_DIR/$line";;
 		esac
 	done
@@ -286,6 +286,7 @@ fi
 echo "$version $release" > "$ROOT_DIR/$PKGDB_DIR/$name"
 cat "$TMP_PKGINSTALL" >> "$ROOT_DIR/$PKGDB_DIR/$name"
 mkdir -p "$ROOT_DIR/$PKGDBPERMS_DIR"
+rm -f "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
 grep '/$' $TMP_PKGADD | while read -r perms own junk1 junk2 junk3 dir; do
 	if [ "$perms" != drwxr-xr-x ] || [ "$own" != root/root ]; then
 		echo "$perms $own $dir" >> "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
