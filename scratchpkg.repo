@@ -13,7 +13,6 @@
 #DE
 /usr/Voncloft-OS/cinnamon     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/cinnamon
 /usr/Voncloft-OS/displaym       https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/displaym
-/usr/Voncloft-OS/gnome  https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/gnome
 /usr/Voncloft-OS/kde     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/kde
 /usr/Voncloft-OS/kf5     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/kf5
 /usr/Voncloft-OS/lxde   https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/lxde
@@ -22,6 +21,7 @@
 /usr/Voncloft-OS/qt     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/qt
 /usr/Voncloft-OS/xfce     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/xfce
 /usr/Voncloft-OS/xorg   https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/xorg
+
 
 #Programming
 /usr/Voncloft-OS/compilers      https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/compilers
@@ -42,3 +42,6 @@
 /usr/Voncloft-OS/kde-apps     https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/kde-apps
 /usr/Voncloft-OS/media  https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/media
 /usr/Voncloft-OS/nonfree        https://raw.githubusercontent.com/voncloft/Voncloft-OS/master/nonfree
+
+#personal
+/usr/Voncloft-OS/personal-repository	http://voncloft.dnsfor.me/packages/Voncloft-OS/programs

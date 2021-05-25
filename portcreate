@@ -24,12 +24,12 @@ if [ -d "$1" ]; then
 else
 	mkdir "$1"
 	echo "# description	: 
+# homepage	: 
 # depends	: 
 
 name=$1
 version=
 release=1
-options=\"\"
 noextract=\"\"
 backup=\"\"
 source=\"\"

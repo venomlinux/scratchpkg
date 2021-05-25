@@ -22,6 +22,16 @@
 
 export LANG=C
 
+get_pythonmodules() {
+	command -v python3 >/dev/null || return
+	pylibpath=$(python3 -c "import sys; print(':'.join(x for x in sys.path if x))" | tr ':' '\n' | sort | head -n1)
+	for i in /usr/lib/python3.*; do
+		[ -d "$i" ] || continue
+		[ "$i" = "$pylibpath" ] && continue
+		brokenpkg="$brokenpkg $(scratch provide $i/$ | awk '{print $1}')"
+	done
+}
+
 get_perlmodules() {
 	command -v perl >/dev/null || return
 	perlpath=$(dirname $(perl -V:sitearch | grep -o "'.*'" | sed "s/'//g"))
@@ -111,6 +121,7 @@ fi
 get_modules
 get_perlmodules
 get_rubygem
+get_pythonmodules
 
 if [ "$brokenpkg" ]; then
 	sort_modules
@@ -122,10 +133,10 @@ fi
 if [ "$REBUILD" = 1 ]; then
 	[ "$YES" ] || {
 		echo
-		echo "Package will be rebuild & reinstall by this order:"
+		echo "Package will be rebuilt & reinstalled in this order:"
 		echo " $order"
 		echo
-		confirm "Continue rebuild & reinstall broken packages?" "Operation cancelled."
+		confirm "Continue rebuild & reinstall of broken packages?" "Operation cancelled."
 	}
 	for p in $order; do
 		scratch build -f $p || exit 1
