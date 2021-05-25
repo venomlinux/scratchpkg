@@ -1,7 +1,4 @@
 #
 # /etc/scratchpkg.mask : exclude packages from sysup
 #
-gcc
-binutils
-glibc
-linux-api-headers
+
