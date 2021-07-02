@@ -112,8 +112,9 @@ pkg_fetch() {
 			msg "Source found: $filepath"
 			continue
 		}
+		[ -f "$filepath.partial" ] && COPT="-C -"
 		msg "Fetching: $i"
-		curl -C - -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $filepath.partial $CURL_OPTS $url || {
+		curl $COPT -L --fail --ftp-pasv --retry 3 --retry-delay 3 -o $filepath.partial $CURL_OPTS $url || {
 			msgerr "Fetching failed: $i"
 			abort 1
 		}
@@ -354,8 +355,17 @@ pkg_clean() {
 		msg "Package removed: $PACKAGE_DIR/$PKGNAME"
 	}
 	for i in $(get_filepath); do
-		rm -f "$i"
-		msg "File removed: $i"
+		case $i in
+			$PWD/*) continue;;
+		esac
+		[ -e "$i" ] && {
+			rm -f "$i"
+			msg "File removed: $i"
+		}
+		[ -e "$i.partial" ] && {
+			rm -f "$i.partial"
+			msg "File removed: $i.partial"
+		}
 	done
 }
 
