@@ -773,16 +773,16 @@ scratch_sysup() {
 			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
-			[ -f ./pre-upgrade.sh ] && {
-				sh ./pre-upgrade.sh
+			[ -f ./pre-install.sh ] && {
+				sh ./pre-install.sh
 			}
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
-			[ -f ./post-upgrade.sh ] && {
-				sh ./post-upgrade.sh
+			[ -f ./post-install.sh ] && {
+				sh ./post-install.sh
 			}
 		fi
 		cd - >/dev/null
@@ -882,16 +882,16 @@ scratch_upgrade() {
 			}
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
-			[ -f ./pre-upgrade.sh ] && {
-				sh ./pre-upgrade.sh
+			[ -f ./pre-install.sh ] && {
+				sh ./pre-install.sh
 			}
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
-			[ -f ./post-upgrade.sh ] && {
-				sh ./post-upgrade.sh
+			[ -f ./post-install.sh ] && {
+				sh ./post-install.sh
 			}
 		fi
 		cd - >/dev/null
