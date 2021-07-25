@@ -683,7 +683,6 @@ outdatepkg() {
 		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep -w $pkg) ]; then
 			continue
 		fi
-		[ -e "$PKGDB_DIR/$pkg/.lock" ] && continue
 		getportpath $pkg >/dev/null || continue
 		. $(getportpath $pkg)/$BUILD_SCRIPT
 		if [ -z "$name" ] || [ -z "$version" ]; then
