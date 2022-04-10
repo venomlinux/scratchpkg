@@ -980,8 +980,6 @@ scratch_cache() {
 	diffcachepkg=/tmp/.diffcachepkg.$$
 	diffcachesrc=/tmp/.diffcachesrc.$$
 	
-	[ -f /etc/scratchpkg.conf ] && . /etc/scratchpkg.conf
-	
 	touch \
 		$allcachepkg \
 		$allcachesrc \
@@ -1326,6 +1324,29 @@ scratch_readme() {
 	fi
 }
 
+scratch_printconfig() {
+	echo "MAINOPTS:         $MAINOPTS"
+	echo "REPO_FILE:        $REPO_FILE"
+	echo "MASK_FILE:        $MASK_FILE"
+	echo "CONFIG_FILE:      $CONFIG_FILE"
+	echo "CFLAGS:           $CFLAGS"
+	echo "CXXFLAGS:         $CXXFLAGS"
+	echo "MAKEFLAGS:        $MAKEFLAGS"
+	echo "CURL_OPTS:        $CURL_OPTS"
+	echo "COMPRESSION_MODE: $COMPRESSION_MODE"
+	echo "NO_STRIP:         $NO_STRIP"
+	echo "IGNORE_MDSUM:     $IGNORE_MDSUM"
+	echo "KEEP_LIBTOOL:     $KEEP_LIBTOOL"
+	echo "KEEP_LOCALE:      $KEEP_LOCALE"
+	echo "KEEP_DOC:         $KEEP_DOC"
+	echo "SOURCE_DIR:       $SOURCE_DIR"
+	echo "PACKAGE_DIR:      $PACKAGE_DIR"
+	echo "PORT_REPO:"
+	for i in $PORT_REPO; do
+		echo "                  $i"
+	done
+}
+
 scratch_files() {	
 	needarg $@
 	if isinstalled $1; then
@@ -1387,12 +1408,17 @@ Options:
     missingdep               print missing dependencies
     orphan                   print orphan installed ports
     foreign                  print foreign ports
+    printconfig <opts>       print scratchpkg configs
     help                     print this help msg
 
 Global options:
-    --append-repo=<repo path>       append custom repo path
-    --prepend-repo=<repo path>      prepend custom repo path
+    --append-repo=<repo path>       append custom local repo path (can use multiple times)
+    --prepend-repo=<repo path>      prepend custom local repo path (can use multiple times)
+    --override-repo=<repo path>     override repo in $REPO_FILE with custom local repo (can use multiple times)
     --repo-file=<repo file>         use custom repo file (default: $REPO_FILE)
+    --config-file=<config file>     use custom config file (default: $CONFIG_FILE)
+    --alias-file=<alias file>       use custom alias file (default: $ALIAS_FILE)
+    --mask-file=<mask file>         use custom mask file (default: $MASK_FILE)
     --nocolor                       disable colour for output
 
 EOF
@@ -1420,9 +1446,13 @@ shift
 for opt in $@; do
 	case $opt in
 	     --nocolor) nocolor;;
+   --append-repo=*) APPENDREPO="$APPENDREPO ${opt#*=}";;
+  --prepend-repo=*) PREPENDREPO="$PREPENDREPO ${opt#*=}";;
+ --override-repo=*) OVERRIDEREPO="$OVERRIDEREPO ${opt#*=}";;
 	      --repo=*) PORT_REPO="$PORT_REPO ${opt#*=}";;
 	 --repo-file=*) REPO_FILE="${opt#*=}";;
 	--alias-file=*) ALIAS_FILE="${opt#*=}";;
+   --config-file=*) CONFIG_FILE="${opt#*=}";;
 	           --*) MAINOPTS="$MAINOPTS $opt";;
 	            -*) char=${#opt}; count=1
 	                while [ "$count" != "$char" ]; do
@@ -1436,21 +1466,45 @@ done
 
 BUILD_SCRIPT="spkgbuild"
 PKGDB_DIR="$(pkgadd --print-dbdir)"
-PKGDBPERMS_DIR=${PKGDB_DIR}.perms
+PKGDBPERMS_DIR="${PKGDB_DIR}.perms"
+
 REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
 ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
 MASK_FILE="${MASK_FILE:-/etc/scratchpkg.mask}"
+CONFIG_FILE="${CONFIG_FILE:-/etc/scratchpkg.conf}"
 
 # default value from pkgbuild
 SOURCE_DIR="/var/cache/scratchpkg/sources"
 PACKAGE_DIR="/var/cache/scratchpkg/packages"
+WORK_DIR="/var/cache/scratchpkg/work"
+CURL_OPTS=""
 COMPRESSION_MODE="xz"
+NO_STRIP="no"
+IGNORE_MDSUM="no"
+KEEP_LIBTOOL="no"
+KEEP_LOCALE="no"
+KEEP_DOC="no"
 
 if [ -f "$REPO_FILE" ]; then
 	for repodir in $(grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1}'); do
 		PORT_REPO="$PORT_REPO $repodir"
 	done
 fi
+
+if [ "$OVERRIDEREPO" ]; then
+	PORT_REPO="$OVERRIDEREPO"
+else
+	PORT_REPO="$PREPENDREPO $PORT_REPO $APPENDREPO"
+fi
+
+for f in $REPO_FILE $ALIAS_FILE $MASK_FILE $CONFIG_FILE; do
+	if [ ! -f "$f" ]; then
+		msgerr "file not found: $CONFIG_FILE"
+		exit 3
+	fi
+done
+
+. "$CONFIG_FILE"
 
 if [ "$(command -v scratch_$mode)" ]; then
 	scratch_$mode $MAINOPTS
