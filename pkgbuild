@@ -125,6 +125,7 @@ pkg_fetch() {
 pkg_unpack() {
 	SRC=$WORK_DIR/$name/src
 	PKG=$WORK_DIR/$name/pkg
+	SRC2=/usr/
 	
 	umask 022
 	
@@ -153,7 +154,11 @@ pkg_unpack() {
 		case $i in
 			*.tar|*.tar.gz|*.tar.Z|*.tgz|*.tar.bz2|*.tar.lz|*.tbz2|*.tar.xz|*.txz|*.tar.lzma|*.zip|*.rpm)
 				msg "Unpacking: $i"
-				$TAR -p -o -C $SRC -xf $i;;
+				$TAR -p -o -C $SRC -xf $i
+				if [ "$INSTALL_SOURCES" = 1 ] || [ "$INSTALL_SOURCES" = "yes" ]; then
+					cp -r $SRC $SRC2;
+				fi
+				;;
 			*)
 				msg "Preparing: $i"
 				cp $i $SRC;;
@@ -162,7 +167,7 @@ pkg_unpack() {
 			msgerr "Unpacking/Preparing failed: $i"
 			abort 1
 		}
-	done	
+	done
 }
 
 pkg_build() {	
@@ -245,6 +250,25 @@ strip_files() {
 	done
 }
 
+split_files() {	
+	if [ "$nostrip" ]; then
+		for i in $nostrip; do
+			xstrip="$xstrip -e $i"
+		done
+		FILTER="grep -v $xstrip"
+	else
+		FILTER="cat"
+	fi
+
+	mkdir -p /usr/debug/$name
+
+	DEBUGFILE="/usr/debug/$name/$name.debug"	
+
+	find . -type f -printf "%P\n" 2>/dev/null | $FILTER | while read -r binary ; do
+		${CROSS_COMPILE}strip --strip-all "$binary" -o $DEBUGFILE 2>/dev/null
+	done
+}
+
 compressinfomanpages() {
 	find . -type f -path "*/man/man*/*" | while read -r file; do
 		if [ "$file" = "${file%%.gz}" ]; then
@@ -297,6 +321,12 @@ pkg_package() {
 	
 	if [ "$KEEP_DOC" = 0 ] || [ "$KEEP_DOC" = "no" ]; then
 		rm -fr usr/share/doc usr/share/gtk-doc usr/doc usr/gtk-doc
+	fi
+
+	if [ "$NO_SPLIT" = 0 ] || [ "$NO_SPLIT" = "no" ]; then
+		if [ "$NO_STRIP" = 0 ] || [ "$NO_STRIP" = "no" ]; then
+			split_files
+		fi
 	fi
 	
 	if [ "$NO_STRIP" = 0 ] || [ "$NO_STRIP" = "no" ]; then
@@ -622,6 +652,8 @@ PACKAGE_DIR="/var/cache/scratchpkg/packages"
 WORK_DIR="/var/cache/scratchpkg/work"
 COMPRESSION_MODE="xz"
 NO_STRIP="no"
+NO_SPLIT="yes"
+INSTALL_SOURCES="no"
 IGNORE_MDSUM="no"
 KEEP_LIBTOOL="no"
 KEEP_LOCALE="no"
