@@ -246,12 +246,12 @@ strip_files() {
 }
 
 compressinfomanpages() {
-	find . -type f -path "*/man/man*/*" | while read -r file; do
+	find . -type f -path "*/share/man/*" | while read -r file; do
 		if [ "$file" = "${file%%.gz}" ]; then
 			gzip -9 -f "$file"
 		fi
 	done
-	find . -type l -path "*/man/man*/*" | while read -r file; do
+	find . -type l -path "*/share/man/*" | while read -r file; do
 		FILE="${file%%.gz}.gz"
 		TARGET="$(readlink $file)"
 		TARGET="${TARGET##*/}"
@@ -262,15 +262,12 @@ compressinfomanpages() {
 			ln -sf $TARGET $FILE
 		fi
 	done
-	if [ -d usr/share/info ]; then
-		(cd usr/share/info
-			for file in $(find . -type f); do
-				if [ "$file" = "${file%%.gz}" ]; then
-					gzip -9 "$file"
-				fi
-			done
-		)
-	fi
+	find . -type f -path "*/share/info/*" | while read -r file; do
+	echo $file
+		if [ "$file" = "${file%%.gz}" ]; then
+			gzip -9 -f "$file"
+		fi
+	done
 }
 
 pkg_package() {
