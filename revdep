@@ -162,6 +162,34 @@ rev_exclude() {
 	EXCLUDED_LIBS=$(echo $EXCLUDE_LIBS | tr ' ' '\n' | sort | uniq)
 }
 
+check_pythonmodules() {
+	command -v python3 >/dev/null || return
+	pylibpath=$(python3 -c "import sys; print(':'.join(x for x in sys.path if x))" | tr ':' '\n' | sort | head -n1)
+	for i in /usr/lib/python3.*; do
+		[ -d "$i" ] || continue
+		[ "$i" = "$pylibpath" ] && continue
+		brokenpkg="$brokenpkg $(scratch provide $i/$ | awk '{print $1}')"
+	done
+}
+
+check_perlmodules() {
+	command -v perl >/dev/null || return
+	perlpath=$(dirname $(perl -V:sitearch | grep -o "'.*'" | sed "s/'//g"))
+	for i in $(dirname $perlpath)/*; do
+		[ "$perlpath" = "$i" ] && continue
+		brokenpkg="$brokenpkg $(scratch provide $i/$ | awk '{print $1}')"
+	done
+}
+
+check_rubygem() {
+	command -v gem >/dev/null || return
+	gempath=$(gem env gemdir)
+	for i in $(dirname $gempath)/*; do
+		[ "$gempath" = "$i" ] && continue
+		brokenpkg="$brokenpkg $(scratch provide $i/$ | awk '{print $1}')"
+	done
+}
+
 trap "interrupted" 1 2 3 15
 
 command -v pkgadd >/dev/null 2>&1 || {
@@ -307,6 +335,22 @@ while read -r line; do
 done < $FILE_LIST
 
 printf "\033[0K"
+
+echo
+echo "Checking for broken packages..."
+check_pythonmodules
+check_perlmodules
+check_rubygem
+
+if [ "$brokenpkg" ]; then
+	for i in $brokenpkg; do
+		if echo "$ALLPKG" | tr ' ' '\n' | grep -qx "$i"; then
+			continue
+		else
+			ALLPKG="$ALLPKG $i"
+		fi
+	done
+fi
 	
 if [ "$ALLPKG" ]; then
 	echo
