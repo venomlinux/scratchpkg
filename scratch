@@ -154,14 +154,6 @@ needarg() {
 	}
 }
 
-isinstalled() {
-	if [ -s "$PKGDB_DIR/$1" ]; then
-		return 0
-	else
-		return 1
-	fi
-}
-
 settermtitle() {
 	printf "\033]0;$*\a"
 }
@@ -507,9 +499,10 @@ scratch_install() {
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u) ;;
-			-r|--reinstall) REINSTALL=1;;
-			-y|--yes) NOCONFIRM=1;;
-			-n|--no-dep) NO_DEP=1;;
+			-r) REINSTALL=1;;
+			-o) DOWNLOAD_ONLY=1; OPTS="$OPTS $1";;
+			-y) NOCONFIRM=1;;
+			-n) NO_DEP=1;;
 			--exclude=*) EXOPT=$1;;
 			-*) OPTS="$OPTS $1";;
 			*) PKGNAME="$PKGNAME $1";;
@@ -526,7 +519,7 @@ scratch_install() {
 		for ii in $PKGNAME; do
 			if [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
-			elif ! isinstalled $ii; then
+			elif ! scratch_isinstalled $ii; then
 				echo "Package '$ii' not installed."
 			else
 				cd $(getportpath $ii)
@@ -539,9 +532,8 @@ scratch_install() {
 				cd - >/dev/null
 			fi
 		done
-		settermtitle "Triggering install hook..."
-		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "Reinstalling done."
+		run_trigger
+		settermtitle "Package(s) reinstalled."
 		return "$error"
 	fi
 	if [ "$NO_DEP" = 1 ]; then
@@ -549,7 +541,7 @@ scratch_install() {
 		for ii in $PKGNAME; do
 			if [ ! $(getportpath $ii) ]; then
 				echo "Package '$ii' not found."
-			elif isinstalled $ii; then
+			elif scratch_isinstalled $ii; then
 				echo "Package '$ii' already installed."
 				continue
 			else
@@ -563,15 +555,14 @@ scratch_install() {
 				cd - >/dev/null
 			fi
 		done
-		settermtitle "Triggering install hook..."
-		[ "$done_pkg" ] && scratch_trigger $done_pkg
-		settermtitle "Installing done."
+		run_trigger
+		settermtitle "Package(s) installed."
 		return "$error"
 	fi
 	for i in $PKGNAME; do
 		if [ ! $(getportpath $i) ]; then
 			echo "Package '$i' not found."
-		elif isinstalled $i; then
+		elif scratch_isinstalled $i; then
 			echo "Package '$i' already installed."
 		else
 			IPKG="$IPKG $i"
@@ -602,17 +593,13 @@ scratch_install() {
 			if portpathh=$(getportpath $int); then
 				cd $portpathh
 					settermtitle "[ $count/$total ] installing $int..."
-					[ -f ./pre-install.sh ] && {
-						sh ./pre-install.sh
-					}
+					run_preinstallsh
 					pkgbuild -i $OPTS || {
 						error=1
 						count=$(( count - 1 ))
 						break
 					}
-					[ -f ./post-install.sh ] && {
-						sh ./post-install.sh
-					}
+					run_postinstallsh
 					done_pkg="$done_pkg $int"
 				cd - >/dev/null
 			else
@@ -620,8 +607,7 @@ scratch_install() {
 			fi
 			unset portpathh
 		done
-		settermtitle "Triggering install hook..."
-		[ "$done_pkg" ] && scratch_trigger $done_pkg
+		run_trigger
 		settermtitle "$count/$total package(s) installed."
 		return "$error"
 	fi
@@ -642,7 +628,7 @@ scratch_remove() {
 		return 1
 	}
 	for i in $PKGNAME; do
-		if ! isinstalled $i; then
+		if ! scratch_isinstalled $i; then
 			echo "Package '$i' not installed."
 		else
 			IPKG="$IPKG $i"
@@ -679,13 +665,18 @@ scratch_remove() {
 }
 
 outdatepkg() {
+	OLDIFS=$IFS
+	IFS=,
+	for i in ${1#*=}; do exclude="$exclude $i"; done
+	IFS=$OLDIFS
 	for pkg in $(allinstalled); do
+		echo $exclude | grep -qw $pkg && continue
 		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep -w $pkg) ]; then
 			continue
 		fi
 		getportpath $pkg >/dev/null || continue
 		. $(getportpath $pkg)/$BUILD_SCRIPT
-		if [ -z "$name" ] || [ -z "$version" ]; then
+		if [ ! "$name" ] || [ ! "$version" ]; then
 			continue
 		fi
 		iversion=$(get_iver $pkg)
@@ -702,15 +693,16 @@ scratch_sysup() {
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u|-r) ;;
-			-y|--yes) NOCONFIRM=1;;
-			-n|--no-dep) NODEP=1;;
+			-o) DOWNLOAD_ONLY=1; OPTS="$OPTS $1";;
+			-y) NOCONFIRM=1;;
+			-n) NODEP=1;;
 			--exclude=*) EXOPT=$1;;
 			-*) OPTS="$OPTS $1";;
 		esac
 		shift
 	done
 	echo "Checking for outdated packages..."
-	PKGOUTDATE=$(outdatepkg)
+	PKGOUTDATE=$(outdatepkg $EXOPT)
 	[ "$PKGOUTDATE" ] || {
 		echo "All packages are up to date."
 		return 0
@@ -731,7 +723,7 @@ scratch_sysup() {
 				printf "[${GREEN}u${CRESET}] $d  "
 				WILLINSTALL="$WILLINSTALL $d"
 				UPGPKG=$(( UPGPKG + 1 ))
-			elif ! isinstalled $d && [ "$(getportpath "$d")" ]; then
+			elif ! scratch_isinstalled $d && [ "$(getportpath "$d")" ]; then
 				printf "[${CYAN}n${CRESET}] $d  "
 				WILLINSTALL="$WILLINSTALL $d"
 				NEWPKG=$(( NEWPKG + 1 ))
@@ -758,40 +750,55 @@ scratch_sysup() {
 	for inst in $WILLINSTALL; do # install all required dependencies and target packages itself
 		count=$(( count + 1 ))
 		cd $(getportpath $inst)
-		if ! isinstalled $inst; then
+		if ! scratch_isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
-			[ -f ./pre-install.sh ] && {
-				sh ./pre-install.sh
-			}
+			run_preinstallsh
 			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
-			[ -f ./post-install.sh ] && {
-				sh ./post-install.sh
-			}
+			run_postinstallsh
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
-			[ -f ./pre-install.sh ] && {
-				sh ./pre-install.sh
-			}
+			run_preinstallsh
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
-			[ -f ./post-install.sh ] && {
-				sh ./post-install.sh
-			}
+			run_postinstallsh
 		fi
 		cd - >/dev/null
 		done_pkg="$done_pkg $inst"
 	done
-	settermtitle "Triggering install hook."
-	[ "$done_pkg" ] && scratch_trigger $done_pkg
+	run_trigger
 	settermtitle "$count/$total package(s) upgraded."
 	return "$error"
+}
+
+run_trigger() {
+	# if using -o (download only), dont run trigger
+	if [ ! "$DOWNLOAD_ONLY" ]; then
+		[ "$done_pkg" ] && {
+			settermtitle "Triggering install hook..."
+			scratch_trigger $done_pkg
+		}
+	fi
+}
+
+run_preinstallsh() {
+	# if using -o (download only), dont run pre-install.sh script
+	if [ ! "$DOWNLOAD_ONLY" ]; then
+		[ -f ./pre-install.sh ] && sh ./pre-install.sh
+	fi
+}
+
+run_postinstallsh() {
+	# if using -o (download only), dont run post-install.sh script
+	if [ ! "$DOWNLOAD_ONLY" ]; then
+		[ -f ./post-install.sh ] && sh ./post-install.sh
+	fi
 }
 
 scratch_upgrade() {
@@ -799,8 +806,9 @@ scratch_upgrade() {
 	while [ "$1" ]; do
 		case $1 in
 			-i|-r) ;;
-			-y|--yes) NOCONFIRM=1;;
-			-d|--no-dep) NO_DEP=1;;
+			-y) NOCONFIRM=1;;
+			-o) DOWNLOAD_ONLY=1; OPTS="$OPTS $1";;
+			-d) NO_DEP=1;;
 			--exclude=*) EXOPT=$1;;
 			-*) OPTS="$OPTS $1";;
 			*) PKGNAME="$PKGNAME $1";;
@@ -812,7 +820,7 @@ scratch_upgrade() {
 		return 1
 	}
 	for pkg in $PKGNAME; do
-		if ! isinstalled $pkg; then
+		if ! scratch_isinstalled $pkg; then
 			echo "Package '$pkg' not installed."
 			continue
 		elif [ ! $(getportpath $pkg) ]; then
@@ -840,7 +848,7 @@ scratch_upgrade() {
 				printf "[${GREEN}u${CRESET}] $d  "
 				WILLINSTALL="$WILLINSTALL $d"
 				UPGPKG=$(( UPGPKG + 1 ))
-			elif ! isinstalled $d && [ "$(getportpath "$d")" ]; then
+			elif ! scratch_isinstalled $d && [ "$(getportpath "$d")" ]; then
 				printf "[${CYAN}n${CRESET}] $d  "
 				WILLINSTALL="$WILLINSTALL $d"
 				NEWPKG=$(( NEWPKG + 1 ))
@@ -867,40 +875,37 @@ scratch_upgrade() {
 	for inst in $WILLINSTALL; do # install all required dependencies and target packages itself
 		count=$(( count + 1 ))
 		cd $(getportpath $inst)
-		if ! isinstalled $inst; then
+		if ! scratch_isinstalled $inst; then
 			settermtitle "[ $count/$total ] Installing $inst..."
-			[ -f ./pre-install.sh ] && {
-				sh ./pre-install.sh
-			}
+			run_preinstallsh
 			pkgbuild -i $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
-			[ -f ./post-install.sh ] && {
-				sh ./post-install.sh
-			}
+			run_postinstallsh
 		else
 			settermtitle "[ $count/$total ] Upgrading $inst..."
-			[ -f ./pre-install.sh ] && {
-				sh ./pre-install.sh
-			}
+			run_preinstallsh
 			pkgbuild -u $OPTS || {
 				error=1
 				count=$(( count - 1 ))
 				break
 			}
-			[ -f ./post-install.sh ] && {
-				sh ./post-install.sh
-			}
+			run_postinstallsh
 		fi
 		cd - >/dev/null
 		done_pkg="$done_pkg $inst"
 	done
-	settermtitle "Triggering install hook."
-	[ "$done_pkg" ] && scratch_trigger $done_pkg
+	run_trigger
 	settermtitle "$count/$total package(s) upgraded."
 	return "$error"
+}
+
+scratch_isinstalled() {
+	[ "$1" ] || return 1
+	[ -f "$PKGDB_DIR/$1" ] || return 1
+	return 0
 }
 
 scratch_outdate() {
@@ -955,7 +960,7 @@ scratch_search() {
 			repo=$(echo $line | rev | awk -F / '{print $3}' | rev)
 			desc=$(grep "^# description[[:blank:]]*:" $line | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 			. $line
-			if isinstalled $name; then
+			if scratch_isinstalled $name; then
 				ins="[${GREEN}*${CRESET}]"
 			else
 				ins="[ ]"
@@ -1071,7 +1076,7 @@ scratch_deplist() {
 	IFS=,
 	while [ "$1" ]; do
 		case $1 in
-			-q|--quick) quick=1;;
+			-q) quick=1;;
 			--exclude=*) for i in ${1#*=}; do exclude="$exclude $i"; done;;
 			-*) ;;
 			*) PKG="$PKG $1";;
@@ -1101,7 +1106,7 @@ scratch_deplist() {
 		echo $DEP | tr ' ' '\n'
 	else
 		for p in $DEP; do
-			if isinstalled $p; then
+			if scratch_isinstalled $p; then
 				echo "[*] $p"
 			else
 				echo "[-] $p"
@@ -1134,7 +1139,7 @@ deplist() {
 	
 	# check dependencies
 	for i in $(get_depends $1); do
-		if [ "$quick" = 1 ] && isinstalled $i; then
+		if [ "$quick" = 1 ] && scratch_isinstalled $i; then
 			continue
 		else
 			if ! echo $DEP | tr " " "\n" | grep -qx $i; then
@@ -1150,7 +1155,7 @@ deplist() {
 	# add dependency to list checked dep
 	if ! echo $DEP | tr " " "\n" | grep -qx $1; then
 		if [ "$quick" = 1 ]; then
-			isinstalled $1 || DEP="$DEP $1"
+			scratch_isinstalled $1 || DEP="$DEP $1"
 		else
 			DEP="$DEP $1"
 		fi
@@ -1196,7 +1201,7 @@ scratch_depends() {
 	fi
 	
 	for dep in $depends; do
-		if isinstalled $dep; then
+		if scratch_isinstalled $dep; then
 			msginst "$dep"
 		elif getportpath $dep >/dev/null; then
 			msgnoinst "$dep"
@@ -1266,7 +1271,7 @@ scratch_missingdep() {
 		fi
 		if [ "$depends" ]; then
 			for d in $depends; do
-				if ! isinstalled $d; then
+				if ! scratch_isinstalled $d; then
 					if [ -z "$msd" ]; then
 						msd="$d"
 					else
@@ -1349,7 +1354,7 @@ scratch_printconfig() {
 
 scratch_files() {	
 	needarg $@
-	if isinstalled $1; then
+	if scratch_isinstalled $1; then
 		cat "$PKGDB_DIR/$1"
 	else
 		msg "Package '$1' not installed."
@@ -1363,42 +1368,46 @@ Usage:
     
 Options:
     install <ports> <arg>    install ports (use pkgbuild arg, except '-i' & '-u')
-                             -r|--reinstall   reinstall
-                             -n|--no-dep      skip dependencies
-                             -y|--yes         skip ask user permission
-                             --exclude=*      exclude dependencies, comma separated
+                             -r            reinstall
+                             -n            skip dependencies
+                             -y            skip ask user confirmation
+                             -o            fetch sources only
+                             --exclude=*   exclude dependencies, comma separated
 
     upgrade <ports> <arg>    upgrade ports (use pkgbuild arg, except '-i' & '-r')
-                             -n|--no-dep      skip dependencies
-                             -y|--yes         skip ask user permission
-                             --exclude=*      exclude dependencies, comma separated
+                             -n            skip dependencies
+                             -y            skip ask user confirmation
+                             -o            fetch sources only
+                             --exclude=*   exclude dependencies, comma separated
 
     remove  <ports> <arg>    remove installed ports (use pkgdel arg)
-                             -y|--yes         skip ask user permission
+                             -y            skip ask user confirmation
 
     sysup           <arg>    full system upgrade (use pkgbuild arg, except '-i', '-r'  & '-u')
-                             -n|--no-dep      skip dependencies
-                             -y|--yes         skip ask user permission
-                             --exclude=*      exclude dependencies, comma separated
+                             -n            skip dependencies
+                             -y            skip ask user confirmation
+                             -o            fetch sources only
+                             --exclude=*   exclude dependencies, comma separated
 
     deplist <ports>          print all dependencies for ports
-                             -q|--quick       skip installed ports
-                             --exclude=*      exclude dependencies, comma separated
+                             -q            skip installed ports
+                             --exclude=*   exclude dependencies, comma separated
 
     build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
-                             --log            log build process (/var/log/pkgbuild.log)
+                             --log         log build process (/var/log/pkgbuild.log)
 
-    trigger   [ports]        run system trigger
-    search    <pattern>      find ports in repo
-    cat       <port>         print spkgbuild
-    depends   <port>         print dependencies
-    dependent <port>         print dependent
-    path      <port>         print path in repo
-    provide   <files>        print port's provided files
-    readme    <port>         print readme file, if exist
-    files     <port>         print files installed
-    info      <port>         print information
-    locate    <files>        print location of files in ports repo
+    trigger      [ports]     run system trigger
+    search       <pattern>   find ports in repo
+    cat          <port>      print spkgbuild
+    depends      <port>      print dependencies
+    dependent    <port>      print dependent
+    path         <port>      print path in repo
+    provide      <file>      print port's provided file
+    readme       <port>      print readme file, if exist
+    files        <port>      print files installed
+    info         <port>      print information
+    locate       <file>      print location of file in ports repo
+    isinstalled  <port>      check whether port is installed (status 0=installed, 1=not installed)
     sync                     update ports database
     outdate                  print outdated ports
     cache                    print and clear old pkg and src caches

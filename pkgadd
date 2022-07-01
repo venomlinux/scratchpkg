@@ -121,14 +121,6 @@ isinstalled() {
 	fi
 }
 
-run_scripts() {
-	if [ "$ROOT_DIR" ]; then
-		xchroot "$ROOT_DIR" sh $@
-	else
-		sh $@
-	fi
-}
-
 parse_opts $(extract_opts "$@")
 
 SCRATCHPKG_DIR="var/lib/scratchpkg"
