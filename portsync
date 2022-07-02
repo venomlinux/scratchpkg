@@ -23,7 +23,6 @@ cmp_copy() {
 	#   cmp_copy <source dir> <target dir>
 	#
 	reponame=${2##*/}
-	echo "Updating repository $(basename $reponame)"
 	for p in $1/*; do
 		[ -d $p ] || continue
 		pname=${p##*/}
@@ -35,7 +34,7 @@ cmp_copy() {
 					*/update) continue;;
 				esac
 				fname=${f##*/}
-				echo " New: $reponame/$pname/$fname"
+				echo "+ $reponame/$pname/$fname"
 				cp $f $2/$pname/$fname
 			done		
 		else
@@ -46,7 +45,7 @@ cmp_copy() {
 				esac
 				fname=${f##*/}
 				cmp -s $f $2/$pname/$fname || {
-					echo " Edit: $reponame/$pname/$fname"
+					echo "* $reponame/$pname/$fname"
 					cp $f $2/$pname/$fname
 				}
 			done
@@ -59,7 +58,7 @@ cmp_copy() {
 			[ -f $f ] || continue
 			fname=${f##*/}
 			if [ ! -f $1/$pname/$fname ]; then
-				echo " Removed: $reponame/$pname/$fname"
+				echo "- $reponame/$pname/$fname"
 				rm $2/$pname/$fname
 			fi
 		done
@@ -67,70 +66,63 @@ cmp_copy() {
 			rmdir $2/$pname
 		fi
 	done
-	echo "Finished successfully"
 }
 
-github_sync() {
+sync_repo() {
 	# usage:
-	#   github_sync <github url> <target dir>
+	#   sync_repo <repo url> <ports dir>
 	#
-	dir=$2
-	repo=${dir##*/}
 	url=$(echo $1 | cut -d / -f -5)
-	branch=$(echo $1 | cut -d / -f 7)
-	tarball=/tmp/$repo
-	echo "Fetching from $1"
-	curl --silent -LJ -o $tarball.tar.xz $url/tarball/$branch || {
-		echo "Failed fetching repo from $1"
-		exit 1
-	}
-	tar -tf $tarball.tar.xz >/dev/null 2>&1 || {
-		echo "Tarball from $1 corrupted"
-		exit 1
-	}
-	portname=$(tar -tf $tarball.tar.xz 2>/dev/null | head -n1 | cut -d / -f1)
-	tar -xf $tarball.tar.xz -C /tmp
-	if [ ! "$portname" ] || [ -d "$repo" ]; then
-		echo "Failed sync $repo repo"
-		exit 1
-	fi
-	cmp_copy /tmp/$portname/$repo $dir
-	rm -f $tarball.tar.xz
-	rm -fr /tmp/$portname
-}
-
-httpup_sync() {
-	# usage:
-	#   httpup_sync <url> <target dir>
-	#
-	command -v httpup >/dev/null 2>&1 || {
-		echo "httpup not found."
-		exit 1
-	}
-	httpup sync $1 $2 || {
-		echo "Failed sync from $1"
-		exit 1
-	}
-}
-
-REPO_FILE=/etc/scratchpkg.repo
+	portdir=$2
 	
-if [ ! -e "$REPO_FILE" ]; then
-	echo "Repo file not found! ($REPO_FILE)"
+	case $1 in
+		*github.com/*)
+			branch=$(echo $1 | cut -d / -f 7)
+			repodir=$(echo $1 | cut -d / -f 8-);;
+		*gitlab.com/*)
+			branch=$(echo $1 | cut -d / -f 8)
+			repodir=$(echo $1 | cut -d / -f 9-);;
+		*) # will add more git service
+			branch=$(echo $1 | cut -d / -f 8)
+			repodir=$(echo $1 | cut -d / -f 9-);;
+	esac
+
+	# if branch not in the url, assume it master branch
+	[ "$branch" ] || branch=master
+	
+	echo "fetching ports: $1"
+
+	# cloning ports repository
+	git clone -q -b $branch $url $tmprepo || {
+		echo " failed sync repo"
+		exit 1
+	}
+	
+	# copying ports to port directory by comparing
+	cmp_copy $tmprepo/$repodir $portdir
+	
+	# cleanup tmp cloned repo
+	rm -fr $tmprepo
+	
+	echo "ports synced: $2"
+}
+
+tmprepo=/tmp/tmprepo
+repo_file=/etc/scratchpkg.repo
+	
+if [ ! -e "$repo_file" ]; then
+	echo "missing repo file: $repo_file"
 	exit 1
 fi
 
 if [ "$(id -u)" != 0 ]; then
-	echo "This operation need root access."
+	echo "this operation need root access."
 	exit 1
 fi
 
-grep -Ev '^(#|$)' "$REPO_FILE" | awk '{print $1,$2}' | while read -r repodir repourl; do
+grep -Ev '^(#|$)' "$repo_file" | awk '{print $1,$2}' | while read -r repodir repourl; do
 	if [ "$repodir" ] && [ "$repourl" ]; then
-		case $repourl in
-			*github.com*) github_sync $repourl $repodir;;
-			           *) httpup_sync $repourl $repodir;;
-		esac
+		sync_repo $repourl $repodir
 	fi
 done
 
