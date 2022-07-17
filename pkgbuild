@@ -60,9 +60,6 @@ generatemdsum() {
 }
 
 pkg_checksum() {
-	if [ "$IGNORE_MDSUM" = "yes" ] || [ "$IGNORE_MDSUM" = 1 ]; then
-		return 0
-	fi
 	TMPCHECKSUM=$WORK_DIR/checksumstmp.$$
 	ORICHECKSUM=$WORK_DIR/checksumsori.$$
 	DIFCHECKSUM=$WORK_DIR/checksumsdiff.$$
@@ -70,10 +67,12 @@ pkg_checksum() {
 	if [ ! -f .checksums ]; then
 		pkg_genchecksums
 	else
-		msg "Checking checksums..."
-		generatemdsum > "$TMPCHECKSUM"
-		sort -k2 .checksums > "$ORICHECKSUM"
-		diff -w -t -U 0 "$ORICHECKSUM" "$TMPCHECKSUM" > "$DIFCHECKSUM"
+		if [ "$IGNORE_MDSUM" != "yes" ] && [ "$IGNORE_MDSUM" != 1 ]; then
+			msg "Checking checksums..."
+			generatemdsum > "$TMPCHECKSUM"
+			sort -k2 .checksums > "$ORICHECKSUM"
+			diff -w -t -U 0 "$ORICHECKSUM" "$TMPCHECKSUM" > "$DIFCHECKSUM"
+		fi
 	fi
 	
 	[ -s "$DIFCHECKSUM" ] && {
@@ -328,7 +327,9 @@ pkg_package() {
 		
 	cd - >/dev/null
 	
-	[ -f .pkgfiles ] || pkg_genpkgfiles
+	if [ ! -f .pkgfiles ] || [ "$(head -n1 .pkgfiles)" != "$name-$version-$release" ]; then
+		pkg_genpkgfiles
+	fi
 }
 
 pkg_genpkgfiles() {
@@ -339,10 +340,7 @@ pkg_genpkgfiles() {
 	
 	echo "$name-$version-$release" > .pkgfiles
 	
-	tar -tvf "$PACKAGE_DIR/$PKGNAME" \
-	| awk '{$3=$4=$5=""; print $0}' \
-	| sed "s,lib/modules/$(uname -r),lib/modules/<kernelversion>,g" \
-	| sort -k 3 >> .pkgfiles
+	tar -tvf "$PACKAGE_DIR/$PKGNAME" | sort -k 3 >> .pkgfiles
 	msg "Pkgfiles updated."
 }
 

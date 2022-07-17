@@ -279,7 +279,7 @@ echo "$version $release" > "$ROOT_DIR/$PKGDB_DIR/$name"
 cat "$TMP_PKGINSTALL" >> "$ROOT_DIR/$PKGDB_DIR/$name"
 mkdir -p "$ROOT_DIR/$PKGDBPERMS_DIR"
 rm -f "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
-grep '/$' $TMP_PKGADD | while read -r perms own junk1 junk2 junk3 dir; do
+grep '/$' $TMP_PKGADD | while read -r perms own junk1 junk2 junk3 dir junk4; do
 	if [ "$perms" != drwxr-xr-x ] || [ "$own" != root/root ]; then
 		echo "$perms $own $dir" >> "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
 		[ -s "$ROOT_DIR/$PKGDBPERMS_DIR/$name" ] || rm "$ROOT_DIR/$PKGDBPERMS_DIR/$name"
