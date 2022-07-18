@@ -252,7 +252,7 @@ fixperms() {
 	needroot "Fix permissions"
 	for i in $PKGDBPERMS_DIR/*; do
 		[ -s $i ] || continue
-		while read -r perms own dir; do
+		while read -r perms own dir junk; do
 			chmod $(cvperms $perms) /$dir
 			echo $own | while IFS=/ read -r o g; do
 				chown $o:$g /$dir
