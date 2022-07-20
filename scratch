@@ -196,7 +196,7 @@ scratch_integrity() {
 scratch_locate() {
 	needarg $@
 	for repo in $PORT_REPO; do
-		grep -R $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}'
+		grep -Ri $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}'
 	done
 }
 
