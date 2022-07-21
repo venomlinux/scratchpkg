@@ -671,7 +671,7 @@ outdatepkg() {
 	IFS=$OLDIFS
 	for pkg in $(allinstalled); do
 		echo $exclude | grep -qw $pkg && continue
-		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep -w $pkg) ]; then
+		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep -x $pkg) ]; then
 			continue
 		fi
 		getportpath $pkg >/dev/null || continue
