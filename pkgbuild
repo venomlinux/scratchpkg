@@ -340,7 +340,9 @@ pkg_genpkgfiles() {
 	
 	echo "$name-$version-$release" > .pkgfiles
 	
-	tar -tvf "$PACKAGE_DIR/$PKGNAME" | sort -k 3 >> .pkgfiles
+	tar -tvf "$PACKAGE_DIR/$PKGNAME" \
+	| awk '{$3=$4=$5=""; print $0}' \
+	| sort -k 3 >> .pkgfiles
 	msg "Pkgfiles updated."
 }
 
