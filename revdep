@@ -207,7 +207,7 @@ if [ "$(id -u)" != 0 ] && [ "$REBUILD" = 1 ]; then
 	exit 1
 fi
 
-if [ "$PKG" ] && [ ! -f "$PKGDB_DIR/$PKG/.files" ]; then
+if [ "$PKG" ] && [ ! -f "$PKGDB_DIR/$PKG" ]; then
 	echo "ERROR: Package '$PKG' not installed"
 	cleanup
 	exit 1
@@ -282,7 +282,7 @@ if [ "$PKG" ]; then
 		filterdir=cat
 	fi
 	printf "Find '$PKG' files... "
-	sed 's/^/\//' $PKGDB_DIR/$PKG/.files | grep $gx | $filterfile | $filterdir > $FILE_LIST
+	tail -n +2 $PKGDB_DIR/$PKG | sed 's/^/\//' | grep $gx | $filterfile | $filterdir > $FILE_LIST
 else
 	printf "Find all files... "
 	find $SEARCH_DIRS $EXCLUDED_DIRS $EXCLUDED_FILES -type f \( -perm /+u+x -o -name '*.so' -o -name '*.so.*' \) -print 2> /dev/null | sort -u > $FILE_LIST
@@ -335,11 +335,13 @@ done < $FILE_LIST
 
 printf "\033[0K"
 
-echo
-echo "Checking for broken packages..."
-check_pythonmodules
-check_perlmodules
-check_rubygem
+[ "$PKG" ] || {
+	echo
+	echo "Checking for broken packages..."
+	check_pythonmodules
+	check_perlmodules
+	check_rubygem
+}
 
 if [ "$brokenpkg" ]; then
 	for i in $brokenpkg; do
