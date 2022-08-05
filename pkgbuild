@@ -262,7 +262,6 @@ compressinfomanpages() {
 		fi
 	done
 	find . -type f -path "*/share/info/*" | while read -r file; do
-	echo $file
 		if [ "$file" = "${file%%.gz}" ]; then
 			gzip -9 -f "$file"
 		fi

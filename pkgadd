@@ -236,8 +236,8 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 					touch "$TMP_CONFLICT"
 				fi
 			else
-				_pkg=$(grep -x ^"$line"$ $ROOT_DIR/$PKGDB_DIR/* | cut -d : -f1 | awk -F / '{print $(NF)}' | head -n1)
-				_pkg=${_f:-(none)}
+				_f=$(grep -x ^"$line"$ $ROOT_DIR/$PKGDB_DIR/* | cut -d : -f1 | awk -F / '{print $(NF)}' | head -n1)
+				_f=${_f:-(none)}
 				echo "$_f $line"
 				touch "$TMP_CONFLICT"
 			fi
