@@ -609,6 +609,11 @@ scratch_install() {
 					}
 					run_postinstallsh
 					done_pkg="$done_pkg $int"
+
+				if [ $count = $total ] && [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
+					echo "Adding $ii to world!"
+					echo "$int" >> $WORLD_FILE
+				fi
 				cd - >/dev/null
 			else
 				msgwarn "Skipping missing package: $int"
@@ -617,10 +622,6 @@ scratch_install() {
 		done
 		run_trigger
 		settermtitle "$count/$total package(s) installed."
-		if [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
-			echo "Adding $ii to world!"
-			echo "$ii" >> $WORLD_FILE
-		fi
 		return "$error"
 	fi
 }
