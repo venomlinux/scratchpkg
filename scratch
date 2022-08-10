@@ -611,7 +611,7 @@ scratch_install() {
 					done_pkg="$done_pkg $int"
 
 				if [ $count = $total ] && [ ! "$(grep -xq $int $WORLD_FILE)" ]; then
-					echo "Adding $ii to world!"
+					echo "Adding $int to world!"
 					echo "$int" >> $WORLD_FILE
 				fi
 				cd - >/dev/null
