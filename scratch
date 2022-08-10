@@ -58,7 +58,7 @@ msgwarn() {
 	printf "${YELLOW}==> WARNING:${CRESET} %s\n" "$1" >&2
 }
 
-needroot() {	
+needroot() {
 	if [ "$(id -u)" != 0 ]; then
 		if [ "$#" -eq 0 ]; then
 			needroot "This operation"
@@ -66,20 +66,20 @@ needroot() {
 			msgerr "$* need root access!"
 		fi
 		exit 1
-	fi	
+	fi
 }
 
-getportpath() {	
+getportpath() {
 	for repo in $PORT_REPO; do
 		if [ -f "$repo/$1/$BUILD_SCRIPT" ]; then
 			dirname "$repo/$1/$BUILD_SCRIPT"
 			return 0
 		fi
 	done
-	return 1	
+	return 1
 }
 
-vercomp() {	
+vercomp() {
 	if [ "$1" = "$2" ]; then
 		return 0 # same version
 	elif [ "$1" = "$(echo "$1\n$2" | sort -V | head -n1)" ]; then
@@ -97,7 +97,7 @@ get_irelease() {
 	head -n1 $PKGDB_DIR/$1 2>/dev/null | awk '{print $2}'
 }
 
-allinstalled() {	
+allinstalled() {
 	for i in $PKGDB_DIR/*; do
 		echo ${i##*/}
 	done
@@ -140,11 +140,11 @@ confirm() {
 	return 0
 }
 
-checktool() {	
+checktool() {
 	if ! command -v $1 >/dev/null; then
 		msgerr "'$1' not exist in your system!"
 		exit 1
-	fi	
+	fi
 }
 
 needarg() {
@@ -200,8 +200,8 @@ scratch_locate() {
 	done
 }
 
-scratch_isorphan() {	
-	needarg $@	
+scratch_isorphan() {
+	needarg $@
 	for pkg in $(allinstalled); do
 		if depend=$(get_depends $pkg); then
 			for dep in $depend; do
@@ -215,7 +215,7 @@ scratch_isorphan() {
 	return 0
 }
 
-scratch_sync() {	
+scratch_sync() {
 	portsync
 }
 
@@ -273,37 +273,37 @@ scratch_trigger() {
 	post_triggers
 }
 
-post_triggers() {	
+post_triggers() {
 	if [ "$trig_11" = 1 ] && [ $(command -v fc-cache) ]; then
 		echo "trigger: Updating fontconfig cache..."
 		fc-cache -s
 	fi
-	
+
 	if [ "$trig_10" = 1 ] && [ $(command -v gdk-pixbuf-query-loaders) ]; then
 		echo "trigger: Probing GDK-Pixbuf loader modules..."
 		gdk-pixbuf-query-loaders --update-cache
 	fi
-	
+
 	if [ "$trig_9" = 1 ] && [ $(command -v gio-querymodules) ]; then
 		echo "trigger: Updating GIO module cache..."
 		gio-querymodules /usr/lib/gio/modules
 	fi
-	
+
 	if [ "$trig_8" = 1 ] && [ $(command -v glib-compile-schemas) ]; then
 		echo "trigger: Compiling GSettings XML schema files..."
 		glib-compile-schemas /usr/share/glib-2.0/schemas
 	fi
-	
+
 	if [ "$trig_7" = 1 ] && [ $(command -v gtk-query-immodules-2.0) ]; then
 		echo "trigger: Probing GTK2 input method modules..."
 		gtk-query-immodules-2.0 --update-cache
 	fi
-	
+
 	if [ "$trig_6" = 1 ] && [ $(command -v gtk-query-immodules-3.0) ]; then
 		echo "trigger: Probing GTK3 input method modules..."
 		gtk-query-immodules-3.0 --update-cache
 	fi
-	
+
 	if [ "$trig_5" = 1 ] && [ $(command -v gtk-update-icon-cache) ]; then
 		echo "trigger: Updating icon theme caches..."
 		for dir in /usr/share/icons/* ; do
@@ -315,12 +315,12 @@ post_triggers() {
 			fi
 		done
 	fi
-	
+
 	if [ "$trig_4" = 1 ] && [ $(command -v udevadm) ]; then
 		echo "trigger: Updating hardware database..."
 		udevadm hwdb --update
 	fi
-	
+
 	if [ "$trig_3" = 1 ] && [ $(command -v mkfontdir) ] && [ $(command -v mkfontscale) ]; then
 		echo "trigger: Updating X fontdir indices..."
 		for dir in $(find /usr/share/fonts -maxdepth 1 -type d \( ! -path /usr/share/fonts \)); do
@@ -331,21 +331,21 @@ post_triggers() {
 			mkfontscale $dir
 		done
 	fi
-	
+
 	if [ "$trig_2" = 1 ] && [ $(command -v update-desktop-database) ]; then
 		echo "trigger: Updating desktop file MIME type cache..."
 		update-desktop-database --quiet
 	fi
-	
+
 	if [ "$trig_1" = 1 ] && [ $(command -v update-mime-database) ]; then
 		echo "trigger: Updating the MIME type database..."
 		update-mime-database /usr/share/mime
 	fi
-	
+
 	fixperms
 }
 
-pre_triggers() {	
+pre_triggers() {
 	# mime db
 	if [ "$trig_1" != "1" ]; then
 		for pkg in $@; do
@@ -355,7 +355,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# desktop db
 	if [ "$trig_2" != "1" ]; then
 		for pkg in $@; do
@@ -365,7 +365,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# mkfontdir
 	if [ "$trig_3" != "1" ]; then
 		for pkg in $@; do
@@ -375,7 +375,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# hwdb
 	if [ "$trig_4" != "1" ]; then
 		for pkg in $@; do
@@ -385,7 +385,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# icon caches
 	if [ "$trig_5" != "1" ]; then
 		for pkg in $@; do
@@ -395,7 +395,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# gtk3 immodules
 	if [ "$trig_6" != "1" ]; then
 		for pkg in $@; do
@@ -405,7 +405,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# gtk2 immodules
 	if [ "$trig_7" != "1" ]; then
 		for pkg in $@; do
@@ -415,7 +415,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# gsettings schema
 	if [ "$trig_8" != "1" ]; then
 		for pkg in $@; do
@@ -425,7 +425,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# gio modules
 	if [ "$trig_9" != "1" ]; then
 		for pkg in $@; do
@@ -435,7 +435,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# gdk-pixbuf
 	if [ "$trig_10" != "1" ]; then
 		for pkg in $@; do
@@ -445,7 +445,7 @@ pre_triggers() {
 			fi
 		done
 	fi
-	
+
 	# font caches
 	if [ "$trig_11" != "1" ]; then
 		for pkg in $@; do
@@ -508,7 +508,7 @@ scratch_install() {
 			*) PKGNAME="$PKGNAME $1";;
 		esac
 		shift
-	done	
+	done
 	[ "$PKGNAME" ] || {
 		echo "Please specify package(s) to install."
 		return 1
@@ -534,6 +534,10 @@ scratch_install() {
 		done
 		run_trigger
 		settermtitle "Package(s) reinstalled."
+		if [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
+			echo "Adding $ii to world!"
+			echo "$ii" >> $WORLD_FILE
+		fi
 		return "$error"
 	fi
 	if [ "$NO_DEP" = 1 ]; then
@@ -557,6 +561,10 @@ scratch_install() {
 		done
 		run_trigger
 		settermtitle "Package(s) installed."
+		if [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
+			echo "Adding $ii to world!"
+			echo "$ii" >> $WORLD_FILE
+		fi
 		return "$error"
 	fi
 	for i in $PKGNAME; do
@@ -609,6 +617,10 @@ scratch_install() {
 		done
 		run_trigger
 		settermtitle "$count/$total package(s) installed."
+		if [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
+			echo "Adding $ii to world!"
+			echo "$ii" >> $WORLD_FILE
+		fi
 		return "$error"
 	fi
 }
@@ -654,6 +666,10 @@ scratch_remove() {
 		count=$(( count + 1 ))
 		pre_triggers $pkg
 		settermtitle "[ $count/$pkgcount ] Removing $pkg..."
+		if [ "$(grep -xq $pkg $WORLD_FILE)" ]; then
+			echo "Removing $pkg from world!"
+			sed -i '/$pkg/d' $WORLD_FILE
+		fi
 		pkgdel $pkg $OPTS || {
 			error=1
 			break
@@ -689,7 +705,7 @@ outdatepkg() {
 }
 
 scratch_sysup() {
-	needroot "Upgrading package"	
+	needroot "Upgrading package"
 	while [ "$1" ]; do
 		case $1 in
 			-i|-u|-r) ;;
@@ -713,7 +729,7 @@ scratch_sysup() {
 		return 1
 	}
 	UPGPKG=0
-	NEWPKG=0	
+	NEWPKG=0
 	if [ "$NODEP" != 1 ]; then
 		echo "Resolving dependencies..."
 		DEP=$(scratch_deplist $PKGOUTDATE $EXOPT | awk '{print $2}')
@@ -802,7 +818,7 @@ run_postinstallsh() {
 }
 
 scratch_upgrade() {
-	needroot "Upgrading package"	
+	needroot "Upgrading package"
 	while [ "$1" ]; do
 		case $1 in
 			-i|-r) ;;
@@ -814,7 +830,7 @@ scratch_upgrade() {
 			*) PKGNAME="$PKGNAME $1";;
 		esac
 		shift
-	done	
+	done
 	[ "$PKGNAME" ] || {
 		echo "Please specify package(s) to upgrade."
 		return 1
@@ -836,9 +852,9 @@ scratch_upgrade() {
 		upkg="$upkg $pkg"
 	done
 	[ "$upkg" ] || return 0
-	
+
 	UPGPKG=0
-	NEWPKG=0	
+	NEWPKG=0
 	if [ "$NODEP" != 1 ]; then
 		echo "Resolving dependencies..."
 		DEP=$(scratch_deplist $upkg $EXOPT | awk '{print $2}')
@@ -944,7 +960,7 @@ scratch_outdate() {
 			unset ITSLOCK name version
 		fi
 	done
-	
+
 	[ ! "$OUTDATE" ] && msg "All packages are up to date."
 }
 
@@ -977,14 +993,14 @@ scratch_search() {
 
 scratch_cache() {
 	needroot "Clear old caches"
-	
+
 	allcachepkg=/tmp/.allcachepkg.$$
 	allcachesrc=/tmp/.allcachesrc.$$
 	keepcachepkg=/tmp/.keepcachepkg.$$
 	keepcachesrc=/tmp/.keepcachesrc.$$
 	diffcachepkg=/tmp/.diffcachepkg.$$
 	diffcachesrc=/tmp/.diffcachesrc.$$
-	
+
 	touch \
 		$allcachepkg \
 		$allcachesrc \
@@ -992,19 +1008,19 @@ scratch_cache() {
 		$keepcachesrc \
 		$diffcachepkg \
 		$diffcachesrc
-	
+
 	if [ "$(find $PACKAGE_DIR -mindepth 1 -print -quit 2>/dev/null)" ]; then
 		for list in "$PACKAGE_DIR"/*; do
 			basename $list >> "$allcachepkg"
 		done
 	fi
-	
+
 	if [ "$(find $SOURCE_DIR -mindepth 1 -print -quit 2>/dev/null)" ]; then
 		for list in "$SOURCE_DIR"/*; do
 			basename $list >> "$allcachesrc"
 		done
 	fi
-	
+
 	for repo in $PORT_REPO; do
 		if [ "$(find $repo/*/ -mindepth 1 -print -quit 2>/dev/null)" ]; then # check directory if its not empty
 			for port in $repo/*/$BUILD_SCRIPT; do
@@ -1027,10 +1043,10 @@ scratch_cache() {
 	done
 	grep -Fxv -f "$keepcachepkg" "$allcachepkg" > "$diffcachepkg"
 	grep -Fxv -f "$keepcachesrc" "$allcachesrc" > "$diffcachesrc"
-	
+
 	cat $diffcachepkg
 	cat $diffcachesrc
-	
+
 	if [ -s "$diffcachepkg" ]; then
 		cd "$PACKAGE_DIR"
 		sizepkg=$(du -ch $(cat $diffcachepkg) | grep total | awk '{print $1}')
@@ -1038,7 +1054,7 @@ scratch_cache() {
 	else
 		sizepkg=0M
 	fi
-	
+
 	if [ -s "$diffcachesrc" ]; then
 		cd "$SOURCE_DIR"
 		sizesrc=$(du -ch $(cat $diffcachesrc) | grep total | awk '{print $1}')
@@ -1046,10 +1062,10 @@ scratch_cache() {
 	else
 		sizesrc=0M
 	fi
-	
+
 	echo "Total package cache size: $sizepkg"
 	echo "Total source cache size : $sizesrc"
-	
+
 	if [ -s "$diffcachepkg" ] || [ -s "$diffcachesrc" ]; then
 		echo
 		confirm "Clear old caches?" "Old caches is kept." && {
@@ -1061,7 +1077,7 @@ scratch_cache() {
 			done
 		}
 	fi
-	
+
 	rm -f \
 		"$allcachepkg" \
 		"$allcachesrc" \
@@ -1095,13 +1111,13 @@ scratch_deplist() {
 			[ "$quick" = 1 ] || msgerr "Package '$p' not exist."
 		fi
 	done
-	
+
 	for p in $PPKG; do
 		deplist $p
 	done
-	
+
 	[ "$DEP" ] || return 0
-	
+
 	if [ "$quick" = 1 ]; then
 		echo $DEP | tr ' ' '\n'
 	else
@@ -1125,7 +1141,7 @@ deplist() {
 	if echo $exclude | tr " " "\n" | grep -qx $1; then
 		return 0
 	fi
-	
+
 	# check currently process for circular dependencies
 	# for circular dependencies, found first will take precedence
 	[ "$CHECK" ] && {
@@ -1133,10 +1149,10 @@ deplist() {
 			return 0
 		fi
 	}
-	
+
 	# add package to currently process
 	CHECK="$CHECK $1"
-	
+
 	# check dependencies
 	for i in $(get_depends $1); do
 		if [ "$quick" = 1 ] && scratch_isinstalled $i; then
@@ -1151,7 +1167,7 @@ deplist() {
 			fi
 		fi
 	done
-	
+
 	# add dependency to list checked dep
 	if ! echo $DEP | tr " " "\n" | grep -qx $1; then
 		if [ "$quick" = 1 ]; then
@@ -1160,12 +1176,12 @@ deplist() {
 			DEP="$DEP $1"
 		fi
 	fi
-	
+
 	# delete item from loop process
 	CHECK=$(echo $CHECK | sed "s/$1//")
 }
 
-scratch_cat() {	
+scratch_cat() {
 	needarg $@
 	if PPATH=$(getportpath "$1"); then
 		cat "$PPATH/$BUILD_SCRIPT"
@@ -1192,14 +1208,14 @@ scratch_dependent() {
 }
 
 scratch_depends() {
-	needarg $@	
+	needarg $@
 	if getportpath "$1" >/dev/null; then
 		depends=$(get_depends $1)
 	else
 		msgerr "Port '$1' not exist."
 		return 1
 	fi
-	
+
 	for dep in $depends; do
 		if scratch_isinstalled $dep; then
 			msginst "$dep"
@@ -1211,10 +1227,10 @@ scratch_depends() {
 	done
 }
 
-scratch_dup() {	
+scratch_dup() {
 	dup=$(find $PORT_REPO -type d -print | grep -Exv "($(echo $PORT_REPO | tr ' ' '|'))" | \
 		rev | cut -d '/' -f1 | rev | sort | uniq -d)
-	
+
 	if [ "$dup" ]; then
 		for dp in $dup; do
 			for repo in $PORT_REPO; do
@@ -1223,7 +1239,7 @@ scratch_dup() {
 		done
 	else
 		msg "No duplicate ports found."
-	fi	
+	fi
 }
 
 scratch_foreign() {
@@ -1234,19 +1250,19 @@ scratch_foreign() {
 			echo "$pkg $iversion-$irelease"
 		fi
 		unset pkg iversion irelease
-	done	
+	done
 }
 
 scratch_info() {
 	needarg $@
 	ppath=$(getportpath $1) || return 1
-	
+
 	. $ppath/$BUILD_SCRIPT
 	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
 	maint=$(grep "^# maintainer[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# maintainer[[:blank:]]*:[[:blank:]]*//')
 	homep=$(grep "^# homep[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# homepage[[:blank:]]*:[[:blank:]]*//')
 	deps=$(get_depends $1 | tr '\n' ' ')
-	
+
 	echo "Name:         $1"
 	echo "Path:         $ppath"
 	echo "Version:      $version"
@@ -1293,6 +1309,7 @@ scratch_orphan() {
 		dep="$dep $(get_depends $pkg)"
 	done
 	echo $dep | tr ' ' '\n' | sort | uniq > "$tmpalldep"
+	cat $WORLD_FILE >> "$tmpalldep"
 	grep -xvF -f "$tmpalldep" "$tmpallpkg"
 	rm "$tmpalldep" "$tmpallpkg"
 }
@@ -1316,7 +1333,7 @@ scratch_provide() {
 }
 
 scratch_readme() {
-	needarg $@	
+	needarg $@
 	if PPATH=$(getportpath "$1"); then
 		if [ -f "$PPATH/readme" ]; then
 			cat "$PPATH/readme"
@@ -1352,20 +1369,20 @@ scratch_printconfig() {
 	done
 }
 
-scratch_files() {	
+scratch_files() {
 	needarg $@
 	if scratch_isinstalled $1; then
 		cat "$PKGDB_DIR/$1"
 	else
 		msg "Package '$1' not installed."
-	fi	
+	fi
 }
 
 scratch_help() {
 	cat << EOF
 Usage:
     $(basename $0) <options> [<arg>]
-    
+
 Options:
     install <ports> <arg>    install ports (use pkgbuild arg, except '-i' & '-u')
                              -r            reinstall
@@ -1480,6 +1497,7 @@ PKGDBPERMS_DIR="${PKGDB_DIR}.perms"
 REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
 ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
 MASK_FILE="${MASK_FILE:-/etc/scratchpkg.mask}"
+WORLD_FILE="${WORLD_FILE:-/etc/scratchpkg.world}"
 CONFIG_FILE="${CONFIG_FILE:-/etc/scratchpkg.conf}"
 
 # default value from pkgbuild
