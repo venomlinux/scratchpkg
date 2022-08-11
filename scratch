@@ -529,15 +529,16 @@ scratch_install() {
 						break
 					}
 					done_pkg="$done_pkg $ii"
+
+				if [ ! "$error" = 1 ] && [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
+					echo "Adding $ii to world!"
+					echo "$ii" >> $WORLD_FILE
+				fi
 				cd - >/dev/null
 			fi
 		done
 		run_trigger
 		settermtitle "Package(s) reinstalled."
-		if [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
-			echo "Adding $ii to world!"
-			echo "$ii" >> $WORLD_FILE
-		fi
 		return "$error"
 	fi
 	if [ "$NO_DEP" = 1 ]; then
@@ -556,15 +557,16 @@ scratch_install() {
 						break
 					}
 					done_pkg="$done_pkg $ii"
+
+				if [ ! "$error" = 1 ] && [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
+					echo "Adding $ii to world!"
+					echo "$ii" >> $WORLD_FILE
+				fi
 				cd - >/dev/null
 			fi
 		done
 		run_trigger
 		settermtitle "Package(s) installed."
-		if [ ! "$(grep -xq $ii $WORLD_FILE)" ]; then
-			echo "Adding $ii to world!"
-			echo "$ii" >> $WORLD_FILE
-		fi
 		return "$error"
 	fi
 	for i in $PKGNAME; do
@@ -610,7 +612,7 @@ scratch_install() {
 					run_postinstallsh
 					done_pkg="$done_pkg $int"
 
-				if [ $count = $total ] && [ ! "$(grep -xq $int $WORLD_FILE)" ]; then
+				if [ ! "$error" = 1 ] && [ $count = $total ] && [ ! "$(grep -xq $int $WORLD_FILE)" ]; then
 					echo "Adding $int to world!"
 					echo "$int" >> $WORLD_FILE
 				fi
@@ -620,6 +622,7 @@ scratch_install() {
 			fi
 			unset portpathh
 		done
+		sort $WORLD_FILE -o $WORLD_FILE
 		run_trigger
 		settermtitle "$count/$total package(s) installed."
 		return "$error"
@@ -667,14 +670,14 @@ scratch_remove() {
 		count=$(( count + 1 ))
 		pre_triggers $pkg
 		settermtitle "[ $count/$pkgcount ] Removing $pkg..."
-		if [ "$(grep -xq $pkg $WORLD_FILE)" ]; then
-			echo "Removing $pkg from world!"
-			sed -i '/$pkg/d' $WORLD_FILE
-		fi
 		pkgdel $pkg $OPTS || {
 			error=1
 			break
 		}
+		if [ ! "$error" = 1 ] && [ "$(grep -x "$pkg" $WORLD_FILE)" ]; then
+			echo "Removing $pkg from world!"
+			sed -i "/$pkg/d" $WORLD_FILE
+		fi
 	done
 	settermtitle "Triggering remove hook..."
 	post_triggers
