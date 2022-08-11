@@ -494,11 +494,42 @@ scratch_build() {
 	done
 }
 
-add_to_world() {
-	if [ ! "$error" = 1 ] && [ ! "$(grep -x $1 $WORLD_FILE)" ]; then
-		echo "Adding $1 to world!"
-		echo "$1" >> $WORLD_FILE
+edit_world() {
+	[ "$error" = 1  ] && return 1
+	if [ "$1" = "add" ] && [ ! "$(grep -x $1 $WORLD_FILE)" ]; then
+		echo "Adding $2 to world!"
+		echo "$2" >> $WORLD_FILE
+	elif [ "$1" = "remove" ] && [ "$(grep -x $2 $WORLD_FILE)" ]; then
+		echo "Removing $2 from world!"
+		sed -i "/$2/d" $WORLD_FILE
 	fi
+}
+
+scratch_world() {
+	needroot "Editing world"
+	while [ "$1" ]; do
+		case $1 in
+			*) PKGNAME="$PKGNAME $1";;
+		esac
+		shift
+	done
+	[ "$PKGNAME" ] || {
+		echo "Please specify package(s) to add/remove from world."
+		return 1
+	}
+	for i in $PKGNAME; do
+		if [ ! $(getportpath $i) ]; then
+			echo "Package '$i' not found."
+		fi
+	done
+	echo "Editing world..."
+	for ii in $PKGNAME; do
+		if [ "$(grep -x $ii $WORLD_FILE)" ]; then
+			edit_world "remove" "$ii"
+		else
+			edit_world "add" "$ii"
+		fi
+	done
 }
 
 scratch_install() {
@@ -559,7 +590,7 @@ scratch_install() {
 						break
 					}
 					done_pkg="$done_pkg $ii"
-					add_to_world "$ii"
+					edit_world "add" "$ii"
 				cd - >/dev/null
 			fi
 		done
@@ -612,7 +643,7 @@ scratch_install() {
 
 					for ii in $IPKG; do
 						if [ "$ii" = "$int" ]; then
-							add_to_world "$ii"
+							edit_world "add" "$ii"
 						fi
 					done
 				cd - >/dev/null
@@ -674,10 +705,7 @@ scratch_remove() {
 			error=1
 			break
 		}
-		if [ ! "$error" = 1 ] && [ "$(grep -x "$pkg" $WORLD_FILE)" ]; then
-			echo "Removing $pkg from world!"
-			sed -i "/$pkg/d" $WORLD_FILE
-		fi
+		edit_world "remove" "$pkg"
 	done
 	settermtitle "Triggering remove hook..."
 	post_triggers
@@ -1418,6 +1446,7 @@ Options:
                              --log         log build process (/var/log/pkgbuild.log)
 
     trigger      [ports]     run system trigger
+		world        [ports]     add/remove port(s) from $WORLD_FILE
     search       <pattern>   find ports in repo
     cat          <port>      print spkgbuild
     depends      <port>      print dependencies
