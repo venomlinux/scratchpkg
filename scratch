@@ -612,7 +612,7 @@ scratch_install() {
 					run_postinstallsh
 					done_pkg="$done_pkg $int"
 
-				if [ ! "$error" = 1 ] && [ $count = $total ] && [ ! "$(grep -x $int $WORLD_FILE)" ]; then
+				if [ ! "$error" = 1 ] && [ ! "$(grep -x $int $WORLD_FILE)" ]; then
 					echo "Adding $int to world!"
 					echo "$int" >> $WORLD_FILE
 				fi
