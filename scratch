@@ -552,6 +552,7 @@ scratch_install() {
 						break
 					}
 					done_pkg="$done_pkg $ii"
+					world_add $ii
 				cd - >/dev/null
 			fi
 		done
@@ -599,6 +600,9 @@ scratch_install() {
 						count=$(( count - 1 ))
 						break
 					}
+					if [ $(echo $IPKG | tr ' ' '\n' | grep -x $int) ]; then
+						world_add $int
+					fi
 					run_postinstallsh
 					done_pkg="$done_pkg $int"
 				cd - >/dev/null
@@ -654,10 +658,12 @@ scratch_remove() {
 		count=$(( count + 1 ))
 		pre_triggers $pkg
 		settermtitle "[ $count/$pkgcount ] Removing $pkg..."
+		echo "remove: $pkg-$(get_iver $pkg)-$(get_irelease $pkg)..."
 		pkgdel $pkg $OPTS || {
 			error=1
 			break
 		}
+		world_del $pkg
 	done
 	settermtitle "Triggering remove hook..."
 	post_triggers
@@ -1361,6 +1367,46 @@ scratch_files() {
 	fi	
 }
 
+world_add() {
+	grep -qx $1 "$WORLD_FILE" && return
+	scratch_isinstalled $1 || {
+		echo "'$1' not installed"
+		return 1
+	}
+	echo "$1" >> "$WORLD_FILE"
+	echo "world: '$1' added to world"
+	sort "$WORLD_FILE" -o "$WORLD_FILE" # sort world
+	sed '/^$/d' -i "$WORLD_FILE" # delete empty lines
+}
+
+world_del() {
+	grep -qx $1 "$WORLD_FILE" || return
+	sed "/^$1$/d" -i "$WORLD_FILE"
+	echo "world: '$1' deleted from world"
+	sed '/^$/d' -i "$WORLD_FILE" # delete empty lines
+}
+
+scratch_world() {
+	if [ "$1" ]; then
+		needroot
+		touch "$WORLD_FILE"
+		while [ "$1" ]; do
+			if [ ! $(grep -x $1 "$WORLD_FILE") ] ; then
+				world_add $1
+			else
+				world_del $1
+			fi
+			shift
+		done
+	else
+		[ -s "$WORLD_FILE" ] && {
+			cat "$WORLD_FILE"
+		} || {
+			echo "world is empty"
+		}
+	fi		
+}
+
 scratch_help() {
 	cat << EOF
 Usage:
@@ -1417,6 +1463,7 @@ Options:
     missingdep               print missing dependencies
     orphan                   print orphan installed ports
     foreign                  print foreign ports
+    world        [ports]     print/add/remove world list
     printconfig <opts>       print scratchpkg configs
     help                     print this help msg
 
@@ -1481,6 +1528,7 @@ REPO_FILE="${REPO_FILE:-/etc/scratchpkg.repo}"
 ALIAS_FILE="${ALIAS_FILE:-/etc/scratchpkg.alias}"
 MASK_FILE="${MASK_FILE:-/etc/scratchpkg.mask}"
 CONFIG_FILE="${CONFIG_FILE:-/etc/scratchpkg.conf}"
+WORLD_FILE="$(dirname $PKGDB_DIR)/world"
 
 # default value from pkgbuild
 SOURCE_DIR="/var/cache/scratchpkg/sources"
