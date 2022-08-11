@@ -610,6 +610,12 @@ scratch_install() {
 					}
 					run_postinstallsh
 					done_pkg="$done_pkg $int"
+
+					for ii in $IPKG; do
+						if [ "$ii" = "$int" ]; then
+							add_to_world "$ii"
+						fi
+					done
 				cd - >/dev/null
 			else
 				msgwarn "Skipping missing package: $int"
@@ -617,9 +623,6 @@ scratch_install() {
 			unset portpathh
 		done
 
-		for ii in $IPKG; do
-			add_to_world "$ii"
-		done
 		sort $WORLD_FILE -o $WORLD_FILE
 		run_trigger
 		settermtitle "$count/$total package(s) installed."
