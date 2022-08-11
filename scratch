@@ -1447,7 +1447,7 @@ Options:
                              --log         log build process (/var/log/pkgbuild.log)
 
     trigger      [ports]     run system trigger
-		world        [ports]     add/remove port(s) from $WORLD_FILE
+    world        [ports]     add/remove port(s) from $WORLD_FILE
     search       <pattern>   find ports in repo
     cat          <port>      print spkgbuild
     depends      <port>      print dependencies
