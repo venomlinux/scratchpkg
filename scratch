@@ -1292,15 +1292,15 @@ scratch_missingdep() {
 }
 
 scratch_orphan() {
-	tmpallpkg="/tmp/.pkgquery_allpkg.$$"
-	tmpalldep="/tmp/.pkgquery_alldep.$$"
-	for pkg in $(allinstalled); do
-		echo $pkg >> $tmpallpkg
-		dep="$dep $(get_depends $pkg)"
+	tmpdeplistworld="/tmp/.deplistworld.$$"
+	tmpallinstalled="/tmp/.allinstalled.$$"
+	for i in $(cat $WORLD_FILE); do
+		deplist $i
 	done
-	echo $dep | tr ' ' '\n' | sort | uniq > "$tmpalldep"
-	grep -xvF -f "$tmpalldep" "$tmpallpkg"
-	rm "$tmpalldep" "$tmpallpkg"
+	echo $DEP | tr ' ' '\n' > $tmpdeplistworld
+	allinstalled > $tmpallinstalled
+	grep -xvF -f $tmpdeplistworld $tmpallinstalled
+	rm $tmpallinstalled $tmpdeplistworld
 }
 
 scratch_path() {
