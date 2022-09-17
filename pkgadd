@@ -230,7 +230,7 @@ if [ ! "$IGNORE_CONFLICT" ]; then
 		if [ -e "$ROOT_DIR/$line" ] || [ -L "$ROOT_DIR/$line" ]; then
 			if [ "$UPGRADE_PKG" ] || [ "$REINSTALL_PKG" ]; then
 				if ! grep -Fqx "$line" "$ROOT_DIR/$PKGDB_DIR/$name"; then
-					_f=$(grep -x ^"$line"$ $ROOT_DIR/$PKGDB_DIR/* | cut -d : -f1 | awk -F / '{print $(NF)}' | head -n1 | grep -v $name)
+					_f=$(grep -x ^"$line"$ $ROOT_DIR/$PKGDB_DIR/* | cut -d : -f1 | awk -F / '{print $(NF)}' | head -n1 | grep -vx $name)
 					_f=${_f:-(none)}
 					echo "$_f $line"
 					touch "$TMP_CONFLICT"
