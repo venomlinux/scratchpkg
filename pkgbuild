@@ -312,6 +312,8 @@ pkg_package() {
 		xz) COMPRESS="-J" ;;
 		gz) COMPRESS="-z" ;;
 		bz2) COMPRESS="-j" ;;
+		lz4) COMPRESS="--lz4" ;;
+		zstd) COMPRESS="--zstd" ;;
 	esac
 	
 	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * $addtotar || {
@@ -523,7 +525,7 @@ main() {
 	check_buildscript
 
 	case $COMPRESSION_MODE in
-		gz|bz2|xz) PKGNAME="$name-$version-$release.spkg.tar.$COMPRESSION_MODE" ;;
+		gz|bz2|xz|lz4|zstd) PKGNAME="$name-$version-$release.spkg.tar.$COMPRESSION_MODE" ;;
 		        *) msgerr "Invalid compression mode: $COMPRESSION_MODE"; exit 1 ;;
 	esac
 	
