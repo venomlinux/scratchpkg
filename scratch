@@ -923,7 +923,7 @@ scratch_outdate() {
 			fi
 			iversion=$(get_iver $pkg)
 			irelease=$(get_irelease $pkg)
-			if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep $pkg) ]; then
+			if [ -f "$MASK_FILE" ] && [ "$(grep -Ev '^(#|$| )' $MASK_FILE | grep -x $pkg)" ]; then
 				ITSLOCK="[masked]"
 			fi
 			outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
