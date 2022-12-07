@@ -959,7 +959,11 @@ scratch_search() {
 	arg=$*
 	for repo in $PORT_REPO; do
 		[ -d $repo ] || continue
-		out=$(grep -R "# description" $repo/*/$BUILD_SCRIPT | grep -i "$arg" | awk -F : '{print $1}' | sort)
+		dummyport=/tmp/dummyport
+		mkdir -p $dummyport
+		touch $dummyport/spkgbuild
+		out=$(grep -R "# description" $repo/*/$BUILD_SCRIPT /tmp/dummy-port/spkgbuild | grep -i "$arg" | awk -F : '{print $1}' | sort)
+		rm -fr $dummyport
 		[ "$out" ] || continue
 		found=1
 		for line in $out; do
