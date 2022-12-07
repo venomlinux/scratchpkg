@@ -1374,7 +1374,6 @@ world_add() {
 		return 1
 	}
 	echo "$1" >> "$WORLD_FILE"
-	echo "world: '$1' added to world"
 	sort "$WORLD_FILE" -o "$WORLD_FILE" # sort world
 	sed '/^$/d' -i "$WORLD_FILE" # delete empty lines
 }
@@ -1382,7 +1381,6 @@ world_add() {
 world_del() {
 	grep -qx $1 "$WORLD_FILE" || return
 	sed "/^$1$/d" -i "$WORLD_FILE"
-	echo "world: '$1' deleted from world"
 	sed '/^$/d' -i "$WORLD_FILE" # delete empty lines
 }
 
@@ -1392,8 +1390,10 @@ scratch_world() {
 		touch "$WORLD_FILE"
 		while [ "$1" ]; do
 			if [ ! $(grep -x $1 "$WORLD_FILE") ] ; then
+				echo "world: '$1' added to world"
 				world_add $1
 			else
+				echo "world: '$1' deleted from world"
 				world_del $1
 			fi
 			shift
