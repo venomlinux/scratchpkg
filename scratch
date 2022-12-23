@@ -89,7 +89,7 @@ vercomp() {
 	fi
 }
 
-get_iver() {
+get_iversion() {
 	head -n1 $PKGDB_DIR/$1 2>/dev/null | awk '{print $1}'
 }
 
@@ -575,11 +575,13 @@ scratch_install() {
 	if [ "$INST" ]; then
 		echo
 		pkgcount=0
+		installmsg="ACTION#PORTNAME#VERSION"
 		for pkg in $INST; do
 			pkgcount=$(( pkgcount + 1 ))
-			printf "[${GREEN}i${CRESET}] $pkg  "
+			installmsg="$installmsg install#$pkg#$(get_version $pkg)-$(get_release $pkg)"
 		done
-		echo; echo
+		echo $installmsg | tr ' ' '\n' | tr '#' ' ' | column -t
+		echo
 		echo "( $pkgcount install )"
 		echo
 		if [ ! "$NOCONFIRM" ]; then
@@ -643,11 +645,13 @@ scratch_remove() {
 	echo
 	pkgcount=0
 	count=0
+	installmsg="ACTION#PORTNAME#VERSION"
 	for pkg in $IPKG; do
 		pkgcount=$(( pkgcount + 1 ))
-		printf "[${RED}x${CRESET}] $pkg  "
+		installmsg="$installmsg remove#$pkg#$(get_iversion $pkg)-$(get_irelease $pkg)"
 	done
-	echo; echo
+	echo $installmsg | tr ' ' '\n' | tr '#' ' ' | column -t
+	echo
 	echo "( $pkgcount remove )"
 	echo
 	[ "$NOCONFIRM" ] || {
@@ -658,7 +662,7 @@ scratch_remove() {
 		count=$(( count + 1 ))
 		pre_triggers $pkg
 		settermtitle "[ $count/$pkgcount ] Removing $pkg..."
-		echo "remove: $pkg-$(get_iver $pkg)-$(get_irelease $pkg)..."
+		echo "remove: $pkg-$(get_iversion $pkg)-$(get_irelease $pkg)..."
 		pkgdel $pkg $OPTS || {
 			error=1
 			break
@@ -668,30 +672,6 @@ scratch_remove() {
 	settermtitle "Triggering remove hook..."
 	post_triggers
 	settermtitle "$pkgcount package(s) removed."
-}
-
-outdatepkg() {
-	OLDIFS=$IFS
-	IFS=,
-	for i in ${1#*=}; do exclude="$exclude $i"; done
-	IFS=$OLDIFS
-	for pkg in $(allinstalled); do
-		echo $exclude | grep -qw $pkg && continue
-		if [ -f "$MASK_FILE" ] && [ $(grep -Ev '^(#|$| )' $MASK_FILE | grep -x $pkg) ]; then
-			continue
-		fi
-		getportpath $pkg >/dev/null || continue
-		. $(getportpath $pkg)/$BUILD_SCRIPT
-		if [ ! "$name" ] || [ ! "$version" ]; then
-			continue
-		fi
-		iversion=$(get_iver $pkg)
-		irelease=$(get_irelease $pkg)
-		if [ "$release" != "$irelease" ] || [ "$version" != "$iversion" ]; then
-			echo $name
-		fi
-		unset iversion irelease version release
-	done
 }
 
 scratch_sysup() {
@@ -708,42 +688,55 @@ scratch_sysup() {
 		shift
 	done
 	echo "Checking for outdated packages..."
-	PKGOUTDATE=$(outdatepkg $EXOPT)
-	[ "$PKGOUTDATE" ] || {
+	PKGOUTDATE=$(check_outdated)
+	# filter out masked
+	for i in $PKGOUTDATE; do
+		case $i in
+			*#1) continue;;
+			*) ii="$ii ${i%%#*}";;
+		esac
+	done
+	EXPKG=${EXOPT#*=}
+	for i in $ii; do
+		echo $EXPKG | tr ',' '\n' | grep -x $i >/dev/null || PKG="$PKG $i"
+	done
+	[ "$PKG" ] || {
 		echo "All packages are up to date."
 		return 0
 	}
-	[ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x scratchpkg)" ] && {
+	[ "$(echo $PKG | grep -x scratchpkg)" ] && {
 		echo
 		msgerr "Please upgrade 'scratchpkg' first."
 		return 1
 	}
 	UPGPKG=0
-	NEWPKG=0	
+	NEWPKG=0
+	installmsg="ACTION#PORTNAME#VERSION#OLDVERSION"
 	if [ "$NODEP" != 1 ]; then
 		echo "Resolving dependencies..."
-		DEP=$(scratch_deplist $PKGOUTDATE $EXOPT | awk '{print $2}')
+		DEP=$(scratch_deplist $PKG $EXOPT | awk '{print $2}')
 		echo
 		for d in $DEP; do
-			if [ "$(echo $PKGOUTDATE | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
-				printf "[${GREEN}u${CRESET}] $d  "
+			if [ "$(echo $PKG | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
+				installmsg="$installmsg upgrade#$d#$(get_version $d)-$(get_release $d)#$(get_iversion $d)-$(get_irelease $d)"
 				WILLINSTALL="$WILLINSTALL $d"
 				UPGPKG=$(( UPGPKG + 1 ))
 			elif ! scratch_isinstalled $d && [ "$(getportpath "$d")" ]; then
-				printf "[${CYAN}n${CRESET}] $d  "
+				installmsg="$installmsg new#$d#$(get_version $d)-$(get_release $d)#$(get_iversion $d)-$(get_irelease $d)"
 				WILLINSTALL="$WILLINSTALL $d"
 				NEWPKG=$(( NEWPKG + 1 ))
 			fi
 		done
 	else
 		echo
-		for dd in $PKGOUTDATE; do
+		for dd in $PKG; do
 			printf "[${GREEN}u${CRESET}] $dd  "
 			WILLINSTALL="$WILLINSTALL $dd"
 			UPGPKG=$(( UPGPKG + 1 ))
 		done
 	fi
-	echo; echo
+	echo $installmsg | tr ' ' '\n' | tr '#' ' ' | column -t
+	echo
 	echo "( $UPGPKG upgrade, $NEWPKG new install )"
 	echo
 	[ "$NOCONFIRM" ] || {
@@ -834,7 +827,7 @@ scratch_upgrade() {
 			continue
 		else
 			. $(getportpath $pkg)/$BUILD_SCRIPT
-			if [ "$(get_iver $pkg)-$(get_irelease $pkg)" = "$version-$release" ]; then
+			if [ "$(get_iversion $pkg)-$(get_irelease $pkg)" = "$version-$release" ]; then
 				echo "Package '$pkg' is up to date."
 				continue
 			fi
@@ -844,18 +837,19 @@ scratch_upgrade() {
 	[ "$upkg" ] || return 0
 	
 	UPGPKG=0
-	NEWPKG=0	
+	NEWPKG=0
+	installmsg="ACTION#PORTNAME#VERSION#OLDVERSION"
 	if [ "$NODEP" != 1 ]; then
 		echo "Resolving dependencies..."
 		DEP=$(scratch_deplist $upkg $EXOPT | awk '{print $2}')
 		echo
 		for d in $DEP; do
 			if [ "$(echo $upkg | tr ' ' '\n' | grep -x $d)" = "$d" ]; then
-				printf "[${GREEN}u${CRESET}] $d  "
+				installmsg="$installmsg upgrade#$d#$(get_version $d)-$(get_release $d)#$(get_iversion $d)-$(get_irelease $d)"
 				WILLINSTALL="$WILLINSTALL $d"
 				UPGPKG=$(( UPGPKG + 1 ))
 			elif ! scratch_isinstalled $d && [ "$(getportpath "$d")" ]; then
-				printf "[${CYAN}n${CRESET}] $d  "
+				installmsg="$installmsg install#$d#$(get_version $d)-$(get_release $d)#$(get_iversion $d)-$(get_irelease $d)"
 				WILLINSTALL="$WILLINSTALL $d"
 				NEWPKG=$(( NEWPKG + 1 ))
 			fi
@@ -863,12 +857,13 @@ scratch_upgrade() {
 	else
 		echo
 		for dd in $upkg; do
-			printf "[${GREEN}u${CRESET}] $dd  "
+			installmsg="$installmsg upgrade#$d#$(get_version $d)-$(get_release $d)#$(get_iversion $d)-$(get_irelease $d)"
 			WILLINSTALL="$WILLINSTALL $dd"
 			UPGPKG=$(( UPGPKG + 1 ))
 		done
 	fi
-	echo; echo
+	echo $installmsg | tr ' ' '\n' | tr '#' ' ' | column -t
+	echo
 	echo "( $UPGPKG upgrade, $NEWPKG new install )"
 	echo
 	[ "$NOCONFIRM" ] || {
@@ -914,43 +909,56 @@ scratch_isinstalled() {
 	return 0
 }
 
-scratch_outdate() {
+get_version() {
+	p=$(getportpath $1)
+	[ "$p" ] && . $p/$BUILD_SCRIPT || version=0
+	echo $version
+}
+
+get_release() {
+	p=$(getportpath $1)
+	[ "$p" ] && . $p/$BUILD_SCRIPT || release=0
+	echo $release
+}
+
+check_outdated() {
 	for pkg in $(allinstalled); do
-		if [ "$(getportpath $pkg)" ]; then
-			. $(getportpath $pkg)/$BUILD_SCRIPT
-			if [ -z "$name" ] || [ -z "$version" ]; then
-				continue
-			fi
-			iversion=$(get_iver $pkg)
-			irelease=$(get_irelease $pkg)
-			if [ -f "$MASK_FILE" ] && [ "$(grep -Ev '^(#|$| )' $MASK_FILE | grep -x $pkg)" ]; then
-				ITSLOCK="[masked]"
-			fi
-			outdatemsg="$name $iversion-$irelease => $version-$release $ITSLOCK"
-			newerinstmsg="$name $iversion-$irelease => $version-$release [newer installed] $ITSLOCK"
-			if [ "$version" !=  "$iversion" ]; then
-				vercomp $version $iversion
-				if [ $? = 2 ]; then
-					echo "$outdatemsg"
-					OUTDATE=yes
-				elif [ $? = 1 ]; then
-					echo "$newerinstmsg"
-					OUTDATE=yes
-				fi
-			elif [ "$release" !=  "$irelease" ]; then
-				vercomp $release $irelease
-				if [ $? = 2 ]; then
-					echo "$outdatemsg"
-					OUTDATE=yes
-				elif [ $? = 1 ]; then
-					echo "$newerinstmsg"
-					OUTDATE=yes
-				fi
-			fi
-			unset ITSLOCK name version
+		NEWINSTALLED=0
+		MASKED=0
+		p=$(getportpath $pkg)
+		[ "$p" ] || continue
+		. $p/$BUILD_SCRIPT
+		if [ ! "$name" ] || [ ! "$version" ]; then
+			continue
 		fi
+		iversion=$(get_iversion $pkg)
+		irelease=$(get_irelease $pkg)
+		[ $version$release = $iversion$irelease ] && continue
+		if [ "$version" !=  "$iversion" ]; then
+			vercomp $version $iversion
+			[ $? = 1 ] && NEWINSTALLED="1"
+		elif [ "$release" !=  "$irelease" ]; then
+			vercomp $release $irelease
+			[ $? = 1 ] && NEWINSTALLED="1"
+		fi
+		[ "$(grep -Ev '^(#|$| )' $MASK_FILE | grep -x $pkg)" ] && MASKED="1"
+		echo "$pkg#$iversion-$irelease#$version-$release#$NEWINSTALLED#$MASKED"
 	done
-	
+}
+
+scratch_outdate() {
+	for i in $(check_outdated); do
+		OUTDATE=1
+		unset ii
+		pname=${i%%#*}; i=${i#*#}
+		oldver=${i%%#*}; i=${i#*#}
+		newver=${i%%#*}; i=${i#*#}
+		newins=${i%%#*}; i=${i#*#}
+		masked=${i%%#*}; i=${i#*#}
+		[ "$newins" = 1 ] && ii=" [newer installed]"
+		[ "$masked" = 1 ] && ii="$ii [masked]"
+		echo "$pname $oldver => $newver$ii"
+	done
 	[ ! "$OUTDATE" ] && msg "All packages are up to date."
 }
 
@@ -1239,7 +1247,7 @@ scratch_dup() {
 scratch_foreign() {
 	for pkg in $(allinstalled); do
 		if ! getportpath $pkg >/dev/null; then
-			iversion=$(get_iver $pkg)
+			iversion=$(get_iversion $pkg)
 			irelease=$(get_irelease $pkg)
 			echo "$pkg $iversion-$irelease"
 		fi
@@ -1265,12 +1273,12 @@ scratch_info() {
 	echo "Maintainer:   $maint"
 	echo "Homepage:     $homep"
 	echo "Dependencies: $deps"
-	echo "Installed:    $(get_iver $1)-$(get_irelease $1)"
+	echo "Installed:    $(get_iversion $1)-$(get_irelease $1)"
 }
 
 scratch_installed() {
 	for all in $(allinstalled); do
-		echo "$all $(get_iver $all)-$(get_irelease $all)"
+		echo "$all $(get_iversion $all)-$(get_irelease $all)"
 	done
 }
 
@@ -1560,7 +1568,7 @@ fi
 
 for f in $REPO_FILE $ALIAS_FILE $MASK_FILE $CONFIG_FILE; do
 	if [ ! -f "$f" ]; then
-		msgerr "file not found: $CONFIG_FILE"
+		msgerr "file not found: $f"
 		exit 3
 	fi
 done
