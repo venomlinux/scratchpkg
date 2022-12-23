@@ -316,7 +316,7 @@ pkg_package() {
 		zstd) COMPRESS="--zstd" ;;
 	esac
 	
-	tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * $addtotar || {
+	XZ_DEFAULTS='-T0' tar -c $COMPRESS -f $PACKAGE_DIR/$PKGNAME * $addtotar || {
 		rm -f $PACKAGE_DIR/$PKGNAME
 		msgerr "Packaging failed: $PKGNAME"
 		abort 1
