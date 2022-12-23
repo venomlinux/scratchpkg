@@ -1303,10 +1303,23 @@ scratch_missingdep() {
 	done
 }
 
+scratch_purge() {
+	needroot
+	echo "Resolving dependencies..."
+	x=$(scratch_orphan $@)
+	if [ "$x" ]; then
+		scratch_remove $x
+	else
+		echo "No orphan packages found..."
+	fi
+}
+
 scratch_orphan() {
 	tmpdeplistworld="/tmp/.deplistworld.$$"
 	tmpallinstalled="/tmp/.allinstalled.$$"
 	for i in $(cat $WORLD_FILE); do
+		echo $@ | tr ' ' '\n' | grep -qx $i && continue
+		echo $DEP | tr ' ' '\n' | grep -qx $i && continue
 		deplist $i
 	done
 	echo $DEP | tr ' ' '\n' > $tmpdeplistworld
@@ -1466,6 +1479,7 @@ Options:
     info         <port>      print information
     locate       <file>      print location of file in ports repo
     isinstalled  <port>      check whether port is installed (status 0=installed, 1=not installed)
+    purge        [ports]     remove installed ports and its orphan dependencies
     sync                     update ports database
     outdate                  print outdated ports
     cache                    print and clear old pkg and src caches
