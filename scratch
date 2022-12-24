@@ -1304,11 +1304,18 @@ scratch_missingdep() {
 }
 
 scratch_purge() {
-	needroot
+	needroot "Purging package"
+	while [ "$1" ]; do
+		case $1 in
+			-*) PURGEOPTS="$PURGEOPTS $1";;
+			*) PURGENAME="$PURGENAME $1";;
+		esac
+		shift
+	done
 	echo "Resolving dependencies..."
-	x=$(scratch_orphan $@)
+	x=$(scratch_orphan $PURGENAME)
 	if [ "$x" ]; then
-		scratch_remove $x
+		scratch_remove $x $PURGEOPTS
 	else
 		echo "No orphan packages found..."
 	fi
