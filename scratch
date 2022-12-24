@@ -1312,10 +1312,29 @@ scratch_purge() {
 		esac
 		shift
 	done
+	if [ "$PURGENAME" ]; then
+		for i in $PURGENAME; do
+			scratch_isinstalled $i || {
+				echo "Package '$i' not installed."
+				needexit=1
+			}
+		done
+	fi
+	[ "$needexit" ] && exit 1
 	echo "Resolving dependencies..."
-	x=$(scratch_orphan $PURGENAME)
-	if [ "$x" ]; then
-		scratch_remove $x $PURGEOPTS
+	orphan=$(scratch_orphan $PURGENAME)
+	if [ "$PURGENAME" ]; then
+		for i in $PURGENAME; do
+			deplist $i
+		done
+		for ii in $DEP; do
+			echo $orphan | tr ' ' '\n' | grep -qx $ii && remove="$remove $ii"
+		done
+	else
+		remove=$orphan
+	fi
+	if [ "$remove" ]; then
+		scratch_remove $remove $PURGEOPTS
 	else
 		echo "No orphan packages found..."
 	fi
