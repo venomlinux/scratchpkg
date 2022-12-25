@@ -51,11 +51,36 @@ msgnoinst() {
 }
 
 msgerr() {
-	printf "${RED}==> ERROR:${CRESET} %s\n" "$1" >&2
+	printf "${RED}ERROR:${CRESET} %s\n" "$1" >&2
 }
 
 msgwarn() {
-	printf "${YELLOW}==> WARNING:${CRESET} %s\n" "$1" >&2
+	printf "${YELLOW}WARNING:${CRESET} %s\n" "$1" >&2
+}
+
+msg_portnotfound() {
+	echo "Port '$1' not found."
+}
+
+msg_portnotinstalled() {
+	echo "Port '$1' not installed."
+}
+
+msg_portalreadyinstalled() {
+	echo "Port '$1' already installed."
+}
+
+msg_depsstatus() {
+	for i in $@; do
+		if scratch_isinstalled $i; then
+			msginst "$i"
+		elif getportpath $i >/dev/null; then
+			msgnoinst "$i"
+		else
+			msgmiss "$i"
+		fi
+	done
+	unset i
 }
 
 needroot() {	
@@ -63,7 +88,7 @@ needroot() {
 		if [ "$#" -eq 0 ]; then
 			needroot "This operation"
 		else
-			msgerr "$* need root access!"
+			echo "$* need root access!"
 		fi
 		exit 1
 	fi	
@@ -149,7 +174,7 @@ checktool() {
 
 needarg() {
 	[ "$*" ] || {
-		msgerr "This operation required an arguments!"
+		echo "This operation required an arguments!"
 		exit 1
 	}
 }
@@ -172,7 +197,7 @@ scratch_integrity() {
 					fi
 				done
 			else
-				echo "Package '$1' not installed."
+				msg_portnotinstalled $1
 				exit 1
 			fi
 		cd - >/dev/null
@@ -198,21 +223,6 @@ scratch_locate() {
 	for repo in $PORT_REPO; do
 		grep -Ri $@ $repo/*/.pkgfiles 2>/dev/null | sed 's/:/ /;s/\/\.pkgfiles//' | awk '{print $1,$4}'
 	done
-}
-
-scratch_isorphan() {	
-	needarg $@	
-	for pkg in $(allinstalled); do
-		if depend=$(get_depends $pkg); then
-			for dep in $depend; do
-				if [ $dep = $1 ]; then
-					return 1
-				fi
-			done
-		fi
-		unset depend dep
-	done
-	return 0
 }
 
 scratch_sync() {	
@@ -473,7 +483,7 @@ scratch_build() {
 	}
 	for pkg in $PKGNAME; do
 		ppath=$(getportpath $pkg) || {
-			echo "Package '$pkg' not found."
+			msg_portnotfound $pkg
 			return 1
 		}
 		cd $ppath
@@ -518,9 +528,9 @@ scratch_install() {
 		error=0
 		for ii in $PKGNAME; do
 			if [ ! $(getportpath $ii) ]; then
-				echo "Package '$ii' not found."
+				msg_portnotfound $ii
 			elif ! scratch_isinstalled $ii; then
-				echo "Package '$ii' not installed."
+				msg_portnotinstalled $ii
 			else
 				cd $(getportpath $ii)
 					settermtitle "Reinstalling $ii..."
@@ -540,9 +550,9 @@ scratch_install() {
 		error=0
 		for ii in $PKGNAME; do
 			if [ ! $(getportpath $ii) ]; then
-				echo "Package '$ii' not found."
+				msg_portnotfound $ii
 			elif scratch_isinstalled $ii; then
-				echo "Package '$ii' already installed."
+				msg_portalreadyinstalled $ii
 				continue
 			else
 				cd $(getportpath $ii)
@@ -562,9 +572,9 @@ scratch_install() {
 	fi
 	for i in $PKGNAME; do
 		if [ ! $(getportpath $i) ]; then
-			echo "Package '$i' not found."
+			msg_portnotfound $i
 		elif scratch_isinstalled $i; then
-			echo "Package '$i' already installed."
+			msg_portalreadyinstalled $i
 		else
 			IPKG="$IPKG $i"
 		fi
@@ -635,7 +645,7 @@ scratch_remove() {
 	}
 	for i in $PKGNAME; do
 		if ! scratch_isinstalled $i; then
-			echo "Package '$i' not installed."
+			msg_portnotinstalled $i
 		else
 			IPKG="$IPKG $i"
 		fi
@@ -722,7 +732,7 @@ scratch_sysup() {
 				WILLINSTALL="$WILLINSTALL $d"
 				UPGPKG=$(( UPGPKG + 1 ))
 			elif ! scratch_isinstalled $d && [ "$(getportpath "$d")" ]; then
-				installmsg="$installmsg new#$d#$(get_version $d)-$(get_release $d)#$(get_iversion $d)-$(get_irelease $d)"
+				installmsg="$installmsg install#$d#$(get_version $d)-$(get_release $d)#$(get_iversion $d)-$(get_irelease $d)"
 				WILLINSTALL="$WILLINSTALL $d"
 				NEWPKG=$(( NEWPKG + 1 ))
 			fi
@@ -820,7 +830,7 @@ scratch_upgrade() {
 	}
 	for pkg in $PKGNAME; do
 		if ! scratch_isinstalled $pkg; then
-			echo "Package '$pkg' not installed."
+			msg_portnotinstalled $pkg
 			continue
 		elif [ ! $(getportpath $pkg) ]; then
 			echo "Package '$pkg' not exist."
@@ -1103,14 +1113,14 @@ scratch_deplist() {
 	done
 	IFS=$OLDIFS
 	[ "$PKG" ] || {
-		echo "Please specify package(s) to list dependencies."
+		echo "Please specify port(s) to list dependencies."
 		return 1
 	}
 	for p in $PKG; do
 		if [ "$(getportpath $p)" ]; then
 			PPKG="$PPKG $p"
 		else
-			[ "$quick" = 1 ] || msgerr "Package '$p' not exist."
+			[ "$quick" = 1 ] || msg_portnotfound $p
 		fi
 	done
 	
@@ -1123,13 +1133,7 @@ scratch_deplist() {
 	if [ "$quick" = 1 ]; then
 		echo $DEP | tr ' ' '\n'
 	else
-		for p in $DEP; do
-			if scratch_isinstalled $p; then
-				echo "[*] $p"
-			else
-				echo "[-] $p"
-			fi
-		done
+		msg_depsstatus $DEP
 		if [ "$MISSINGDEP" ]; then
 			for m in $MISSINGDEP; do
 				echo "Missing deps: $m" | sed 's/(/ (/'
@@ -1156,15 +1160,15 @@ deplist() {
 	CHECK="$CHECK $1"
 	
 	# check dependencies
-	for i in $(get_depends $1); do
-		if [ "$quick" = 1 ] && scratch_isinstalled $i; then
+	for deplist in $(get_depends $1); do
+		if [ "$quick" = 1 ] && scratch_isinstalled $deplist; then
 			continue
 		else
-			if ! echo $DEP | tr " " "\n" | grep -qx $i; then
-				if ! getportpath $i >/dev/null; then
-					MISSINGDEP="$MISSINGDEP $i($1)"
+			if ! echo $DEP | tr " " "\n" | grep -qx $deplist; then
+				if ! getportpath $deplist >/dev/null; then
+					MISSINGDEP="$MISSINGDEP $deplist($1)"
 				else
-					deplist $i
+					deplist $deplist
 				fi
 			fi
 		fi
@@ -1188,7 +1192,7 @@ scratch_cat() {
 	if PPATH=$(getportpath "$1"); then
 		cat "$PPATH/$BUILD_SCRIPT"
 	else
-		msgerr "Port '$1' not exist."
+		msg_portnotfound $1
 		return 1
 	fi
 }
@@ -1196,15 +1200,17 @@ scratch_cat() {
 scratch_dependent() {
 	needarg $@
 	if [ "$(getportpath $1)" ]; then
-		grep -R "# depends[[:blank:]]*:" $PORT_REPO \
-		| sed "s,:# depends[[:blank:]]*:[[:blank:]]*,#|,;s, ,|,g;s,$,|,g" \
-		| grep "|$1|" \
-		| awk -F "#" '{print $1}' \
-		| rev \
-		| awk -F / '{print $2}' \
-		| rev
+		for dpd in $(grep -R "# depends[[:blank:]]*:" $PORT_REPO \
+			| sed "s,:# depends[[:blank:]]*:[[:blank:]]*,#|,;s, ,|,g;s,$,|,g" \
+			| grep "|$1|" \
+			| awk -F "#" '{print $1}' \
+			| rev \
+			| awk -F / '{print $2}' \
+			| rev); do
+			msg_depsstatus $dpd
+		done
 	else
-		msgerr "Port '$1' not exist."
+		msg_portnotfound $1
 		return 1
 	fi
 }
@@ -1214,19 +1220,10 @@ scratch_depends() {
 	if getportpath "$1" >/dev/null; then
 		depends=$(get_depends $1)
 	else
-		msgerr "Port '$1' not exist."
+		msg_portnotfound $1
 		return 1
 	fi
-	
-	for dep in $depends; do
-		if scratch_isinstalled $dep; then
-			msginst "$dep"
-		elif getportpath $dep >/dev/null; then
-			msgnoinst "$dep"
-		else
-			msgmiss "$dep"
-		fi
-	done
+	msg_depsstatus $depends
 }
 
 scratch_dup() {	
@@ -1257,7 +1254,10 @@ scratch_foreign() {
 
 scratch_info() {
 	needarg $@
-	ppath=$(getportpath $1) || return 1
+	ppath=$(getportpath $1) || {
+		msg_portnotfound $1
+		return 1
+	}
 	
 	. $ppath/$BUILD_SCRIPT
 	desc=$(grep "^# description[[:blank:]]*:" $ppath/$BUILD_SCRIPT | sed 's/^# description[[:blank:]]*:[[:blank:]]*//')
@@ -1290,10 +1290,10 @@ scratch_missingdep() {
 		if [ "$depends" ]; then
 			for d in $depends; do
 				if ! scratch_isinstalled $d; then
-					if [ -z "$msd" ]; then
-						msd="$d"
-					else
+					if [ "$msd" ]; then
 						msd="$msd $d"
+					else
+						msd="$d"
 					fi
 				fi
 			done
@@ -1315,7 +1315,7 @@ scratch_purge() {
 	if [ "$PURGENAME" ]; then
 		for i in $PURGENAME; do
 			scratch_isinstalled $i || {
-				echo "Package '$i' not installed."
+				msg_portnotinstalled $i
 				needexit=1
 			}
 		done
@@ -1324,11 +1324,18 @@ scratch_purge() {
 	echo "Resolving dependencies..."
 	orphan=$(scratch_orphan $PURGENAME)
 	if [ "$PURGENAME" ]; then
-		for i in $PURGENAME; do
-			deplist $i
-		done
-		for ii in $DEP; do
-			echo $orphan | tr ' ' '\n' | grep -qx $ii && remove="$remove $ii"
+		for purge in $PURGENAME; do
+			unset DEP pkg
+			deplist $purge
+			for ii in $DEP; do
+				echo $orphan | tr ' ' '\n' | grep -qx $ii && pkg="$pkg $ii"
+			done
+			[ "$pkg" ] || echo "Cant purge '$purge', it required by other package(s)..."
+			if [ "$remove" ]; then
+				remove="$remove $pkg"
+			else
+				remove="$pkg"
+			fi
 		done
 	else
 		remove=$orphan
@@ -1359,7 +1366,7 @@ scratch_path() {
 	if PPATH=$(getportpath "$1"); then
 		echo "$PPATH"
 	else
-		msgerr "Port '$1' not exist."
+		msg_portnotfound $1
 		return 1
 	fi
 }
@@ -1378,10 +1385,10 @@ scratch_readme() {
 		if [ -f "$PPATH/readme" ]; then
 			cat "$PPATH/readme"
 		else
-			msgerr "Port '$1' does not have readme."
+			echo "Port '$1' does not have readme."
 		fi
 	else
-		msgerr "Port '$1' not exist."
+		msg_portnotfound $1
 		exit 1
 	fi
 }
@@ -1414,14 +1421,14 @@ scratch_files() {
 	if scratch_isinstalled $1; then
 		cat "$PKGDB_DIR/$1"
 	else
-		msg "Package '$1' not installed."
+		msg_portnotinstalled $1
 	fi	
 }
 
 world_add() {
 	grep -qx $1 "$WORLD_FILE" && return
 	scratch_isinstalled $1 || {
-		echo "'$1' not installed"
+		msg_portnotinstalled $1
 		return 1
 	}
 	echo "$1" >> "$WORLD_FILE"
@@ -1506,6 +1513,7 @@ Options:
     locate       <file>      print location of file in ports repo
     isinstalled  <port>      check whether port is installed (status 0=installed, 1=not installed)
     purge        [ports]     remove installed ports and its orphan dependencies
+    world        [ports]     print/add/remove world list
     sync                     update ports database
     outdate                  print outdated ports
     cache                    print and clear old pkg and src caches
@@ -1515,7 +1523,6 @@ Options:
     missingdep               print missing dependencies
     orphan                   print orphan installed ports
     foreign                  print foreign ports
-    world        [ports]     print/add/remove world list
     printconfig <opts>       print scratchpkg configs
     help                     print this help msg
 
