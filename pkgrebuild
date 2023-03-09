@@ -24,7 +24,7 @@
 LIST="/tmp/$(basename $0)-list"
 touch $LIST
 
-TOOLCHAIN="linux-api-headers glibc-pass1 binutils-pass1 gcc binutils glibc"
+TOOLCHAIN="linux-api-headers glibc-pass1 binutils-pass1 gcc-pass1 glibc binutils gcc"
 
 #scratch sync || exit 1
 
@@ -33,7 +33,7 @@ for tc in $TOOLCHAIN; do
 		pkgname="$(echo $tc | sed 's/-pass1//')"
 		scratch build -f $pkgname || exit 1
 		echo $tc >> $LIST
-		scratch install -r $pkgname --no-backup || exit 1
+		scratch install -r $pkgname || exit 1
 	fi
 done	
 
@@ -44,7 +44,7 @@ for pkg in $(scratch deplist base | awk '{print $2}'); do
 	if [ ! $(grep -x $pkg $LIST) ]; then
 		scratch build -f $pkg || exit 1
 		echo $pkg >> $LIST
-		scratch install -r $pkg --no-backup || exit 1
+		scratch install -r $pkg || exit 1
 	fi
 done
 
