@@ -93,7 +93,7 @@ sync_repo() {
 	echo "fetching ports: $1"
 
 	# cloning ports repository
-	git clone -q -b $branch $url $tmprepo || {
+	git clone --depth 1 -q -b $branch $url $tmprepo || {
 		echo " failed sync repo"
 		exit 1
 	}
