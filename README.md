@@ -94,34 +94,6 @@ Available options:
       pkgbuild [ <options> <arguments> ]
 
     Options:
-      -i, --install             install package into system
-      -u, --upgrade             upgrade package
-      -r, --reinstall           reinstall package
-      -c, --ignore-conflict     ignore conflict when installing package
-      -v, --verbose             verbose install process
-      -f, --force-rebuild       rebuild package
-      -m, --skip-mdsum          skip md5sum checking
-      -g, --genmdsum            generate md5sum
-      -o, --download            download only source file
-      -x, --extract             extract only source file
-      -w, --keep-work           keep working directory
-      -l, --log                 log build process
-      -h, --help                show this help message
-          --config=<config>     use custom config file
-          --srcdir=<path>       override directory path for sources
-          --pkgdir=<path>       override directory path for compiled package
-          --logdir=<path>       override directory path for build logs
-          --workdir=<path>      override directory path for working dir
-          --no-preinstall       skip preinstall script before install package
-          --no-postinstall      skip postinstall script after install package
-          --no-preupgrade       skip preupgrade script before upgrade package
-          --no-postupgrade      skip postupgrade script after upgrade package
-          --no-backup           skip backup configuration file when upgrading package
-          --redownload          re-download source file
-    Usage:
-      pkgbuild [ <options> <arguments> ]
-
-    Options:
       -q  --quiet               show only status messages and errors
       -i, --install             install package into system
       -u, --upgrade             upgrade package
