@@ -303,7 +303,7 @@ Example of install script for `dbus`:
     #    <repo directory> <repo url for sync>
     #
 
-	# your local repo
+    # your local repo
     /usr/ports/myrepo
 
     # official venom repo
