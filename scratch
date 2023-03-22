@@ -714,7 +714,7 @@ scratch_sysup() {
 		echo "All packages are up to date."
 		return 0
 	}
-	[ "$(echo $PKG | grep -x scratchpkg)" ] && {
+	[ "$(echo $PKG | grep -w scratchpkg)" ] && {
 		echo
 		msgerr "Please upgrade 'scratchpkg' first."
 		return 1
