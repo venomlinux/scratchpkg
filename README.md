@@ -88,12 +88,13 @@ Available options:
     makeflags:   Enable makeflags (MAKEFLAGS).
                                         
 ### pkgbuild
-`pkgbuild` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.txz` format. To build package, you need `cd` into port directory before run `pkgbuild` command.
+`pkgbuild` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.xz` format. To build package, you need `cd` into port directory before run `pkgbuild` command.
 
     Usage:
       pkgbuild [ <options> <arguments> ]
 
     Options:
+      -q  --quiet               show only status messages and errors
       -i, --install             install package into system
       -u, --upgrade             upgrade package
       -r, --reinstall           reinstall package
@@ -104,23 +105,19 @@ Available options:
       -g, --genmdsum            generate md5sum
       -o, --download            download only source file
       -x, --extract             extract only source file
+      -p, --pkgfiles            generate list files in package
       -w, --keep-work           keep working directory
-      -l, --log                 log build process
       -h, --help                show this help message
+          --clean               remove downloaded sources and prebuilt packages
           --config=<config>     use custom config file
           --srcdir=<path>       override directory path for sources
           --pkgdir=<path>       override directory path for compiled package
-          --logdir=<path>       override directory path for build logs
           --workdir=<path>      override directory path for working dir
-          --no-preinstall       skip preinstall script before install package
-          --no-postinstall      skip postinstall script after install package
-          --no-preupgrade       skip preupgrade script before upgrade package
-          --no-postupgrade      skip postupgrade script after upgrade package
           --no-backup           skip backup configuration file when upgrading package
-          --redownload          re-download source file
+
 
     Example:
-      pkgbuild -iw	        this will build, install package and keep working directory
+      pkgbuild -iw              this will build, install package and keep working directory
 
     Note:
       * use pkgbuild without any options will only download source and build package by using other default options
@@ -129,12 +126,12 @@ Available options:
       
 ### pkgadd
 `pkgadd` is a tool to install and upgrade package created by `pkgbuild`. Install package is simply extract
-`<name>-<version>-<release>.spkg.txz` by using tar into real system then save list extracted file into package `PKGDB_DIR`.
+`<name>-<version>-<release>.spkg.xz` by using tar into real system then save list extracted file into package `PKGDB_DIR`.
 Upgrading package is also using same extract as install, it will replace old files then compare list file from old and new
 package and remove old file which not exist in new package (like Slackware pkgtool does).
 
     Usage:
-      pkgadd package.spkg.txz <options>
+      pkgadd [ <options> <package.spkg.txz> ]
 
     Options:
       -u, --upgrade              upgrade package
@@ -142,16 +139,13 @@ package and remove old file which not exist in new package (like Slackware pkgto
       -c, --ignore-conflict      ignore conflict when installing package
       -v, --verbose              print files installed
       -h, --help                 show this help message
-          --no-preinstall        skip preinstall script before build/install package
-          --no-postinstall       skip postinstall script after install package
-          --no-preupgrade        skip preupgrade script before upgrade package
-          --no-postupgrade       skip postupgrade script after upgrade package
           --no-backup            skip backup when upgrading package
-	  --root=<path>          install to custom root directory
+          --print-dbdir          print package database path
+          --root=<path>          install to custom root directory
 
     Example:
-      pkgadd foobar-1.0-1.spkg.txz -uc --no-backup       upgrade package foobar-1.0-1 without backup its 
-                                                         old configuration files and skip conflict check
+      pkgadd foobar-1.0-1.spkg.txz -uc --no-backup      upgrade package foobar-1.0-1 without backup its 
+                                                        old configuration files and skip conflict check
                                                              
 ### pkgdel
 `pkgdel` is a tool to remove package from system. It will read file listed in package `PKGDB_DIR` and remove it.
@@ -162,8 +156,6 @@ package and remove old file which not exist in new package (like Slackware pkgto
     Options:
       -h, --help            show this help message
       -v, --verbose         print removed files
-          --no-preremove    don't run pre-remove script
-          --no-postremove   don't run post-remove script
           --root=<path>     remove package from custom root directory
 
     Example:
@@ -175,78 +167,74 @@ pkgadd to install package into system. Its also has some extra functions like se
 orphan package, duplicate ports, list installed package and etc. Run `scratch help` to see available functions.
 
     Usage:
-    scratch [ mode ] [ <pkgname> <options> ]	
+        scratch <options> [<arg>]
+    
+    Options:
+        install <ports> <arg>    install ports (use pkgbuild arg, except '-i' & '-u')
+                                 -r            reinstall
+                                 -n            skip dependencies
+                                 -y            skip ask user confirmation
+                                 -o            fetch sources only
+                                 --exclude=*   exclude dependencies, comma separated
 
-    mode:
-        install   <packages>      install packages and its dependencies
-        upgrade   <packages>      upgrade packages and install new dependencies (if any)
-        build     <package>       build only packages
-        remove    <packages>      remove packages in system
-        depends   <package>       show depends of a package
-        deplist   <packages>      show list dependencies of a package
-        search    <pattern>       search packages in port's repos
-        lock      <packages>      lock packages from upgrade
-        unlock    <packages>      unlock packages from upgrade
-        listport  <repo>          list ports of a repo
-        cat       <package>       view a package build scripts
-        dependent <package>       show package's dependent
-        own       <file>          show package's owner of file
-        pkgtree   <package>       show list files of installed package
-        path      <package>       show package's buildscripts path
-        sync                      update port's repo
-        sysup                     full system update
-        dup                       print duplicate ports in repo
-        readme                    print readme file if exist
-        listinst                  list installed package in system
-        listorphan                list orphan package
-        integrity                 check integrity of package's files
-        outdate                   check for outdate packages
-        cache                     print leftover cache
-        rmcache                   remove leftover cache
-        missingdep                check for mising dependency of installed package
-        foreignpkg                print package installed without port in repo
-        listlocked                print locked packages
-        help                      print this help message
-	
-    options for:		
-        build
-            -f, --force-rebuild    force rebuild
-            -m, --skip-mdsum       skip md5sum check for sources
-            -d, --no-dep           skip dependency check
-            -e, --extract          extract only
-            -w, --keep-work        keep woring directory
-            -o, --download         download source files only
-            --redownload           re-download source files
-            --srcdir=<path>        override default SOURCE_DIR
-            --pkgdir=<path>        override default PACKAGE_DIR
-            --no-preinstall        skip pre-install script
-        
-        install
-            -d, --no-dep           skip installing dependencies
-            -c, --ignore-conflict  skip file conflict check
-            -r, --reinstall        reinstall installed package
-            -v, --verbose          print install process
-            --no-preinstall        skip pre-install script
-            --no-postinstall       skip post-install script
-		
-        upgrade
-            -d, --no-dep           skip installing dependencies (new dependencies)
-            -c, --ignore-conflict  skip file conflict check
-            -v, --verbose          print install process
-            --no-backup            skip backup configuration file
-            --no-preupgrade        skip pre-upgrade script
-            --no-postupgrade       skip post-upgrade script
-		
-        remove
-            -d, --no-dep           skip dependency check
-            -v, --verbose          print removed files
-            --no-preremove         skip pre-remove script
-            --no-postremove        skip post-remove script
-		
-    global options:
-            --no-color             disable colour for output
-            --debug                debug scratch script
-      
+        upgrade <ports> <arg>    upgrade ports (use pkgbuild arg, except '-i' & '-r')
+                                 -n            skip dependencies
+                                 -y            skip ask user confirmation
+                                 -o            fetch sources only
+                                 --exclude=*   exclude dependencies, comma separated
+
+        remove  <ports> <arg>    remove installed ports (use pkgdel arg)
+                                 -y            skip ask user confirmation
+
+        sysup           <arg>    full system upgrade (use pkgbuild arg, except '-i', '-r'  & '-u')
+                                 -n            skip dependencies
+                                 -y            skip ask user confirmation
+                                 -o            fetch sources only
+                                 --exclude=*   exclude dependencies, comma separated
+
+        deplist <ports>          print all dependencies for ports
+                                 -q            skip installed ports
+                                 --exclude=*   exclude dependencies, comma separated
+
+        build   <ports> <arg>    build ports (use pkgbuild arg, except '-i', '-u', '-r', '-g', & '-p')
+                                 --log         log build process (/var/log/pkgbuild.log)
+
+        trigger      [ports]     run system trigger
+        search       <pattern>   find ports in repo
+        cat          <port>      print spkgbuild
+        depends      <port>      print dependencies
+        dependent    <port>      print dependent
+        path         <port>      print path in repo
+        provide      <file>      print port's provided file
+        readme       <port>      print readme file, if exist
+        files        <port>      print files installed
+        info         <port>      print information
+        locate       <file>      print location of file in ports repo
+        isinstalled  <port>      check whether port is installed (status 0=installed, 1=not installed)
+        purge        [ports]     remove installed ports and its orphan dependencies
+        world        [ports]     print/add/remove world list
+        sync                     update ports database
+        outdate                  print outdated ports
+        cache                    print and clear old pkg and src caches
+        integrity                check installed port integrity
+        dup                      print duplicate ports in repo
+        installed                print all installed ports
+        missingdep               print missing dependencies
+        orphan                   print orphan installed ports
+        foreign                  print foreign ports
+        printconfig <opts>       print scratchpkg configs
+        help                     print this help msg
+
+    Global options:
+        --append-repo=<repo path>       append custom local repo path (can use multiple times)
+        --prepend-repo=<repo path>      prepend custom local repo path (can use multiple times)
+        --override-repo=<repo path>     override repo in /etc/scratchpkg.repo with custom local repo (can use multiple times)
+        --repo-file=<repo file>         use custom repo file (default: /etc/scratchpkg.repo)
+        --config-file=<config file>     use custom config file (default: /etc/scratchpkg.conf)
+        --alias-file=<alias file>       use custom alias file (default: /etc/scratchpkg.alias)
+        --mask-file=<mask file>         use custom mask file (default: /etc/scratchpkg.mask)
+        --nocolor                       disable colour for output
+     
     Example:
       scratch install firefox gvfs -cv     build and install required dependencies and target package itself,
                                            ignore file conflict check and be verbose.
@@ -258,8 +246,8 @@ orphan package, duplicate ports, list installed package and etc. Run `scratch he
 Extra tools is some scripts come with scratchpkg to help users do things more easier. More extra scripts may added from time to
 time.
 
-* `vchroot`: Chroot script.
-* `pkglibdepends`: Script to list package depends by shared libraries.
+* `xchroot`: Chroot script.
+* `pkgdepends`: Script to list package depends by shared libraries.
 * `portcreate`: Script to create template port.
 * `updateconf`: Script to update configuration files (*.spkgnew).
 * `revdep`: A reverse dependency script (like in Gentoo and CRUX, but my version), need to run after upgrade and remove package to check broken package(s). Specify package name if want to check single package only.
@@ -315,11 +303,16 @@ Example of install script for `dbus`:
     #    <repo directory> <repo url for sync>
     #
 
-	/usr/ports/core      https://raw.githubusercontent.com/venomlinux/ports/master/core
-	/usr/ports/xorg      https://raw.githubusercontent.com/venomlinux/ports/master/xorg
-	/usr/ports/extra     https://raw.githubusercontent.com/venomlinux/ports/master/extra
-	/usr/ports/multilib  https://raw.githubusercontent.com/venomlinux/ports/master/multilib
-	/usr/ports/community https://raw.githubusercontent.com/venomlinux/ports/master/community 
+    # your local repo
+    /usr/ports/myrepo
+
+    # official venom repo
+    /usr/ports/core        https://github.com/venomlinux/ports/tree/4.0/core
+    /usr/ports/main        https://github.com/venomlinux/ports/tree/repos/main
+    /usr/ports/multilib    https://github.com/venomlinux/ports/tree/repos/multilib
+    /usr/ports/nonfree     https://github.com/venomlinux/ports/tree/repos/nonfree
+    #/usr/ports/testing    https://github.com/venomlinux/ports/tree/repos/testing
+
 
 *Note: url is optional. Add if need to sync it.*
 
