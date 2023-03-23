@@ -86,6 +86,7 @@ Available options:
     zipman:      Compress manual (man and info) pages with gzip.
     buildflags:  Enable buildflags (CFLAGS and CXXFLAGS).
     makeflags:   Enable makeflags (MAKEFLAGS).
+    checksum:    Enable checking checksum.
                                         
 ### pkgbuild
 `pkgbuild` is a tool to build package from ports. Is will source `spkgbuild` to get build information before creating package. Package is created into `<name>-<version>-<release>.spkg.xz` format. To build package, you need `cd` into port directory before run `pkgbuild` command.
