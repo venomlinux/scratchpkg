@@ -6,7 +6,7 @@
 #
 # example:
 #    /usr/ports/myrepo
-#    /usr/ports/core        https://github.com/venomlinux/ports/tree/4.0/core
+#    /usr/ports/core        https://github.com/venomlinux/ports/tree/venom4/core
 #    /usr/ports/main        https://github.com/venomlinux/ports/tree/repos/main
 #    /usr/ports/multilib    https://github.com/venomlinux/ports/tree/repos/multilib
 #
