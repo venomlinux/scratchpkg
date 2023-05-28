@@ -1,5 +1,4 @@
 #!/bin/sh
-#
 #  scratchpkg
 #
 #  Copyright (c) 2018 by Emmett1  (emmett1.2miligrams@gmail.com)
@@ -42,11 +41,24 @@ pkg_genchecksums() {
 		}
 	done
 	[ "$err" = 1 ] && abort 1
-	generatemdsum > .checksums
+	generatechecksum > .checksums
 	msg "Checksums updated."
 }
 
-generatemdsum() {
+generatechecksum() {
+	for s in $(get_filepath); do
+		if [ -f $s ]; then
+			needupdatechecksum="$needupdatechecksum $s"
+		fi
+	done
+	if [ "$needupdatechecksum" ]; then
+		b2sum $needupdatechecksum | sed -e 's|  .*/|  |' | sort -k 2
+	else
+		echo SKIP
+	fi
+}
+
+generatemd5sum() {
 	for s in $(get_filepath); do
 		if [ -f $s ]; then
 			needupdatechecksum="$needupdatechecksum $s"
@@ -67,11 +79,19 @@ pkg_checksum() {
 	if [ ! -f .checksums ]; then
 		pkg_genchecksums
 	else
-		if [ "$IGNORE_MDSUM" != "yes" ] && [ "$IGNORE_MDSUM" != 1 ]; then
+		if [ "$IGNORE_CHECKSUM" != "yes" ] && [ "$IGNORE_CHECKSUM" != 1 ]; then
 			msg "Checking checksums..."
-			generatemdsum > "$TMPCHECKSUM"
+			cat .checksums | head -c 33 | tail -c 1 | grep -q '^[[:alnum:]]*$' 
+			if [ $? != 1 ] 
+			then 
+			generatechecksum > "$TMPCHECKSUM"
 			sort -k2 .checksums > "$ORICHECKSUM"
 			diff -w -t -U 0 "$ORICHECKSUM" "$TMPCHECKSUM" > "$DIFCHECKSUM"
+			else
+			generatemd5sum > "$TMPCHECKSUM"
+			sort -k2 .checksums > "$ORICHECKSUM"
+			diff -w -t -U 0 "$ORICHECKSUM" "$TMPCHECKSUM" > "$DIFCHECKSUM"
+			fi
 		fi
 	fi
 	
@@ -431,8 +451,8 @@ parse_opts() {
 		-c |   --ignore-conflict) OPTS="$OPTS $1" ;;
 		-v |           --verbose) OPTS="$OPTS $1" ;;
 		-f |     --force-rebuild) FORCE_REBUILD=yes ;;
-		-m |        --skip-mdsum) IGNORE_MDSUM=yes ;;
-		-g |          --genmdsum) UPDATE_MDSUM=yes ;;
+		-m |        --skip-checksum) IGNORE_CHECKSUM=yes ;;
+		-g |          --genchecksum) UPDATE_CHECKSUM=yes ;;
 		-o |          --download) DOWNLOAD_ONLY=yes ;;
 		-x |           --extract) EXTRACT_ONLY=yes ;;
 		-w |         --keep-work) KEEP_WORK=yes ;;
@@ -464,8 +484,8 @@ Options:
   -c, --ignore-conflict     ignore conflict when installing package
   -v, --verbose             verbose install process
   -f, --force-rebuild       rebuild package
-  -m, --skip-mdsum          skip md5sum checking
-  -g, --genmdsum            generate md5sum
+  -m, --skip-checksum          skip checksum checking
+  -g, --genchecksum            generate checksum
   -o, --download            download only source file
   -x, --extract             extract only source file
   -p, --pkgfiles            generate list files in package
@@ -552,8 +572,8 @@ main() {
 		exit 0
 	}
 	
-	# update md5sum
-	[ "$UPDATE_MDSUM" ] && {
+	# update checksum
+	[ "$UPDATE_CHECKSUM" ] && {
 		pkg_genchecksums
 		exit 0
 	}
@@ -625,7 +645,7 @@ PACKAGE_DIR="/var/cache/scratchpkg/packages"
 WORK_DIR="/var/cache/scratchpkg/work"
 COMPRESSION_MODE="xz"
 NO_STRIP="no"
-IGNORE_MDSUM="no"
+IGNORE_CHECKSUM="no"
 KEEP_LIBTOOL="no"
 KEEP_LOCALE="no"
 KEEP_DOC="no"
