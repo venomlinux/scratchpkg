@@ -102,8 +102,8 @@ Available options:
       -c, --ignore-conflict     ignore conflict when installing package
       -v, --verbose             verbose install process
       -f, --force-rebuild       rebuild package
-      -m, --skip-mdsum          skip md5sum checking
-      -g, --genmdsum            generate md5sum
+      -m, --skip-checksum       skip checksum checking
+      -g, --genchecksum         generate checksum
       -o, --download            download only source file
       -x, --extract             extract only source file
       -p, --pkgfiles            generate list files in package
