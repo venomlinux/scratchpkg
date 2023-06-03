@@ -512,6 +512,7 @@ main() {
 	[ "$CUSTOM_WORK_DIR" ]    && WORK_DIR="$CUSTOM_WORK_DIR"
 	
 	checkdir "$SOURCE_DIR" "$PACKAGE_DIR" "$WORK_DIR"
+	export CARGO_HOME="$SOURCE_DIR/cargo"
 	
 	# show usage
 	[ "$SHOWHELP" ] && {
