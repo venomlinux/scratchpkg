@@ -381,8 +381,8 @@ check_buildscript() {
 	esac
 	[ "$(command -v build)" ] || { msgerr "'build' function not exist!"; exit 1; }
 	echo "$version" | grep -q '-' && { msgerr "'version' should not contain '-'."; exit 1; }
-	if [ "$release" -gt 99 ] || [ "$release" -lt 1 ]; then
-		msgerr "'release' should numberic between 1 to 99"; exit 1
+	if [ "$release" -gt 99 ] || [ "$release" -lt 0 ]; then
+		msgerr "'release' should numberic between 0 to 99"; exit 1
 	fi
 	[ "$description" ] || { msgerr "'description' is empty!"; exit 1; }
 }
